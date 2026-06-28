@@ -23,9 +23,9 @@ export const files = pgTable(
   'files',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    folderId: uuid('folder_id')
-      .notNull()
-      .references(() => folders.id, { onDelete: 'restrict' }),
+    folderId: uuid('folder_id').references(() => folders.id, {
+      onDelete: 'restrict',
+    }),
     ownerId: uuid('owner_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
