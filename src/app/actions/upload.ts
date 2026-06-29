@@ -5,9 +5,9 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { and, eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { MOCK_USER_ID } from '@/server/auth/mock-user';
+import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
-import { folders, files, users } from '@/server/db/schema';
+import { files, folders, users } from '@/server/db/schema';
 import { r2, R2_BUCKET } from '@/server/storage/r2';
 
 export type GenerateUploadUrlInput = {
@@ -56,6 +56,8 @@ export async function generateUploadUrl(
     throw new Error('fileName is required');
   }
 
+  const { id: userId, email: userEmail } = await getCurrentUser();
+
   if (folderId !== null) {
     const folder = await db
       .select({ id: folders.id, ownerId: folders.ownerId })
@@ -63,7 +65,7 @@ export async function generateUploadUrl(
       .where(
         and(
           eq(folders.id, folderId),
-          eq(folders.ownerId, MOCK_USER_ID),
+          eq(folders.ownerId, userId),
           isNull(folders.deletedAt),
         ),
       )
@@ -75,7 +77,7 @@ export async function generateUploadUrl(
   }
 
   const extension = extractExtension(fileName);
-  const storageKey = `${MOCK_USER_ID}/${randomUUID()}${extension ? `.${extension}` : ''}`;
+  const storageKey = `${userId}/${randomUUID()}${extension ? `.${extension}` : ''}`;
 
   const command = new PutObjectCommand({
     Bucket: R2_BUCKET,
@@ -90,11 +92,14 @@ export async function generateUploadUrl(
     Date.now() + PRESIGN_EXPIRES_SECONDS * 1000,
   ).toISOString();
 
+  // Mirror the Supabase Auth user into our `users` table on first upload
+  // so the `files.owner_id` foreign key is satisfied. ON CONFLICT
+  // DO NOTHING keeps this safe to call on every upload.
   await db
     .insert(users)
     .values({
-      id: MOCK_USER_ID,
-      email: 'mock@example.com',
+      id: userId,
+      email: userEmail ?? `${userId}@unknown.local`,
       createdAt: new Date(),
     })
     .onConflictDoNothing({ target: users.id });
@@ -103,7 +108,7 @@ export async function generateUploadUrl(
     .insert(files)
     .values({
       folderId,
-      ownerId: MOCK_USER_ID,
+      ownerId: userId,
       name: fileName,
       storageKey,
       mimeType: 'application/octet-stream',
@@ -138,6 +143,8 @@ export async function confirmUpload(
     );
   }
 
+  const { id: userId } = await getCurrentUser();
+
   const [updated] = await db
     .update(files)
     .set({
@@ -149,7 +156,7 @@ export async function confirmUpload(
     .where(
       and(
         eq(files.id, fileId),
-        eq(files.ownerId, MOCK_USER_ID),
+        eq(files.ownerId, userId),
         eq(files.storageKey, storageKey),
         isNull(files.deletedAt),
       ),

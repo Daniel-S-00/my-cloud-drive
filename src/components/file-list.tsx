@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { MOCK_USER_ID } from '@/server/auth/mock-user';
+import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, type File } from '@/server/db/schema';
 import {
@@ -32,6 +32,8 @@ type FileListProps = {
 };
 
 export async function FileList({ folderId }: FileListProps) {
+  const { id: userId } = await getCurrentUser();
+
   const folderCondition =
     folderId === null ? isNull(files.folderId) : eq(files.folderId, folderId);
 
@@ -41,7 +43,7 @@ export async function FileList({ folderId }: FileListProps) {
     .where(
       and(
         folderCondition,
-        eq(files.ownerId, MOCK_USER_ID),
+        eq(files.ownerId, userId),
         isNull(files.deletedAt),
       ),
     )
