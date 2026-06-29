@@ -1,8 +1,11 @@
 'use server';
 
-import { GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
@@ -41,6 +44,29 @@ export type DeleteFileOutput = {
   deletedAt: string;
 };
 
+export type RestoreFileInput = {
+  fileId: string;
+};
+
+export type RestoreFileOutput = {
+  fileId: string;
+  restoredAt: string;
+};
+
+export type PermanentDeleteFileInput = {
+  fileId: string;
+};
+
+export type PermanentDeleteFileOutput = {
+  fileId: string;
+  purgedFromR2: boolean;
+};
+
+export type EmptyTrashOutput = {
+  deletedCount: number;
+  r2DeletedCount: number;
+};
+
 async function loadOwnedFileOrThrow(fileId: string) {
   const { id: userId } = await getCurrentUser();
 
@@ -56,6 +82,7 @@ async function loadOwnedFileOrThrow(fileId: string) {
       name: files.name,
       mimeType: files.mimeType,
       uploadStatus: files.uploadStatus,
+      deletedAt: files.deletedAt,
     })
     .from(files)
     .where(
@@ -155,9 +182,180 @@ export async function deleteFile(
   }
 
   revalidatePath('/');
+  revalidatePath('/trash');
 
   return {
     fileId: updated.id,
     deletedAt: updated.deletedAt.toISOString(),
   };
 }
+
+async function loadOwnedTrashedFileOrThrow(fileId: string) {
+  const { id: userId } = await getCurrentUser();
+
+  if (!fileId) {
+    throw new Error('fileId is required');
+  }
+
+  const [row] = await db
+    .select({
+      id: files.id,
+      ownerId: files.ownerId,
+      storageKey: files.storageKey,
+      name: files.name,
+      deletedAt: files.deletedAt,
+    })
+    .from(files)
+    .where(
+      and(
+        eq(files.id, fileId),
+        eq(files.ownerId, userId),
+        isNotNull(files.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  if (!row || !row.deletedAt) {
+    throw new Error(
+      'File not found, not owned by the current user, or not in trash',
+    );
+  }
+
+  return row;
+}
+
+async function loadOwnedFileAnyStatusOrThrow(fileId: string) {
+  const { id: userId } = await getCurrentUser();
+
+  if (!fileId) {
+    throw new Error('fileId is required');
+  }
+
+  const [row] = await db
+    .select({
+      id: files.id,
+      ownerId: files.ownerId,
+      storageKey: files.storageKey,
+      name: files.name,
+      deletedAt: files.deletedAt,
+    })
+    .from(files)
+    .where(and(eq(files.id, fileId), eq(files.ownerId, userId)))
+    .limit(1);
+
+  if (!row) {
+    throw new Error('File not found or not owned by the current user');
+  }
+
+  return row;
+}
+
+async function deleteFromR2(storageKey: string): Promise<boolean> {
+  try {
+    await r2.send(
+      new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: storageKey }),
+    );
+    return true;
+  } catch (err) {
+    // R2 returns 404 for objects that don't exist; treat that as success
+    // (idempotent) but surface anything else.
+    const name = err instanceof Error ? err.name : '';
+    const code = (err as { $metadata?: { httpStatusCode?: number } })
+      ?.$metadata?.httpStatusCode;
+    if (name === 'NoSuchKey' || name === 'NotFound' || code === 404) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+export async function restoreFile(
+  input: RestoreFileInput,
+): Promise<RestoreFileOutput> {
+  const row = await loadOwnedTrashedFileOrThrow(input.fileId);
+
+  const now = new Date();
+  const [updated] = await db
+    .update(files)
+    .set({ deletedAt: null, updatedAt: now })
+    .where(
+      and(
+        eq(files.id, row.id),
+        eq(files.ownerId, row.ownerId),
+        isNotNull(files.deletedAt),
+      ),
+    )
+    .returning({ id: files.id });
+
+  if (!updated) {
+    throw new Error('Failed to restore file');
+  }
+
+  revalidatePath('/trash');
+  revalidatePath('/');
+
+  return {
+    fileId: updated.id,
+    restoredAt: now.toISOString(),
+  };
+}
+
+export async function permanentDeleteFile(
+  input: PermanentDeleteFileInput,
+): Promise<PermanentDeleteFileOutput> {
+  const row = await loadOwnedFileAnyStatusOrThrow(input.fileId);
+
+  const purged = await deleteFromR2(row.storageKey);
+
+  await db.delete(files).where(eq(files.id, row.id));
+
+  revalidatePath('/trash');
+  revalidatePath('/');
+
+  return {
+    fileId: row.id,
+    purgedFromR2: purged,
+  };
+}
+
+export async function emptyTrash(): Promise<EmptyTrashOutput> {
+  const { id: userId } = await getCurrentUser();
+
+  const trashed = await db
+    .select({ id: files.id, storageKey: files.storageKey })
+    .from(files)
+    .where(
+      and(eq(files.ownerId, userId), isNotNull(files.deletedAt)),
+    );
+
+  let r2DeletedCount = 0;
+  for (const row of trashed) {
+    const purged = await deleteFromR2(row.storageKey);
+    if (purged) r2DeletedCount += 1;
+  }
+
+  const result = await db
+    .delete(files)
+    .where(and(eq(files.ownerId, userId), isNotNull(files.deletedAt)))
+    .returning({ id: files.id });
+
+  revalidatePath('/trash');
+  revalidatePath('/');
+
+  return {
+    deletedCount: result.length,
+    r2DeletedCount,
+  };
+}
+
+// Re-exported here for documentation / future sweep jobs; not currently
+// called from any UI.
+export const TRASH_RETENTION_DAYS = 30;
+export function trashCutoff(now: Date = new Date()): Date {
+  return new Date(now.getTime() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+}
+
+// `lt` is currently unused at runtime but kept so the future auto-purge
+// sweeper can use it without re-importing. (Imported above.)
+void lt;
+void sql;

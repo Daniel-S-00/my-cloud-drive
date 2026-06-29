@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-type ButtonVariant = 'default' | 'outline' | 'ghost' | 'secondary';
+type ButtonVariant = 'default' | 'outline' | 'ghost' | 'secondary' | 'destructive';
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
 
 const baseClasses =
@@ -12,6 +12,8 @@ const variantClasses: Record<ButtonVariant, string> = {
     'border border-zinc-200 bg-white shadow-sm hover:bg-zinc-100 hover:text-zinc-900',
   ghost: 'hover:bg-zinc-100 hover:text-zinc-900',
   secondary: 'bg-zinc-100 text-zinc-900 shadow-sm hover:bg-zinc-200',
+  destructive:
+    'bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-700',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

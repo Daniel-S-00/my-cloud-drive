@@ -62,3 +62,70 @@ export function FileDialogProvider({ children }: { children: ReactNode }) {
     </FileDialogContext.Provider>
   );
 }
+
+export type TrashDialogKind = 'restore' | 'permanent-delete' | 'empty' | null;
+
+export type TrashDialogState = {
+  fileId: string | null;
+  kind: TrashDialogKind;
+};
+
+export type TrashDialogContextValue = {
+  state: TrashDialogState;
+  openRestoreDialog: (fileId: string) => void;
+  openPermanentDeleteDialog: (fileId: string) => void;
+  openEmptyDialog: () => void;
+  closeDialog: () => void;
+};
+
+const TrashDialogContext = createContext<TrashDialogContextValue | null>(null);
+
+export function useTrashDialogs(): TrashDialogContextValue {
+  const ctx = useContext(TrashDialogContext);
+  if (!ctx) {
+    throw new Error(
+      'useTrashDialogs must be used within a <TrashDialogProvider>',
+    );
+  }
+  return ctx;
+}
+
+export function TrashDialogProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<TrashDialogState>({
+    fileId: null,
+    kind: null,
+  });
+
+  const openRestoreDialog = useCallback((fileId: string) => {
+    setState({ fileId, kind: 'restore' });
+  }, []);
+
+  const openPermanentDeleteDialog = useCallback((fileId: string) => {
+    setState({ fileId, kind: 'permanent-delete' });
+  }, []);
+
+  const openEmptyDialog = useCallback(() => {
+    setState({ fileId: null, kind: 'empty' });
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    setState({ fileId: null, kind: null });
+  }, []);
+
+  const value = useMemo<TrashDialogContextValue>(
+    () => ({
+      state,
+      openRestoreDialog,
+      openPermanentDeleteDialog,
+      openEmptyDialog,
+      closeDialog,
+    }),
+    [state, openRestoreDialog, openPermanentDeleteDialog, openEmptyDialog, closeDialog],
+  );
+
+  return (
+    <TrashDialogContext.Provider value={value}>
+      {children}
+    </TrashDialogContext.Provider>
+  );
+}
