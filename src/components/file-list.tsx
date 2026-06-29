@@ -1,31 +1,15 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { getCurrentUser } from '@/server/auth/session';
-import { db } from '@/server/db/client';
-import { files, type File } from '@/server/db/schema';
+import { FileRow } from '@/components/file-row';
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function formatDate(value: Date | string | null): string {
-  if (!value) return '—';
-  const d = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString();
-}
+import { getCurrentUser } from '@/server/auth/session';
+import { db } from '@/server/db/client';
+import { files, type File } from '@/server/db/schema';
 
 type FileListProps = {
   folderId: string | null;
@@ -67,38 +51,25 @@ export async function FileList({ folderId }: FileListProps) {
           <TableHead className="w-32">Size</TableHead>
           <TableHead className="w-40">Uploaded</TableHead>
           <TableHead className="w-32">Status</TableHead>
+          <TableHead className="w-44 text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((file) => {
-          const inFlight =
-            file.uploadStatus === 'pending' || file.uploadStatus === 'uploading';
-          return (
-            <TableRow key={file.id}>
-              <TableCell className="truncate font-medium text-zinc-900">
-                {file.name}
-              </TableCell>
-              <TableCell className="text-zinc-600">
-                {formatBytes(file.sizeBytes)}
-              </TableCell>
-              <TableCell className="text-zinc-600">
-                {formatDate(file.createdAt)}
-              </TableCell>
-              <TableCell>
-                {inFlight ? (
-                  <span className="inline-flex items-center gap-2 text-zinc-600">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
-                    {file.uploadStatus}
-                  </span>
-                ) : file.uploadStatus === 'complete' ? (
-                  <span className="text-green-700">complete</span>
-                ) : (
-                  <span className="text-red-700">{file.uploadStatus}</span>
-                )}
-              </TableCell>
-            </TableRow>
-          );
-        })}
+        {rows.map((file) => (
+          <FileRow
+            key={file.id}
+            file={{
+              id: file.id,
+              name: file.name,
+              mimeType: file.mimeType,
+              sizeBytes: file.sizeBytes,
+              createdAt: file.createdAt
+                ? new Date(file.createdAt).toISOString()
+                : '',
+              uploadStatus: file.uploadStatus,
+            }}
+          />
+        ))}
       </TableBody>
     </Table>
   );
