@@ -32,7 +32,7 @@ const authed = auth((req) => {
   return NextResponse.next();
 });
 
-export const middleware = authed;
+export const proxy = authed;
 export default authed;
 
 export const config = {
