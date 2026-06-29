@@ -1,12 +1,5 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { FileRow } from '@/components/file-row';
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { FileListClient, type FileListRow } from '@/components/file-list-client';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, type File } from '@/server/db/schema';
@@ -21,7 +14,7 @@ export async function FileList({ folderId }: FileListProps) {
   const folderCondition =
     folderId === null ? isNull(files.folderId) : eq(files.folderId, folderId);
 
-  const rows: File[] = await db
+  const dbRows: File[] = await db
     .select()
     .from(files)
     .where(
@@ -33,7 +26,7 @@ export async function FileList({ folderId }: FileListProps) {
     )
     .orderBy(desc(files.createdAt));
 
-  if (rows.length === 0) {
+  if (dbRows.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center text-sm text-zinc-500">
         {folderId === null
@@ -43,34 +36,16 @@ export async function FileList({ folderId }: FileListProps) {
     );
   }
 
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead className="w-32">Size</TableHead>
-          <TableHead className="w-40">Uploaded</TableHead>
-          <TableHead className="w-32">Status</TableHead>
-          <TableHead className="w-44 text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((file) => (
-          <FileRow
-            key={file.id}
-            file={{
-              id: file.id,
-              name: file.name,
-              mimeType: file.mimeType,
-              sizeBytes: file.sizeBytes,
-              createdAt: file.createdAt
-                ? new Date(file.createdAt).toISOString()
-                : '',
-              uploadStatus: file.uploadStatus,
-            }}
-          />
-        ))}
-      </TableBody>
-    </Table>
-  );
+  const rows: FileListRow[] = dbRows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    mimeType: row.mimeType,
+    sizeBytes: row.sizeBytes,
+    createdAt: row.createdAt
+      ? new Date(row.createdAt).toISOString()
+      : '',
+    uploadStatus: row.uploadStatus,
+  }));
+
+  return <FileListClient rows={rows} />;
 }
