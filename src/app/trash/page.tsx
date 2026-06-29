@@ -4,14 +4,15 @@ import {
   TrashFileListClient,
   type TrashFileRowData,
 } from '@/components/trash-file-list-client';
+import {
+  PURGE_WARNING_DAYS,
+  TRASH_RETENTION_DAYS,
+} from '@/lib/trash-retention';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, type File } from '@/server/db/schema';
 
 export const dynamic = 'force-dynamic';
-
-const TRASH_RETENTION_DAYS = 30;
-const PURGE_WARNING_DAYS = 7;
 
 export default async function TrashPage() {
   const { id: userId } = await getCurrentUser();

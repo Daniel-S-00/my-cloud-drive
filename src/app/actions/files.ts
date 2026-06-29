@@ -5,7 +5,7 @@ import {
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { and, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
@@ -347,15 +347,3 @@ export async function emptyTrash(): Promise<EmptyTrashOutput> {
     r2DeletedCount,
   };
 }
-
-// Re-exported here for documentation / future sweep jobs; not currently
-// called from any UI.
-export const TRASH_RETENTION_DAYS = 30;
-export function trashCutoff(now: Date = new Date()): Date {
-  return new Date(now.getTime() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-}
-
-// `lt` is currently unused at runtime but kept so the future auto-purge
-// sweeper can use it without re-importing. (Imported above.)
-void lt;
-void sql;
