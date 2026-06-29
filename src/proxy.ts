@@ -5,7 +5,8 @@ const PUBLIC_PREFIXES = ['/login', '/signup', '/api/auth'];
 const PUBLIC_EXACT = new Set<string>(['/login', '/signup']);
 const ROOT_PATH = '/';
 
-// Export DIRECTO del wrapper de auth - esto es lo que Next.js 16 espera
+// Next.js 16 proxy loader accepts a default export or a named `proxy`
+// export. We use the default shape to keep this file compact.
 export default auth((req) => {
   const isLoggedIn = Boolean(req.auth);
   const { pathname, search } = req.nextUrl;
