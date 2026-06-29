@@ -5,11 +5,8 @@ const PUBLIC_PREFIXES = ['/login', '/signup', '/api/auth'];
 const PUBLIC_EXACT = new Set<string>(['/login', '/signup']);
 const ROOT_PATH = '/';
 
-// `auth(handler)` returns a `NextAuthMiddleware` whose call signature is
-// `(request, event) => Response | Promise<Response>`. We re-export that
-// shape directly so Next.js's loader is happy with both the default
-// export and the named `middleware` export.
-const authed = auth((req) => {
+// Export DIRECTO del wrapper de auth - esto es lo que Next.js 16 espera
+export default auth((req) => {
   const isLoggedIn = Boolean(req.auth);
   const { pathname, search } = req.nextUrl;
 
@@ -31,9 +28,6 @@ const authed = auth((req) => {
 
   return NextResponse.next();
 });
-
-export const proxy = authed;
-export default authed;
 
 export const config = {
   matcher: [
