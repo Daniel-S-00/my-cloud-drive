@@ -70,7 +70,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // var only breaks the sign-in attempt, not module load.
         const supabaseAuth = createSupabaseAuthClient(
           requireEnv('SUPABASE_URL'),
-          requireEnv('SUPABASE_ANON_KEY'),
+          requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
         );
 
         const { data, error } = await supabaseAuth.auth.signInWithPassword({
