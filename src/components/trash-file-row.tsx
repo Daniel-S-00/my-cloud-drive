@@ -38,12 +38,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-function formatDate(value: string | null): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString();
-}
+import { formatDateTime as formatDate } from '@/lib/format-date';
 
 function ActionButton({
   onClick,
