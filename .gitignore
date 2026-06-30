@@ -37,11 +37,51 @@ yarn-error.log*
 # vercel
 .vercel
 
-# opencode local agent state
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# ---------------------------------------------------------------------------
+# AI / agent tooling and Spec-Driven Development artefacts
+# These are personal / framework state, not part of the public codebase.
+# ---------------------------------------------------------------------------
+
+# Spec Kit (SDD) framework: templates, scripts, memory, workflows.
+# The framework is local dev tooling; the generated specs/ output stays.
+/.specify/
+
+# Project-local AI agent guides. These are authoring aids, not docs.
+/AGENTS.md
+/CLAUDE.md
+
+# Common AI-tool configs (defensive — most don't exist in this repo today
+# but excluding them prevents a future contributor from leaking them).
+.cursorrules
+.aider*
+.aider.conf.yml
+.cursor/
+.continue/
+.github/copilot-instructions.md
+.github/chatgpt-instructions.md
+CHATGPT.md
+CLAUDE.local.md
+.gemini/
+
+# Agent runtime state (already partially covered above; centralise here).
 .opencode/
 .agents/
 skills-lock.json
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# IDE / editor
+.idea/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+.DS_Store
+Thumbs.db
+
+# OS / shell
+.bash_history
+.zsh_history
+.psql_history
