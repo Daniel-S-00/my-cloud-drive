@@ -5,7 +5,9 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { generateDownloadUrl, generatePreviewUrl } from '@/app/actions/files';
 import { Button } from '@/components/ui/button';
+import { DragHandle } from '@/components/drag-handle';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { useDragContext } from '@/contexts/drag-context';
 import { useFileDialogs } from '@/contexts/file-dialog-context';
 
 type FileRowData = {
@@ -39,9 +41,15 @@ export function FileRow({ file }: { file: FileRowData }) {
   const isComplete = file.uploadStatus === 'complete';
 
   const { openPreviewDialog, openDeleteDialog } = useFileDialogs();
+  const { draggedItem, isMoving } = useDragContext();
 
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Dim the row while it is being dragged. The drag is initiated
+  // from the dedicated drag handle, not the row.
+  const isSelfDragged =
+    draggedItem?.type === 'file' && draggedItem.id === file.id;
 
   useEffect(() => {
     if (!isImage || !isComplete) return;
@@ -82,7 +90,20 @@ export function FileRow({ file }: { file: FileRowData }) {
   };
 
   return (
-    <TableRow>
+    <TableRow
+      // The row is NOT draggable — only the dedicated <DragHandle />
+      // in the first cell initiates a drag. This avoids conflicts
+      // with clickable children (preview button, action buttons,
+      // and — in the folder row — the navigation <Link>).
+      className={isSelfDragged ? 'opacity-50' : undefined}
+    >
+      <TableCell className="w-9 px-1 py-1">
+        <DragHandle
+          item={{ type: 'file', id: file.id, name: file.name }}
+          disabled={inFlight || isMoving}
+          label={`Drag ${file.name}`}
+        />
+      </TableCell>
       <TableCell className="max-w-0">
         <div className="flex items-center gap-3">
           {isImage && isComplete ? (

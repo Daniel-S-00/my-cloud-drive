@@ -16,10 +16,10 @@ import { useTrashDialogs } from '@/contexts/file-dialog-context';
 import {
   emptyTrash,
   permanentDeleteFile,
-  restoreFile,
+  restoreFileWithParents,
 } from '@/app/actions/files';
 
-type TrashFileRowData = {
+export type TrashFileRowData = {
   id: string;
   name: string;
   mimeType: string;
@@ -131,7 +131,13 @@ export function TrashFileRow({ file }: { file: TrashFileRowData }) {
   );
 }
 
-export function TrashDialogs({ rows }: { rows: TrashFileRowData[] }) {
+export function TrashDialogs({
+  rows,
+  folderCount,
+}: {
+  rows: TrashFileRowData[];
+  folderCount: number;
+}) {
   const { state, closeDialog } = useTrashDialogs();
   const [pending, startTransition] = useTransition();
 
@@ -144,8 +150,17 @@ export function TrashDialogs({ rows }: { rows: TrashFileRowData[] }) {
     const targetName = active.name;
     startTransition(async () => {
       try {
-        await restoreFile({ fileId: active.id });
-        toast.success('File restored', { description: targetName });
+        const result = await restoreFileWithParents({ fileId: active.id });
+        const folderCount = result.restoredFolderIds.length;
+        if (folderCount > 0) {
+          toast.success('File restored', {
+            description: `"${targetName}" was restored. ${folderCount} parent folder${
+              folderCount === 1 ? '' : 's'
+            } ${folderCount === 1 ? 'was' : 'were'} also restored.`,
+          });
+        } else {
+          toast.success('File restored', { description: targetName });
+        }
         closeDialog();
       } catch (err) {
         toast.error('Restore failed', {
@@ -183,8 +198,15 @@ export function TrashDialogs({ rows }: { rows: TrashFileRowData[] }) {
     startTransition(async () => {
       try {
         const result = await emptyTrash();
+        const totalItems = result.deletedCount + result.deletedFolderCount;
         toast.success('Trash emptied', {
-          description: `${result.deletedCount} file${result.deletedCount === 1 ? '' : 's'} permanently removed.`,
+          description: `${result.deletedFolderCount} folder${
+            result.deletedFolderCount === 1 ? '' : 's'
+          } and ${result.deletedCount} file${
+            result.deletedCount === 1 ? '' : 's'
+          } permanently removed (${totalItems} item${
+            totalItems === 1 ? '' : 's'
+          }).`,
         });
         if (result.r2DeletedCount < result.deletedCount) {
           toast.warning('Some R2 objects were already missing', {
@@ -222,7 +244,9 @@ export function TrashDialogs({ rows }: { rows: TrashFileRowData[] }) {
               </DialogHeader>
               <DialogBody>
                 <p className="text-sm text-zinc-600">
-                  The file will reappear in the same folder it came from. The
+                  If the folder this file came from is also in the trash,
+                  it will be restored too (and any of{' '}
+                  <em>its</em> parent folders that are in the trash). The
                   bytes in R2 are not touched.
                 </p>
               </DialogBody>
@@ -307,6 +331,7 @@ export function TrashDialogs({ rows }: { rows: TrashFileRowData[] }) {
           <DialogHeader>
             <DialogTitle>Empty the trash?</DialogTitle>
             <DialogDescription>
+              {folderCount} folder{folderCount === 1 ? '' : 's'} and{' '}
               {rows.length} file{rows.length === 1 ? '' : 's'} will be
               permanently removed from your drive AND from R2. This cannot be
               undone.
@@ -315,8 +340,9 @@ export function TrashDialogs({ rows }: { rows: TrashFileRowData[] }) {
           <DialogBody>
             <p className="text-sm text-zinc-600">
               Each file&apos;s R2 object is deleted first, then its database
-              row. If an R2 object is already missing, the row is still
-              removed and you will see a summary warning toast.
+              row. Trashed folders and their contents are then removed. If an
+              R2 object is already missing, the row is still removed and you
+              will see a summary warning toast.
             </p>
           </DialogBody>
           <DialogFooter>

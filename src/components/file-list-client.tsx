@@ -22,6 +22,13 @@ export function FileListClient({ rows }: { rows: FileListRow[] }) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead
+              scope="col"
+              className="w-9 px-1"
+              aria-label="Drag handle"
+            >
+              <span className="sr-only">Drag handle</span>
+            </TableHead>
             <TableHead>Name</TableHead>
             <TableHead className="w-32">Size</TableHead>
             <TableHead className="w-40">Uploaded</TableHead>

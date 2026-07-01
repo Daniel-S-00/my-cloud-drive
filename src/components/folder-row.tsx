@@ -1,0 +1,526 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState, useTransition, type DragEvent } from 'react';
+import { toast } from 'sonner';
+import { moveFile } from '@/app/actions/files';
+import { createFolder, deleteFolder, moveFolder } from '@/app/actions/folders';
+import { Button } from '@/components/ui/button';
+import { DragHandle } from '@/components/drag-handle';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { TableCell, TableRow } from '@/components/ui/table';
+import { useDragContext } from '@/contexts/drag-context';
+import { useFolderDialogs } from '@/contexts/file-dialog-context';
+
+import { formatDateTime as formatDate } from '@/lib/format-date';
+
+const DRAG_MIME = 'text/plain';
+
+export type FolderRowData = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  filesCount: number;
+  subfoldersCount: number;
+};
+
+function FolderIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <path
+        d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.379a2 2 0 0 1 1.414.586l1.121 1.121A2 2 0 0 0 12.828 7.5H18.5A2.5 2.5 0 0 1 21 10v7.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-10Z"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function FolderRow({ folder }: { folder: FolderRowData }) {
+  const { openDeleteDialog } = useFolderDialogs();
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const {
+    draggedItem,
+    dragOverFolderId,
+    isMoving,
+    dragItemRef,
+    resetDragState,
+    setDragOverFolder,
+    setMoving,
+  } = useDragContext();
+
+  const isSelfDragged =
+    draggedItem?.type === 'folder' && draggedItem.id === folder.id;
+  const isHovered = dragOverFolderId === folder.id;
+
+  // Returns true when the current drag is acceptable as a drop on
+  // this folder. We accept both files and folders, except for
+  // self-drops (a folder cannot be dropped onto itself) — descendant
+  // cycles are rejected server-side.
+  const canAccept = (item: { type: 'file' | 'folder'; id: string } | null) => {
+    if (!item) return false;
+    if (item.type === 'folder' && item.id === folder.id) return false;
+    return true;
+  };
+
+  const onDragOver = (event: DragEvent<HTMLTableRowElement>) => {
+    try {
+      // CRITICAL: the browser requires `preventDefault()` on every
+      // `dragover` that should permit a subsequent drop. If we
+      // early-return without it (e.g. because the context state
+      // hasn't propagated yet), the drop is silently rejected.
+      // The only gate we apply here is the dataTransfer MIME type,
+      // which is available synchronously and tells us the drag
+      // originated from our app vs. an external source.
+      if (!event.dataTransfer.types.includes(DRAG_MIME)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+
+      // Use the ref (not React state) so the hover highlight
+      // appears on the very first dragover after the drag starts,
+      // before the next render has propagated the new context
+      // value into this handler's closure.
+      const liveItem = dragItemRef.current;
+      if (!canAccept(liveItem)) {
+        // Self-drop or no item — don't highlight, but still
+        // allow the drop (server validates and returns an error).
+        return;
+      }
+      if (!isHovered) setDragOverFolder(folder.id);
+    } catch (err) {
+      console.error('FolderRow onDragOver error:', err);
+    }
+  };
+
+  const onDragEnter = (event: DragEvent<HTMLTableRowElement>) => {
+    // Mirror the dragover handler. Some browsers fire dragenter
+    // without a matching dragover in a few edge cases, so we set
+    // up the hover state here too.
+    try {
+      if (!event.dataTransfer.types.includes(DRAG_MIME)) return;
+      event.preventDefault();
+      const liveItem = dragItemRef.current;
+      if (!canAccept(liveItem)) return;
+      if (!isHovered) setDragOverFolder(folder.id);
+    } catch (err) {
+      console.error('FolderRow onDragEnter error:', err);
+    }
+  };
+
+  const onDragLeave = (event: DragEvent<HTMLTableRowElement>) => {
+    // Avoid flicker when the cursor moves over child elements:
+    // only clear the hover state when the pointer truly leaves
+    // the row. `relatedTarget` is the element the pointer entered;
+    // if it's still inside the row, the dragleave is spurious.
+    const next = event.relatedTarget as Node | null;
+    if (next && event.currentTarget.contains(next)) return;
+    if (isHovered) setDragOverFolder(null);
+  };
+
+  const onDrop = (event: DragEvent<HTMLTableRowElement>) => {
+    // Prevent the browser from navigating to the dropped URL (the
+    // default for text drops) and stop propagation so ancestor
+    // drop targets (e.g. a wrapping section) don't also handle
+    // this drop.
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOverFolder(null);
+
+    // Read the dropped payload directly from dataTransfer so the
+    // decision is based on what was actually dropped, not on
+    // potentially-stale context state.
+    const raw = event.dataTransfer.getData(DRAG_MIME);
+    let parsed: { type: 'file' | 'folder'; id: string; name: string } | null =
+      null;
+    try {
+      const obj = JSON.parse(raw);
+      if (
+        obj &&
+        (obj.type === 'file' || obj.type === 'folder') &&
+        typeof obj.id === 'string' &&
+        typeof obj.name === 'string'
+      ) {
+        parsed = obj;
+      }
+    } catch {
+      // Not a valid JSON payload — ignore the drop.
+    }
+    if (!parsed) {
+      toast.error('Invalid drop', {
+        description: 'The dropped item is not recognized by this app.',
+      });
+      return;
+    }
+    if (!canAccept(parsed)) {
+      toast.error('Cannot drop here', {
+        description: 'A folder cannot be moved into itself.',
+      });
+      return;
+    }
+
+    const dropped = parsed;
+    setMoving(true);
+    startTransition(async () => {
+      try {
+        if (dropped.type === 'file') {
+          const result = await moveFile({
+            fileId: dropped.id,
+            targetFolderId: folder.id,
+          });
+          toast.success(
+            result.wasRenamed ? 'File moved (renamed)' : 'File moved',
+            {
+              description: `"${dropped.name}" → "${folder.name}"${
+                result.wasRenamed ? ` (renamed to "${result.newName}")` : ''
+              }`,
+            },
+          );
+        } else {
+          const result = await moveFolder({
+            folderId: dropped.id,
+            targetParentId: folder.id,
+          });
+          toast.success(
+            result.wasRenamed ? 'Folder moved (renamed)' : 'Folder moved',
+            {
+              description: `"${dropped.name}" → "${folder.name}"${
+                result.wasRenamed ? ` (renamed to "${result.newName}")` : ''
+              }`,
+            },
+          );
+        }
+        router.refresh();
+      } catch (err) {
+        toast.error('Move failed', {
+          description: err instanceof Error ? err.message : 'Unknown error',
+        });
+      } finally {
+        // Use the full reset so isMoving is cleared alongside the
+        // visual drag state — endDrag() alone would leave isMoving
+        // stuck at true if the action threw before setMoving(false)
+        // ran in a previous attempt.
+        resetDragState();
+      }
+    });
+  };
+
+  // Compose the row class so the dim-while-dragging and the
+  // drop-highlight states can coexist.
+  const rowClass = [
+    isSelfDragged ? 'opacity-50' : '',
+    isHovered ? 'bg-blue-50 ring-1 ring-inset ring-blue-400' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <TableRow
+      // The row is a drop target but NOT a drag source — only the
+      // dedicated <DragHandle /> in the first cell initiates a
+      // drag. This avoids conflicts with the navigation <Link>
+      // (whose click handler would otherwise compete with the
+      // row's dragstart, especially after soft navigations into
+      // subfolders).
+      onDragOver={onDragOver}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={rowClass || undefined}
+    >
+      <TableCell className="w-9 px-1 py-1">
+        <DragHandle
+          item={{ type: 'folder', id: folder.id, name: folder.name }}
+          disabled={isMoving}
+          label={`Drag ${folder.name}`}
+        />
+      </TableCell>
+      <TableCell className="max-w-0">
+        <Link
+          href={`/?folder=${folder.id}`}
+          draggable={false}
+          className="flex items-center gap-3 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
+        >
+          <span
+            aria-hidden
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-zinc-200 bg-amber-50 text-amber-700"
+          >
+            <FolderIcon className="h-5 w-5" />
+          </span>
+          <span className="truncate font-medium text-zinc-900 hover:underline">
+            {folder.name}
+          </span>
+        </Link>
+      </TableCell>
+      <TableCell className="w-32 text-zinc-600">—</TableCell>
+      <TableCell className="w-44 text-zinc-600">
+        {formatDate(folder.updatedAt || folder.createdAt)}
+      </TableCell>
+      <TableCell className="w-32 text-zinc-600">
+        {folder.subfoldersCount > 0 || folder.filesCount > 0
+          ? `${folder.filesCount} file${folder.filesCount === 1 ? '' : 's'}${
+              folder.subfoldersCount > 0
+                ? `, ${folder.subfoldersCount} folder${
+                    folder.subfoldersCount === 1 ? '' : 's'
+                  }`
+                : ''
+            }`
+          : 'Empty'}
+      </TableCell>
+      <TableCell className="w-44 text-right">
+        {pending ? (
+          <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+            Moving…
+          </span>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => openDeleteDialog(folder)}
+          >
+            Delete
+          </Button>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+export function NewFolderTrigger({
+  parentFolderId,
+}: {
+  parentFolderId: string | null;
+}) {
+  const { openCreateDialog } = useFolderDialogs();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="default"
+      onClick={() => openCreateDialog(parentFolderId)}
+    >
+      New folder
+    </Button>
+  );
+}
+
+const FOLDER_NAME_MAX = 255;
+
+function trimAndValidate(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    throw new Error('Folder name cannot be empty');
+  }
+  if (trimmed.length > FOLDER_NAME_MAX) {
+    throw new Error(
+      `Folder name cannot exceed ${FOLDER_NAME_MAX} characters`,
+    );
+  }
+  if (
+    trimmed.includes('/') ||
+    trimmed.includes('\\') ||
+    trimmed.includes('\0')
+  ) {
+    throw new Error('Folder name cannot contain /, \\, or null characters');
+  }
+  return trimmed;
+}
+
+export function FolderDialogs({ parentFolderName }: { parentFolderName: string }) {
+  const { state, closeDialog } = useFolderDialogs();
+  const router = useRouter();
+  const [name, setName] = useState('');
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const isCreate = state.kind === 'create';
+  const isDelete = state.kind === 'delete';
+  const isOpen = isCreate || isDelete;
+
+  const resetAndClose = () => {
+    setName('');
+    setError(null);
+    closeDialog();
+  };
+
+  const onSubmitCreate = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    let cleaned: string;
+    try {
+      cleaned = trimAndValidate(name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid name');
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const result = await createFolder({
+          name: cleaned,
+          parentFolderId: state.parentFolderId,
+        });
+        toast.success('Folder created', { description: result.folder.name });
+        resetAndClose();
+        router.refresh();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Could not create folder';
+        setError(message);
+        toast.error('Create folder failed', { description: message });
+      }
+    });
+  };
+
+  const onConfirmDelete = () => {
+    if (!state.targetFolder) return;
+    const targetName = state.targetFolder.name;
+    startTransition(async () => {
+      try {
+        const result = await deleteFolder({ folderId: state.targetFolder!.id });
+        toast.success('Folder deleted', {
+          description: `"${targetName}" and its contents were moved to trash (${result.filesDeleted} file${
+            result.filesDeleted === 1 ? '' : 's'
+          }, ${result.subfoldersDeleted} subfolder${
+            result.subfoldersDeleted === 1 ? '' : 's'
+          }).`,
+        });
+        resetAndClose();
+        router.refresh();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Could not delete folder';
+        setError(message);
+        toast.error('Delete folder failed', { description: message });
+      }
+    });
+  };
+
+  return (
+    <>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) resetAndClose();
+        }}
+      >
+        <DialogContent>
+          {isCreate ? (
+            <form onSubmit={onSubmitCreate}>
+              <DialogHeader>
+                <DialogTitle>New folder</DialogTitle>
+                <DialogDescription>
+                  {state.parentFolderId
+                    ? `Inside “${parentFolderName}”.`
+                    : 'In My Drive (root).'}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogBody>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="folder-name">Name</Label>
+                  <Input
+                    id="folder-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Untitled folder"
+                    autoFocus
+                    disabled={pending}
+                    maxLength={FOLDER_NAME_MAX}
+                  />
+                </div>
+                {error && (
+                  <p
+                    className="mt-2 text-sm text-red-600"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                )}
+              </DialogBody>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetAndClose}
+                  disabled={pending}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={pending}>
+                  {pending ? 'Creating…' : 'Create folder'}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : state.targetFolder ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Delete this folder?</DialogTitle>
+                <DialogDescription>
+                  <span className="font-medium text-zinc-900">
+                    {state.targetFolder.name}
+                  </span>{' '}
+                  will be moved to trash, along with{' '}
+                  {state.targetFolder.filesCount} file
+                  {state.targetFolder.filesCount === 1 ? '' : 's'} and{' '}
+                  {state.targetFolder.subfoldersCount} subfolder
+                  {state.targetFolder.subfoldersCount === 1 ? '' : 's'}.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogBody>
+                <p className="text-sm text-zinc-600">
+                  Everything stays in R2 for 30 days. A future trash UI
+                  can restore from within the window.
+                </p>
+                {error && (
+                  <p
+                    className="mt-2 text-sm text-red-600"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                )}
+              </DialogBody>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetAndClose}
+                  disabled={pending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={onConfirmDelete}
+                  disabled={pending}
+                  className="bg-red-600 text-white hover:bg-red-700"
+                >
+                  {pending ? 'Deleting…' : 'Delete folder'}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

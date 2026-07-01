@@ -5,6 +5,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { and, eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { generateUniqueFileName } from '@/lib/file-utils';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, folders, users } from '@/server/db/schema';
@@ -19,6 +20,13 @@ export type GenerateUploadUrlOutput = {
   presignedUrl: string;
   storageKey: string;
   fileId: string;
+  // The actual name stored in the database. This may differ from
+  // `input.fileName` when a file with the same name already exists in
+  // the target folder — in that case a unique name like
+  // "report (1).pdf" is generated automatically.
+  fileName: string;
+  // True when the input filename was renamed to avoid a collision.
+  wasRenamed: boolean;
   expiresAt: string;
 };
 
@@ -104,18 +112,45 @@ export async function generateUploadUrl(
     })
     .onConflictDoNothing({ target: users.id });
 
-  const [inserted] = await db
-    .insert(files)
-    .values({
-      folderId,
-      ownerId: userId,
-      name: fileName,
-      storageKey,
-      mimeType: 'application/octet-stream',
-      sizeBytes: 0,
-      uploadStatus: 'pending',
-    })
-    .returning({ id: files.id });
+  // Resolve a unique, non-colliding name in the target folder. The
+  // storage key (above) is intentionally an opaque UUID-based key
+  // and is independent of the user-visible name, so renaming here
+  // does not affect the R2 object.
+  const uniqueName = await generateUniqueFileName(
+    db,
+    fileName,
+    folderId,
+    userId,
+  );
+  const wasRenamed = uniqueName !== fileName;
+
+  let inserted: { id: string } | undefined;
+  try {
+    const result = await db
+      .insert(files)
+      .values({
+        folderId,
+        ownerId: userId,
+        name: uniqueName,
+        storageKey,
+        mimeType: 'application/octet-stream',
+        sizeBytes: 0,
+        uploadStatus: 'pending',
+      })
+      .returning({ id: files.id });
+    inserted = result[0];
+  } catch (err) {
+    // The unique-name helper should have eliminated any collision,
+    // so this catch is a defensive guard for races or unexpected
+    // violations. Translate the partial-unique-index violation into
+    // a friendly message.
+    if (isUniqueViolationOn(err, 'files_unique_name_per_folder')) {
+      throw new Error(
+        'A file with this name already exists in this folder. Please rename it and try again.',
+      );
+    }
+    throw err;
+  }
 
   if (!inserted) {
     throw new Error('Failed to create file record');
@@ -125,8 +160,26 @@ export async function generateUploadUrl(
     presignedUrl,
     storageKey,
     fileId: inserted.id,
+    fileName: uniqueName,
+    wasRenamed,
     expiresAt,
   };
+}
+
+function isUniqueViolationOn(
+  err: unknown,
+  constraintName: string,
+): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as {
+    code?: string;
+    constraint?: string;
+    cause?: { code?: string; constraint?: string };
+  };
+  const code = e.code ?? e.cause?.code;
+  const constraint = e.constraint ?? e.cause?.constraint;
+  // Postgres unique_violation: SQLSTATE 23505.
+  return code === '23505' && constraint === constraintName;
 }
 
 export async function confirmUpload(

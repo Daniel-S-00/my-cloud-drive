@@ -25,7 +25,15 @@ export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
   const [activeFile, setActiveFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const { upload, isUploading, progress, error, reset } = useUpload({
+  const {
+    upload,
+    isUploading,
+    progress,
+    error,
+    reset,
+    lastUploadedName,
+    lastLocalName,
+  } = useUpload({
     folderId,
   });
 
@@ -39,18 +47,38 @@ export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
     router.refresh();
   };
 
+  // The upload zone only accepts drops from outside the app (OS file
+  // drags), which arrive with a `Files` entry in dataTransfer.types.
+  // Internal move-drags carry `text/plain` instead. Without this
+  // gate, dragging an existing file/folder to move it would be
+  // intercepted by the upload zone whenever the cursor crossed it.
+  const isExternalFileDrag = (
+    event: DragEvent<HTMLDivElement>,
+  ): boolean => {
+    const types = event.dataTransfer?.types;
+    if (!types) return false;
+    for (const t of types) {
+      // `Files` is the type Chromium sets for OS-level file drags.
+      if (t === 'Files') return true;
+    }
+    return false;
+  };
+
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!isExternalFileDrag(event)) return;
     event.preventDefault();
     setIsDragging(false);
     void handleFiles(event.dataTransfer.files);
   };
 
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!isExternalFileDrag(event)) return;
     event.preventDefault();
     setIsDragging(true);
   };
 
   const onDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (!isExternalFileDrag(event)) return;
     event.preventDefault();
     setIsDragging(false);
   };
@@ -138,7 +166,19 @@ export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
           )}
 
           {!isUploading && !error && progress === 100 && (
-            <p className="text-sm text-green-600">Upload complete.</p>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-sm text-green-600">Upload complete.</p>
+              {lastUploadedName &&
+                lastLocalName &&
+                lastUploadedName !== lastLocalName && (
+                  <p className="text-xs text-zinc-500">
+                    Uploaded as:{' '}
+                    <span className="font-medium text-zinc-700">
+                      {lastUploadedName}
+                    </span>
+                  </p>
+                )}
+            </div>
           )}
         </div>
       )}

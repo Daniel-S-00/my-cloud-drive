@@ -129,3 +129,84 @@ export function TrashDialogProvider({ children }: { children: ReactNode }) {
     </TrashDialogContext.Provider>
   );
 }
+
+export type FolderDialogKind = 'create' | 'delete' | null;
+
+export type FolderDialogState = {
+  kind: FolderDialogKind;
+  // For 'create': the parent folder id (null = root). For 'delete': the
+  // folder to delete along with a precomputed count of its contents so
+  // the confirmation message can show "X files and Y subfolders".
+  parentFolderId: string | null;
+  targetFolder: {
+    id: string;
+    name: string;
+    filesCount: number;
+    subfoldersCount: number;
+  } | null;
+};
+
+export type FolderDialogContextValue = {
+  state: FolderDialogState;
+  openCreateDialog: (parentFolderId: string | null) => void;
+  openDeleteDialog: (target: FolderDialogState['targetFolder']) => void;
+  closeDialog: () => void;
+};
+
+const FolderDialogContext = createContext<FolderDialogContextValue | null>(
+  null,
+);
+
+export function useFolderDialogs(): FolderDialogContextValue {
+  const ctx = useContext(FolderDialogContext);
+  if (!ctx) {
+    throw new Error(
+      'useFolderDialogs must be used within a <FolderDialogProvider>',
+    );
+  }
+  return ctx;
+}
+
+const FOLDER_DIALOG_CLOSED: FolderDialogState = {
+  kind: null,
+  parentFolderId: null,
+  targetFolder: null,
+};
+
+export function FolderDialogProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<FolderDialogState>(FOLDER_DIALOG_CLOSED);
+
+  const openCreateDialog = useCallback((parentFolderId: string | null) => {
+    setState({
+      kind: 'create',
+      parentFolderId,
+      targetFolder: null,
+    });
+  }, []);
+
+  const openDeleteDialog = useCallback(
+    (target: FolderDialogState['targetFolder']) => {
+      setState({
+        kind: 'delete',
+        parentFolderId: null,
+        targetFolder: target,
+      });
+    },
+    [],
+  );
+
+  const closeDialog = useCallback(() => {
+    setState(FOLDER_DIALOG_CLOSED);
+  }, []);
+
+  const value = useMemo<FolderDialogContextValue>(
+    () => ({ state, openCreateDialog, openDeleteDialog, closeDialog }),
+    [state, openCreateDialog, openDeleteDialog, closeDialog],
+  );
+
+  return (
+    <FolderDialogContext.Provider value={value}>
+      {children}
+    </FolderDialogContext.Provider>
+  );
+}

@@ -27,13 +27,11 @@ export async function FileList({ folderId }: FileListProps) {
     .orderBy(desc(files.createdAt));
 
   if (dbRows.length === 0) {
-    return (
-      <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center text-sm text-zinc-500">
-        {folderId === null
-          ? 'No files in your drive yet. Drop one above to get started.'
-          : 'No files in this folder yet.'}
-      </div>
-    );
+    // The Browse section renders a shared empty-state when both
+    // folders and files are empty (see <FileListEmpty />). When the
+    // folder list has rows but the file list is empty, we render
+    // nothing here so the user sees only the folder table.
+    return null;
   }
 
   const rows: FileListRow[] = dbRows.map((row) => ({
