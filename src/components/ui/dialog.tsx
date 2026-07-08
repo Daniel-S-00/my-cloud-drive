@@ -92,7 +92,7 @@ export const DialogContent = React.forwardRef<HTMLDialogElement, DialogContentPr
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         className={[
-          'fixed inset-0 z-50 m-auto max-h-[90vh] max-w-lg rounded-xl border border-zinc-200 bg-white p-0 text-zinc-950 shadow-lg backdrop:bg-black/50',
+          'fixed inset-0 z-50 m-auto max-h-[90vh] max-w-2xl w-[calc(100%-2rem)] rounded-xl border border-border-subtle bg-bg-surface p-0 text-text-primary shadow-lg backdrop:bg-black/60',
           className,
         ]
           .filter(Boolean)
@@ -104,7 +104,7 @@ export const DialogContent = React.forwardRef<HTMLDialogElement, DialogContentPr
         }}
         {...props}
       >
-        <div className="max-h-[90vh] overflow-auto">{children}</div>
+        <div className="overflow-auto">{children}</div>
       </dialog>
     );
   },
@@ -152,7 +152,7 @@ export const DialogDescription = React.forwardRef<
     <p
       ref={ref}
       id={descriptionId}
-      className={['text-sm text-zinc-500', className]
+      className={['text-sm text-text-secondary', className]
         .filter(Boolean)
         .join(' ')}
       {...props}

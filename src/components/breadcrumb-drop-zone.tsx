@@ -154,8 +154,8 @@ export function BreadcrumbDropZone({
   };
 
   const hoverClass = isHovered
-    ? 'rounded bg-blue-50 ring-2 ring-blue-400 ring-offset-1'
-    : 'rounded transition-colors hover:bg-zinc-100';
+    ? 'rounded bg-accent-primary/15 ring-2 ring-accent-glow ring-offset-1 ring-offset-bg-base'
+    : 'rounded transition-colors hover:bg-bg-surface-hover';
 
   return (
     <span

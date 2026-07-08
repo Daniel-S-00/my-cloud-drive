@@ -3,10 +3,19 @@ import { FileListClient, type FileListRow } from '@/components/file-list-client'
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, type File } from '@/server/db/schema';
+import { generateLongLivedPreviewUrl } from '@/server/storage/r2';
 
 type FileListProps = {
   folderId: string | null;
 };
+
+function isImageMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase().startsWith('image/');
+}
+
+function isVideoMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase().startsWith('video/');
+}
 
 export async function FileList({ folderId }: FileListProps) {
   const { id: userId } = await getCurrentUser();
@@ -34,16 +43,40 @@ export async function FileList({ folderId }: FileListProps) {
     return null;
   }
 
-  const rows: FileListRow[] = dbRows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    mimeType: row.mimeType,
-    sizeBytes: row.sizeBytes,
-    createdAt: row.createdAt
-      ? new Date(row.createdAt).toISOString()
-      : '',
-    uploadStatus: row.uploadStatus,
-  }));
+  // Pre-sign preview URLs SERVER-SIDE for all viewable media (images
+  // and videos). This removes the client-side useEffect that signed a
+  // fresh URL on every mount — which changed the URL string on every
+  // render and defeated browser caching. The cached helper in r2.ts
+  // returns a stable URL per storage key within a server lifetime, so
+  // the browser serves these from disk cache on revisit.
+  const rows: FileListRow[] = await Promise.all(
+    dbRows.map(async (row) => {
+      let thumbnailUrl: string | null = null;
+      const isViewable =
+        (isImageMimeType(row.mimeType) || isVideoMimeType(row.mimeType)) &&
+        row.uploadStatus === 'complete';
+      if (isViewable && row.storageKey) {
+        try {
+          thumbnailUrl = await generateLongLivedPreviewUrl(row.storageKey);
+        } catch {
+          // Signing failed (e.g. transient R2 error). The row still
+          // renders; the client just won't have a thumbnail/preview.
+          thumbnailUrl = null;
+        }
+      }
+      return {
+        id: row.id,
+        name: row.name,
+        mimeType: row.mimeType,
+        sizeBytes: row.sizeBytes,
+        createdAt: row.createdAt
+          ? new Date(row.createdAt).toISOString()
+          : '',
+        uploadStatus: row.uploadStatus,
+        thumbnailUrl,
+      };
+    }),
+  );
 
   return <FileListClient rows={rows} />;
 }

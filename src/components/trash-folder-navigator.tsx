@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   TrashFolderRow,
   type TrashFolderRowData,
@@ -77,10 +78,9 @@ function RestoreThisFolderButton({
     <>
       <Button
         type="button"
-        variant="default"
+        variant="primary"
         size="sm"
         onClick={() => setOpen(true)}
-        className="bg-green-600 text-white hover:bg-green-700"
       >
         Restore this folder
       </Button>
@@ -94,14 +94,14 @@ function RestoreThisFolderButton({
           <DialogHeader>
             <DialogTitle>Restore this folder?</DialogTitle>
             <DialogDescription>
-              <span className="font-medium text-zinc-900">
+              <span className="font-medium text-text-primary">
                 {folderName}
               </span>{' '}
               and all its contents will be moved back to your drive.
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-text-secondary">
               If the folder this one came from is also in the trash, it will be
               restored too. The bytes in R2 are not touched.
             </p>
@@ -117,9 +117,9 @@ function RestoreThisFolderButton({
             </Button>
             <Button
               type="button"
+              variant="primary"
               onClick={onConfirm}
               disabled={pending}
-              className="bg-green-600 text-white hover:bg-green-700"
             >
               {pending ? 'Restoring…' : 'Restore'}
             </Button>
@@ -133,79 +133,71 @@ function RestoreThisFolderButton({
 function FolderSection({ rows }: { rows: TrashFolderRowData[] }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-4 text-center text-sm text-zinc-500">
+      <div className="rounded-md border border-dashed border-border-subtle bg-bg-surface p-4 text-center text-sm text-text-secondary">
         No trashed folders.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
-      <table className="w-full caption-bottom text-sm">
-        <thead className="border-b bg-zinc-50">
-          <tr>
-            <th className="h-10 px-3 text-left align-middle font-medium text-zinc-500">
-              Name
-            </th>
-            <th className="h-10 w-44 px-3 text-left align-middle font-medium text-zinc-500">
-              Deleted
-            </th>
-            <th className="h-10 w-40 px-3 text-left align-middle font-medium text-zinc-500">
-              Auto-purge
-            </th>
-            <th className="h-10 w-56 px-3 text-right align-middle font-medium text-zinc-500">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <TrashFolderRow key={row.id} folder={row} />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead scope="col">Name</TableHead>
+          <TableHead scope="col" className="w-44">
+            Deleted
+          </TableHead>
+          <TableHead scope="col" className="w-40">
+            Auto-purge
+          </TableHead>
+          <TableHead scope="col" className="w-56 text-right">
+            <span className="sr-only">Actions</span>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TrashFolderRow key={row.id} folder={row} />
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
 function FileSection({ rows }: { rows: TrashFileRowData[] }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-4 text-center text-sm text-zinc-500">
+      <div className="rounded-md border border-dashed border-border-subtle bg-bg-surface p-4 text-center text-sm text-text-secondary">
         No trashed files.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
-      <table className="w-full caption-bottom text-sm">
-        <thead className="border-b bg-zinc-50">
-          <tr>
-            <th className="h-10 px-3 text-left align-middle font-medium text-zinc-500">
-              Name
-            </th>
-            <th className="h-10 w-32 px-3 text-left align-middle font-medium text-zinc-500">
-              Size
-            </th>
-            <th className="h-10 w-44 px-3 text-left align-middle font-medium text-zinc-500">
-              Deleted
-            </th>
-            <th className="h-10 w-40 px-3 text-left align-middle font-medium text-zinc-500">
-              Auto-purge
-            </th>
-            <th className="h-10 w-56 px-3 text-right align-middle font-medium text-zinc-500">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <TrashFileRow key={row.id} file={row} />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead scope="col">Name</TableHead>
+          <TableHead scope="col" className="w-32">
+            Size
+          </TableHead>
+          <TableHead scope="col" className="w-44">
+            Deleted
+          </TableHead>
+          <TableHead scope="col" className="w-40">
+            Auto-purge
+          </TableHead>
+          <TableHead scope="col" className="w-56 text-right">
+            <span className="sr-only">Actions</span>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TrashFileRow key={row.id} file={row} />
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -229,7 +221,7 @@ export function TrashFolderNavigator({
   // without the action buttons (there is nothing to empty).
   if (!hasAny && !isInsideFolder) {
     return (
-      <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center text-sm text-zinc-500">
+      <div className="rounded-md border border-dashed border-border-subtle bg-bg-surface p-6 text-center text-sm text-text-secondary">
         Trash is empty. Folders and files you delete from your drive will appear
         here for 30 days.
       </div>
@@ -252,7 +244,7 @@ export function TrashFolderNavigator({
         </div>
 
         {!hasAny && isInsideFolder ? (
-          <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center text-sm text-zinc-500">
+          <div className="rounded-md border border-dashed border-border-subtle bg-bg-surface p-6 text-center text-sm text-text-secondary">
             This folder is empty.
           </div>
         ) : (
@@ -261,7 +253,7 @@ export function TrashFolderNavigator({
               aria-label="Folders in trash"
               className="flex flex-col gap-2"
             >
-              <h2 className="text-sm font-medium text-zinc-700">
+              <h2 className="text-sm font-medium text-text-secondary">
                 Folders in trash ({folderRows.length})
               </h2>
               <FolderSection rows={folderRows} />
@@ -271,7 +263,7 @@ export function TrashFolderNavigator({
               aria-label="Files in trash"
               className="flex flex-col gap-2"
             >
-              <h2 className="text-sm font-medium text-zinc-700">
+              <h2 className="text-sm font-medium text-text-secondary">
                 Files in trash ({fileRows.length})
               </h2>
               <FileSection rows={fileRows} />

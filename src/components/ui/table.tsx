@@ -8,7 +8,7 @@ export const Table = React.forwardRef<
     <div className="relative w-full overflow-auto">
       <table
         ref={ref}
-        className={['w-full caption-bottom text-sm', className]
+        className={['responsive-table w-full caption-bottom text-sm', className]
           .filter(Boolean)
           .join(' ')}
         {...props}
@@ -24,7 +24,10 @@ export const TableHeader = React.forwardRef<
   return (
     <thead
       ref={ref}
-      className={['border-b bg-zinc-50 [&_tr]:border-b', className]
+      className={[
+        'border-b border-border-subtle bg-bg-surface text-text-secondary [&_tr]:border-b',
+        className,
+      ]
         .filter(Boolean)
         .join(' ')}
       {...props}
@@ -55,7 +58,7 @@ export const TableRow = React.forwardRef<
     <tr
       ref={ref}
       className={[
-        'border-b transition-colors hover:bg-zinc-50 data-[state=selected]:bg-zinc-100',
+        'border-b border-border-subtle text-text-primary transition-colors hover:bg-bg-surface-hover data-[state=selected]:bg-bg-surface-hover',
         className,
       ]
         .filter(Boolean)
@@ -73,7 +76,7 @@ export const TableHead = React.forwardRef<
     <th
       ref={ref}
       className={[
-        'h-10 px-3 text-left align-middle font-medium text-zinc-500',
+        'h-10 px-3 text-left align-middle font-medium text-text-secondary',
         className,
       ]
         .filter(Boolean)

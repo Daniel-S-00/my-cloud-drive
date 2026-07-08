@@ -54,7 +54,15 @@ function FolderIcon({ className }: { className?: string }) {
   );
 }
 
-export function FolderRow({ folder }: { folder: FolderRowData }) {
+export function FolderRow({
+  folder,
+  isSelected,
+  onSelect,
+}: {
+  folder: FolderRowData;
+  isSelected?: boolean;
+  onSelect?: (id: string) => void;
+}) {
   const { openDeleteDialog } = useFolderDialogs();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -227,82 +235,191 @@ export function FolderRow({ folder }: { folder: FolderRowData }) {
   // drop-highlight states can coexist.
   const rowClass = [
     isSelfDragged ? 'opacity-50' : '',
-    isHovered ? 'bg-blue-50 ring-1 ring-inset ring-blue-400' : '',
+    isHovered ? 'bg-accent-primary/15 ring-1 ring-inset ring-accent-glow' : '',
+    isSelected && !isHovered ? 'bg-accent-primary/10' : '',
+    'cursor-pointer',
   ]
     .filter(Boolean)
     .join(' ');
 
+  const handleRowClick = () => {
+    onSelect?.(folder.id);
+  };
+
+  const handleRowDoubleClick = () => {
+    router.push(`/?folder=${folder.id}`);
+  };
+
   return (
-    <TableRow
-      // The row is a drop target but NOT a drag source — only the
-      // dedicated <DragHandle /> in the first cell initiates a
-      // drag. This avoids conflicts with the navigation <Link>
-      // (whose click handler would otherwise compete with the
-      // row's dragstart, especially after soft navigations into
-      // subfolders).
-      onDragOver={onDragOver}
-      onDragEnter={onDragEnter}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      className={rowClass || undefined}
-    >
-      <TableCell className="w-9 px-1 py-1">
-        <DragHandle
-          item={{ type: 'folder', id: folder.id, name: folder.name }}
-          disabled={isMoving}
-          label={`Drag ${folder.name}`}
-        />
-      </TableCell>
-      <TableCell className="max-w-0">
-        <Link
-          href={`/?folder=${folder.id}`}
-          draggable={false}
-          className="flex items-center gap-3 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
-        >
-          <span
-            aria-hidden
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-zinc-200 bg-amber-50 text-amber-700"
+    <>
+      {/*
+       * Desktop row (>= md). The row is a drop target but NOT a
+       * drag source — only the dedicated <DragHandle /> in the
+       * first cell initiates a drag.
+       */}
+      <TableRow
+        onDragOver={onDragOver}
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onClick={handleRowClick}
+        onDoubleClick={handleRowDoubleClick}
+        className={['desktop-row', 'hidden md:table-row', rowClass || '']
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <TableCell className="w-9 px-1 py-1" onClick={(e) => e.stopPropagation()}>
+          <DragHandle
+            item={{ type: 'folder', id: folder.id, name: folder.name }}
+            disabled={isMoving}
+            label={`Drag ${folder.name}`}
+          />
+        </TableCell>
+        <TableCell className="min-w-[12rem] md:min-w-0">
+          <Link
+            href={`/?folder=${folder.id}`}
+            draggable={false}
+            onClick={(e) => e.preventDefault()}
+            className="flex min-w-0 items-center gap-3 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
           >
-            <FolderIcon className="h-5 w-5" />
-          </span>
-          <span className="truncate font-medium text-zinc-900 hover:underline">
-            {folder.name}
-          </span>
-        </Link>
-      </TableCell>
-      <TableCell className="w-32 text-zinc-600">—</TableCell>
-      <TableCell className="w-44 text-zinc-600">
-        {formatDate(folder.updatedAt || folder.createdAt)}
-      </TableCell>
-      <TableCell className="w-32 text-zinc-600">
-        {folder.subfoldersCount > 0 || folder.filesCount > 0
-          ? `${folder.filesCount} file${folder.filesCount === 1 ? '' : 's'}${
-              folder.subfoldersCount > 0
-                ? `, ${folder.subfoldersCount} folder${
-                    folder.subfoldersCount === 1 ? '' : 's'
-                  }`
-                : ''
-            }`
-          : 'Empty'}
-      </TableCell>
-      <TableCell className="w-44 text-right">
-        {pending ? (
-          <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-            Moving…
-          </span>
-        ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => openDeleteDialog(folder)}
+            <span
+              aria-hidden
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-accent-primary/15 text-accent-glow"
+            >
+              <FolderIcon className="h-5 w-5" />
+            </span>
+            <span
+              title={folder.name}
+              className="min-w-0 flex-1 break-words font-medium text-text-primary hover:underline"
+            >
+              {folder.name}
+            </span>
+          </Link>
+        </TableCell>
+        <TableCell className="w-44 text-text-secondary">
+          {formatDate(folder.updatedAt || folder.createdAt)}
+        </TableCell>
+        <TableCell className="w-32 text-text-secondary">
+          {folder.subfoldersCount > 0 || folder.filesCount > 0
+            ? `${folder.filesCount} file${folder.filesCount === 1 ? '' : 's'}${
+                folder.subfoldersCount > 0
+                  ? `, ${folder.subfoldersCount} folder${
+                      folder.subfoldersCount === 1 ? '' : 's'
+                    }`
+                  : ''
+              }`
+            : 'Empty'}
+        </TableCell>
+        <TableCell className="w-44 text-right" onClick={(e) => e.stopPropagation()}>
+          {pending ? (
+            <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
+              Moving…
+            </span>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => openDeleteDialog(folder)}
+            >
+              Delete
+            </Button>
+          )}
+        </TableCell>
+      </TableRow>
+
+      {/*
+       * Mobile card (< md). Mirrors the desktop drop-target so
+       * dragging onto a folder still works on touch devices. The
+       * card carries its own padding/typography; the wrapper
+       * <tr> is layout-neutral.
+       */}
+      <tr
+        className={['mobile-card-row', 'md:hidden', rowClass || '']
+          .filter(Boolean)
+          .join(' ')}
+        onDragOver={onDragOver}
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
+        <td className="mobile-card-cell" colSpan={5}>
+          <div
+            className="mobile-card"
+            onClick={handleRowClick}
+            onDoubleClick={handleRowDoubleClick}
           >
-            Delete
-          </Button>
-        )}
-      </TableCell>
-    </TableRow>
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-accent-primary/15 text-accent-glow"
+              >
+                <FolderIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={`/?folder=${folder.id}`}
+                  draggable={false}
+                  onClick={(e) => e.preventDefault()}
+                  className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+                >
+                  <div
+                    title={folder.name}
+                    className="truncate font-medium text-text-primary"
+                  >
+                    {folder.name}
+                  </div>
+                </Link>
+                <div className="mt-0.5 truncate text-xs text-text-secondary">
+                  {folder.subfoldersCount > 0 || folder.filesCount > 0
+                    ? `${folder.filesCount} file${
+                        folder.filesCount === 1 ? '' : 's'
+                      }${
+                        folder.subfoldersCount > 0
+                          ? `, ${folder.subfoldersCount} folder${
+                              folder.subfoldersCount === 1 ? '' : 's'
+                            }`
+                          : ''
+                      }`
+                    : 'Empty folder'}
+                </div>
+              </div>
+              <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                <DragHandle
+                  item={{ type: 'folder', id: folder.id, name: folder.name }}
+                  disabled={isMoving}
+                  label={`Drag ${folder.name}`}
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 pl-[3.25rem] text-sm text-text-secondary">
+              <span className="whitespace-nowrap">
+                {formatDate(folder.updatedAt || folder.createdAt)}
+              </span>
+              <div className="ml-auto flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                {pending ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
+                    Moving…
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openDeleteDialog(folder)}
+                  >
+                    Delete
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </>
   );
 }
 
@@ -315,7 +432,7 @@ export function NewFolderTrigger({
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="primary"
       size="default"
       onClick={() => openCreateDialog(parentFolderId)}
     >
@@ -449,7 +566,7 @@ export function FolderDialogs({ parentFolderName }: { parentFolderName: string }
                 </div>
                 {error && (
                   <p
-                    className="mt-2 text-sm text-red-600"
+                    className="mt-2 text-sm text-red-400"
                     role="alert"
                   >
                     {error}
@@ -465,7 +582,7 @@ export function FolderDialogs({ parentFolderName }: { parentFolderName: string }
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={pending}>
+                <Button type="submit" variant="primary" disabled={pending}>
                   {pending ? 'Creating…' : 'Create folder'}
                 </Button>
               </DialogFooter>
@@ -475,7 +592,7 @@ export function FolderDialogs({ parentFolderName }: { parentFolderName: string }
               <DialogHeader>
                 <DialogTitle>Delete this folder?</DialogTitle>
                 <DialogDescription>
-                  <span className="font-medium text-zinc-900">
+                  <span className="font-medium text-text-primary">
                     {state.targetFolder.name}
                   </span>{' '}
                   will be moved to trash, along with{' '}
@@ -486,13 +603,13 @@ export function FolderDialogs({ parentFolderName }: { parentFolderName: string }
                 </DialogDescription>
               </DialogHeader>
               <DialogBody>
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-text-secondary">
                   Everything stays in R2 for 30 days. A future trash UI
                   can restore from within the window.
                 </p>
                 {error && (
                   <p
-                    className="mt-2 text-sm text-red-600"
+                    className="mt-2 text-sm text-red-400"
                     role="alert"
                   >
                     {error}
@@ -510,9 +627,9 @@ export function FolderDialogs({ parentFolderName }: { parentFolderName: string }
                 </Button>
                 <Button
                   type="button"
+                  variant="destructive"
                   onClick={onConfirmDelete}
                   disabled={pending}
-                  className="bg-red-600 text-white hover:bg-red-700"
                 >
                   {pending ? 'Deleting…' : 'Delete folder'}
                 </Button>

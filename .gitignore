@@ -69,6 +69,9 @@ CLAUDE.local.md
 
 # Agent runtime state (already partially covered above; centralise here).
 .opencode/
+.opencode.json
+.opencodeignore
+.commandcode/
 .agents/
 skills-lock.json
 
@@ -85,3 +88,9 @@ Thumbs.db
 .bash_history
 .zsh_history
 .psql_history
+
+
+# Graphify (spec-driven dev tooling)
+graphify-out/manifest.json
+graphify-out/cost.json
+graphify-out/cache/

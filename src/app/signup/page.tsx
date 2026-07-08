@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { signIn } from 'next-auth/react';
+import AuthShell from '@/components/auth-shell';
 import { Button } from '@/components/ui/button';
 import {
-  Card,
   CardContent,
   CardDescription,
   CardFooter,
@@ -88,9 +88,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
+    <AuthShell>
+      <CardHeader>
           <CardTitle>Create an account</CardTitle>
           <CardDescription>Get started with My Cloud Drive.</CardDescription>
         </CardHeader>
@@ -120,37 +119,36 @@ export default function SignupPage() {
                 minLength={8}
                 disabled={isPending}
               />
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-text-secondary">
                 At least 8 characters.
               </p>
             </div>
             {error && (
-              <p className="text-sm text-red-600" role="alert">
+              <p className="text-sm text-red-400" role="alert">
                 {error}
               </p>
             )}
             {info && (
-              <p className="text-sm text-green-700" role="status">
+              <p className="text-sm text-accent-glow" role="status">
                 {info}
               </p>
             )}
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" variant="primary" disabled={isPending}>
               {isPending ? 'Creating account...' : 'Create account'}
             </Button>
           </form>
         </CardContent>
         <CardFooter>
-          <p className="text-sm text-zinc-600">
+          <p className="text-sm text-text-secondary">
             Already have an account?{' '}
             <Link
               href="/login"
-              className="font-medium text-zinc-900 underline"
+              className="font-medium text-accent-glow underline-offset-2 hover:underline"
             >
               Sign in
             </Link>
           </p>
         </CardFooter>
-      </Card>
-    </div>
+    </AuthShell>
   );
 }

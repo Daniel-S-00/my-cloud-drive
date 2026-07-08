@@ -19,8 +19,8 @@ export async function Nav() {
   }
   const trashCount = await getTrashCount(user.id);
   return (
-    <nav className="border-b border-zinc-200 bg-white">
-      <div className="mx-auto flex h-12 w-full max-w-5xl items-center gap-2 px-6 text-sm">
+    <nav className="sticky top-0 z-30 border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md supports-[backdrop-filter]:bg-bg-surface/70">
+      <div className="mx-auto flex h-12 w-full max-w-[1920px] items-center gap-2 px-4 text-sm text-text-primary sm:px-6">
         <NavLinks trashCount={trashCount} />
       </div>
     </nav>

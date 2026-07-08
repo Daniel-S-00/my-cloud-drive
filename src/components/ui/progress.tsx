@@ -23,7 +23,7 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
         aria-valuenow={clamped}
         aria-label={ariaLabel}
         className={[
-          'relative h-2 w-full overflow-hidden rounded-full bg-zinc-200',
+          'relative h-2 w-full overflow-hidden rounded-full bg-bg-surface-hover',
           className,
         ]
           .filter(Boolean)
@@ -31,7 +31,7 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
         {...props}
       >
         <div
-          className="h-full bg-zinc-900 transition-all"
+          className="h-full bg-accent-primary transition-all"
           style={{ width: `${pct}%` }}
         />
       </div>

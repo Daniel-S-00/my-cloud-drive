@@ -12,6 +12,8 @@
     "@auth/supabase-adapter": "^1.11.2",
     "@aws-sdk/client-s3": "^3.1075.0",
     "@aws-sdk/s3-request-presigner": "^3.1075.0",
+    "@splinetool/react-spline": "^4.1.0",
+    "@splinetool/runtime": "^1.12.98",
     "@supabase/supabase-js": "^2.108.2",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

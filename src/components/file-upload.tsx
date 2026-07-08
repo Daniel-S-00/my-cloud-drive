@@ -102,17 +102,17 @@ export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
         className={[
           'flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 text-center transition-colors',
           isDragging
-            ? 'border-zinc-900 bg-zinc-100'
-            : 'border-zinc-300 bg-zinc-50 hover:border-zinc-400',
+            ? 'border-accent-glow bg-accent-primary/15 text-text-primary'
+            : 'border-border-subtle bg-bg-surface text-text-secondary hover:border-accent-glow',
         ].join(' ')}
       >
-        <p className="text-base font-medium text-zinc-900">
+        <p className="text-base font-medium text-text-primary">
           Drop a file to upload
         </p>
-        <p className="text-sm text-zinc-500">or</p>
+        <p className="text-sm text-text-secondary">or</p>
         <Button
           type="button"
-          variant="default"
+          variant="primary"
           onClick={() => inputRef.current?.click()}
           disabled={isUploading}
         >
@@ -128,13 +128,13 @@ export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
       </div>
 
       {activeFile && (
-        <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-white p-4">
+        <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-bg-surface p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-zinc-900">
+              <p className="truncate text-sm font-medium text-text-primary">
                 {activeFile.name}
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-text-secondary">
                 {formatBytes(activeFile.size)}
               </p>
             </div>
@@ -155,25 +155,25 @@ export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
                 value={progress}
                 ariaLabel={`Upload progress for ${activeFile.name}`}
               />
-              <p className="text-xs text-zinc-500">{progress}% uploaded</p>
+              <p className="text-xs text-text-secondary">{progress}% uploaded</p>
             </div>
           )}
 
           {error && (
-            <p className="text-sm text-red-600" role="alert">
+            <p className="text-sm text-red-400" role="alert">
               {error}
             </p>
           )}
 
           {!isUploading && !error && progress === 100 && (
             <div className="flex flex-col gap-0.5">
-              <p className="text-sm text-green-600">Upload complete.</p>
+              <p className="text-sm text-accent-glow">Upload complete.</p>
               {lastUploadedName &&
                 lastLocalName &&
                 lastUploadedName !== lastLocalName && (
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-text-secondary">
                     Uploaded as:{' '}
-                    <span className="font-medium text-zinc-700">
+                    <span className="font-medium text-text-primary">
                       {lastUploadedName}
                     </span>
                   </p>

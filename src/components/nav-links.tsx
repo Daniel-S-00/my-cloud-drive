@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { SearchBar } from '@/components/search-bar';
 
 type NavItem = {
   href: string;
@@ -41,8 +42,8 @@ export function NavLinks({ trashCount }: { trashCount: number }) {
               className={[
                 'flex items-center gap-2 rounded-md px-3 py-1.5 font-medium transition-colors',
                 active
-                  ? 'bg-zinc-900 text-white'
-                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900',
+                  ? 'bg-accent-primary text-white'
+                  : 'text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary',
               ].join(' ')}
             >
               {item.label}
@@ -51,8 +52,8 @@ export function NavLinks({ trashCount }: { trashCount: number }) {
                   className={[
                     'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold',
                     active
-                      ? 'bg-white text-zinc-900'
-                      : 'bg-zinc-200 text-zinc-700',
+                      ? 'bg-bg-base text-accent-glow'
+                      : 'bg-bg-surface-hover text-text-secondary',
                   ].join(' ')}
                   aria-label={`${trashCount} files in trash`}
                 >
@@ -63,7 +64,7 @@ export function NavLinks({ trashCount }: { trashCount: number }) {
             {item.href === '/' && folderId ? (
               <span
                 aria-hidden
-                className="ml-1 max-w-[14rem] truncate rounded bg-zinc-100 px-2 py-0.5 font-mono text-xs text-zinc-500"
+                className="ml-1 max-w-[14rem] truncate rounded bg-bg-surface-hover px-2 py-0.5 font-mono text-xs text-text-secondary"
                 title={`Folder ${folderId}`}
               >
                 {shortId(folderId)}
@@ -72,6 +73,8 @@ export function NavLinks({ trashCount }: { trashCount: number }) {
           </div>
         );
       })}
+      <div className="hidden sm:block sm:ml-auto" />
+      <SearchBar />
     </>
   );
 }

@@ -1,9 +1,9 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { generateDownloadUrl, generatePreviewUrl } from '@/app/actions/files';
+import { generateDownloadUrl } from '@/app/actions/files';
 import { Button } from '@/components/ui/button';
 import { DragHandle } from '@/components/drag-handle';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -17,10 +17,15 @@ type FileRowData = {
   sizeBytes: number;
   createdAt: string;
   uploadStatus: 'pending' | 'uploading' | 'complete' | 'failed';
+  thumbnailUrl?: string | null | undefined;
 };
 
 function isImageMimeType(mimeType: string): boolean {
   return mimeType.toLowerCase().startsWith('image/');
+}
+
+function isVideoMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase().startsWith('video/');
 }
 
 function formatBytes(bytes: number): string {
@@ -34,8 +39,17 @@ function formatBytes(bytes: number): string {
 
 import { formatDateTime as formatDate } from '@/lib/format-date';
 
-export function FileRow({ file }: { file: FileRowData }) {
+export function FileRow({
+  file,
+  isSelected,
+  onSelect,
+}: {
+  file: FileRowData;
+  isSelected?: boolean;
+  onSelect?: (id: string) => void;
+}) {
   const isImage = isImageMimeType(file.mimeType);
+  const isVideo = isVideoMimeType(file.mimeType);
   const inFlight =
     file.uploadStatus === 'pending' || file.uploadStatus === 'uploading';
   const isComplete = file.uploadStatus === 'complete';
@@ -43,29 +57,12 @@ export function FileRow({ file }: { file: FileRowData }) {
   const { openPreviewDialog, openDeleteDialog } = useFileDialogs();
   const { draggedItem, isMoving } = useDragContext();
 
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Dim the row while it is being dragged. The drag is initiated
-  // from the dedicated drag handle, not the row.
   const isSelfDragged =
     draggedItem?.type === 'file' && draggedItem.id === file.id;
 
-  useEffect(() => {
-    if (!isImage || !isComplete) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { presignedUrl } = await generatePreviewUrl({ fileId: file.id });
-        if (!cancelled) setThumbnailUrl(presignedUrl);
-      } catch {
-        // Silently fail; the row renders without a thumbnail.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [file.id, isImage, isComplete]);
+  const thumbnailUrl = file.thumbnailUrl;
 
   const onDownload = async () => {
     setIsDownloading(true);
@@ -89,96 +86,270 @@ export function FileRow({ file }: { file: FileRowData }) {
     }
   };
 
+  const statusLabel = inFlight
+    ? file.uploadStatus
+    : file.uploadStatus === 'complete'
+      ? 'complete'
+      : file.uploadStatus;
+
+  const handleRowClick = () => {
+    onSelect?.(file.id);
+  };
+
+  const handleRowDoubleClick = () => {
+    if (isComplete && (isImage || isVideo)) {
+      openPreviewDialog(file.id);
+    }
+  };
+
   return (
-    <TableRow
-      // The row is NOT draggable — only the dedicated <DragHandle />
-      // in the first cell initiates a drag. This avoids conflicts
-      // with clickable children (preview button, action buttons,
-      // and — in the folder row — the navigation <Link>).
-      className={isSelfDragged ? 'opacity-50' : undefined}
-    >
-      <TableCell className="w-9 px-1 py-1">
-        <DragHandle
-          item={{ type: 'file', id: file.id, name: file.name }}
-          disabled={inFlight || isMoving}
-          label={`Drag ${file.name}`}
-        />
-      </TableCell>
-      <TableCell className="max-w-0">
-        <div className="flex items-center gap-3">
-          {isImage && isComplete ? (
-            <button
-              type="button"
-              onClick={() => openPreviewDialog(file.id)}
-              className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded border border-zinc-200 bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
-              aria-label={`Preview ${file.name}`}
+    <>
+      <TableRow
+        onClick={handleRowClick}
+        onDoubleClick={handleRowDoubleClick}
+        className={[
+          'desktop-row',
+          'hidden md:table-row',
+          isSelfDragged ? 'opacity-50' : '',
+          isSelected ? 'bg-accent-primary/10' : '',
+          'cursor-pointer',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <TableCell
+          className="w-9 px-1 py-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DragHandle
+            item={{ type: 'file', id: file.id, name: file.name }}
+            disabled={inFlight || isMoving}
+            label={`Drag ${file.name}`}
+          />
+        </TableCell>
+        <TableCell className="min-w-[12rem] md:min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            {isImage && isComplete ? (
+              <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
+                {thumbnailUrl ? (
+                  <Image
+                    src={thumbnailUrl}
+                    alt=""
+                    fill
+                    sizes="40px"
+                    unoptimized
+                    className="object-cover"
+                  />
+                ) : (
+                  <span className="absolute inset-0 animate-pulse bg-bg-surface-hover" />
+                )}
+              </div>
+            ) : isVideo && isComplete ? (
+              <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-accent-primary/15 text-accent-glow">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-5 w-5"
+                  aria-hidden
+                >
+                  <path d="M8 5.5v13a.5.5 0 0 0 .77.42l10-6.5a.5.5 0 0 0 0-.84l-10-6.5A.5.5 0 0 0 8 5.5Z" />
+                </svg>
+              </div>
+            ) : (
+              <div
+                aria-hidden
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-bg-surface-hover text-xs font-medium text-text-secondary"
+              >
+                {file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'}
+              </div>
+            )}
+            <span
+              title={file.name}
+              className="min-w-0 flex-1 break-words font-medium text-text-primary"
             >
-              {thumbnailUrl ? (
-                <Image
-                  src={thumbnailUrl}
-                  alt=""
-                  fill
-                  sizes="40px"
-                  unoptimized
-                  className="object-cover"
-                />
-              ) : (
-                <span className="absolute inset-0 animate-pulse bg-zinc-200" />
-              )}
-            </button>
+              {file.name}
+            </span>
+          </div>
+        </TableCell>
+        <TableCell className="w-32 text-text-secondary">
+          {formatBytes(file.sizeBytes)}
+        </TableCell>
+        <TableCell className="w-40 text-text-secondary">
+          {formatDate(file.createdAt)}
+        </TableCell>
+        <TableCell className="w-32">
+          {inFlight ? (
+            <span className="inline-flex items-center gap-2 text-text-secondary">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
+              {file.uploadStatus}
+            </span>
+          ) : file.uploadStatus === 'complete' ? (
+            <span className="text-accent-glow">complete</span>
           ) : (
-            <div
-              aria-hidden
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-100 text-xs font-medium text-zinc-500"
-            >
-              {file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'}
-            </div>
+            <span className="text-red-400">{file.uploadStatus}</span>
           )}
-          <span className="truncate font-medium text-zinc-900">
-            {file.name}
-          </span>
-        </div>
-      </TableCell>
-      <TableCell className="w-32 text-zinc-600">
-        {formatBytes(file.sizeBytes)}
-      </TableCell>
-      <TableCell className="w-40 text-zinc-600">
-        {formatDate(file.createdAt)}
-      </TableCell>
-      <TableCell className="w-32">
-        {inFlight ? (
-          <span className="inline-flex items-center gap-2 text-zinc-600">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
-            {file.uploadStatus}
-          </span>
-        ) : file.uploadStatus === 'complete' ? (
-          <span className="text-green-700">complete</span>
-        ) : (
-          <span className="text-red-700">{file.uploadStatus}</span>
-        )}
-      </TableCell>
-      <TableCell className="w-44 text-right">
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onDownload}
-            disabled={!isComplete || isDownloading}
+        </TableCell>
+        <TableCell
+          className="w-44 text-right"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex flex-wrap items-center justify-end gap-2 md:flex-nowrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onDownload}
+              disabled={!isComplete || isDownloading}
+            >
+              {isDownloading ? 'Preparing…' : 'Download'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => openDeleteDialog(file.id)}
+              disabled={!isComplete}
+            >
+              Delete
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+
+      {/*
+       * Mobile card (< md). Single full-width cell containing a
+       * vertical stack: thumbnail + name (top), then size · date
+       * · actions (bottom).
+       */}
+      <tr className="mobile-card-row md:hidden">
+        <td className="mobile-card-cell" colSpan={6}>
+          <div
+            onClick={handleRowClick}
+            onDoubleClick={handleRowDoubleClick}
+            className={[
+              'mobile-card',
+              isSelfDragged ? 'opacity-50' : '',
+              isSelected ? 'bg-accent-primary/10' : '',
+              'cursor-pointer rounded-md p-2',
+            ]
+              .filter(Boolean)
+              .join(' ')}
           >
-            {isDownloading ? 'Preparing…' : 'Download'}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => openDeleteDialog(file.id)}
-            disabled={!isComplete}
-          >
-            Delete
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
+                {isImage && isComplete ? (
+                  <div className="relative h-full w-full">
+                    {thumbnailUrl ? (
+                      <Image
+                        src={thumbnailUrl}
+                        alt=""
+                        fill
+                        sizes="40px"
+                        unoptimized
+                        className="object-cover"
+                      />
+                    ) : (
+                      <span className="absolute inset-0 animate-pulse bg-bg-surface-hover" />
+                    )}
+                  </div>
+                ) : isVideo && isComplete ? (
+                  <div className="flex h-full w-full items-center justify-center bg-accent-primary/15 text-accent-glow">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="h-5 w-5"
+                      aria-hidden
+                    >
+                      <path d="M8 5.5v13a.5.5 0 0 0 .77.42l10-6.5a.5.5 0 0 0 0-.84l-10-6.5A.5.5 0 0 0 8 5.5Z" />
+                    </svg>
+                  </div>
+                ) : (
+                  <span aria-hidden className="text-xs font-medium text-text-secondary">
+                    {file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div
+                  title={file.name}
+                  className="truncate font-medium text-text-primary"
+                >
+                  {file.name}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-text-secondary">
+                  {file.mimeType || 'File'}
+                </div>
+              </div>
+              <div
+                className="flex-shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DragHandle
+                  item={{ type: 'file', id: file.id, name: file.name }}
+                  disabled={inFlight || isMoving}
+                  label={`Drag ${file.name}`}
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 pl-[3.25rem] text-sm text-text-secondary">
+              <span className="whitespace-nowrap">
+                {formatBytes(file.sizeBytes)}
+              </span>
+              <span aria-hidden className="text-border-subtle">·</span>
+              <span className="whitespace-nowrap">
+                {formatDate(file.createdAt)}
+              </span>
+              {statusLabel !== 'complete' ? (
+                <>
+                  <span aria-hidden className="text-border-subtle">·</span>
+                  <span
+                    className={
+                      inFlight
+                        ? 'inline-flex items-center gap-1.5'
+                        : file.uploadStatus === 'failed'
+                          ? 'text-red-400'
+                          : 'text-text-secondary'
+                    }
+                  >
+                    {inFlight ? (
+                      <>
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-glow" />
+                        {file.uploadStatus}
+                      </>
+                    ) : (
+                      file.uploadStatus
+                    )}
+                  </span>
+                </>
+              ) : null}
+              <div
+                className="ml-auto flex flex-wrap items-center gap-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onDownload}
+                  disabled={!isComplete || isDownloading}
+                >
+                  {isDownloading ? 'Preparing…' : 'Download'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openDeleteDialog(file.id)}
+                  disabled={!isComplete}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </>
   );
 }

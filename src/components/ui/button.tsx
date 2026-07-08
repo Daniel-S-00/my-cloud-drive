@@ -1,17 +1,28 @@
 import * as React from 'react';
 
-type ButtonVariant = 'default' | 'outline' | 'ghost' | 'secondary' | 'destructive';
+type ButtonVariant =
+  | 'default'
+  | 'primary'
+  | 'outline'
+  | 'ghost'
+  | 'secondary'
+  | 'destructive';
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
 
 const baseClasses =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-glow disabled:pointer-events-none disabled:opacity-50';
 
 const variantClasses: Record<ButtonVariant, string> = {
-  default: 'bg-zinc-900 text-zinc-50 shadow hover:bg-zinc-800',
+  default:
+    'border border-border-subtle bg-bg-surface text-text-primary shadow hover:bg-bg-surface-hover',
+  primary:
+    'bg-accent-primary text-white shadow hover:bg-accent-glow focus-visible:ring-accent-glow',
   outline:
-    'border border-zinc-200 bg-white shadow-sm hover:bg-zinc-100 hover:text-zinc-900',
-  ghost: 'hover:bg-zinc-100 hover:text-zinc-900',
-  secondary: 'bg-zinc-100 text-zinc-900 shadow-sm hover:bg-zinc-200',
+    'border border-border-subtle bg-bg-surface text-text-primary shadow-sm hover:bg-bg-surface-hover hover:text-text-primary',
+  ghost:
+    'text-text-primary hover:bg-bg-surface-hover hover:text-text-primary',
+  secondary:
+    'bg-bg-surface-hover text-text-primary shadow-sm hover:bg-bg-surface',
   destructive:
     'bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-700',
 };

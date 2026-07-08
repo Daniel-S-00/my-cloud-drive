@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent } from 'react';
+import AuthShell from '@/components/auth-shell';
 import { Button } from '@/components/ui/button';
 import {
-  Card,
   CardContent,
   CardDescription,
   CardFooter,
@@ -15,14 +15,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-function LoginShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12">
-      {children}
-    </div>
-  );
-}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -62,9 +54,8 @@ export default function LoginPage() {
   };
 
   return (
-    <LoginShell>
-      <Card className="w-full max-w-sm">
-        <CardHeader>
+    <AuthShell>
+      <CardHeader>
           <CardTitle>Sign in</CardTitle>
           <CardDescription>Welcome back to My Cloud Drive.</CardDescription>
         </CardHeader>
@@ -95,25 +86,25 @@ export default function LoginPage() {
               />
             </div>
             {error && (
-              <p className="text-sm text-red-600" role="alert">
+              <p className="text-sm text-red-400" role="alert">
                 {error}
               </p>
             )}
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" variant="primary" disabled={isPending}>
               {isPending ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
 
           <div className="my-4 flex items-center gap-3">
-            <div className="h-px flex-1 bg-zinc-200" />
-            <span className="text-xs uppercase text-zinc-500">or</span>
-            <div className="h-px flex-1 bg-zinc-200" />
+            <div className="h-px flex-1 bg-border-subtle" />
+            <span className="text-xs uppercase text-text-secondary">or</span>
+            <div className="h-px flex-1 bg-border-subtle" />
           </div>
 
           <div className="flex flex-col gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => onOAuth('google')}
               disabled={isPending}
             >
@@ -121,7 +112,7 @@ export default function LoginPage() {
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => onOAuth('github')}
               disabled={isPending}
             >
@@ -130,17 +121,16 @@ export default function LoginPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <p className="text-sm text-zinc-600">
+          <p className="text-sm text-text-secondary">
             Don&apos;t have an account?{' '}
             <Link
               href="/signup"
-              className="font-medium text-zinc-900 underline"
+              className="font-medium text-accent-glow underline-offset-2 hover:underline"
             >
               Sign up
             </Link>
           </p>
         </CardFooter>
-      </Card>
-    </LoginShell>
+    </AuthShell>
   );
 }

@@ -33,11 +33,11 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex items-center gap-1 text-sm text-zinc-500"
+      className="flex items-center gap-1 text-sm text-text-secondary"
     >
       <Link
         href="/"
-        className="rounded px-1 hover:bg-zinc-100 hover:text-zinc-900"
+        className="rounded px-1 text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary"
       >
         {ROOT_CRUMB.name}
       </Link>
@@ -46,11 +46,11 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
         const isParent = parentCrumb?.id === crumb.id;
         return (
           <span key={crumb.id} className="flex items-center gap-1">
-            <span aria-hidden className="text-zinc-300">
+            <span aria-hidden className="text-border-subtle">
               /
             </span>
             {isLast ? (
-              <span className="rounded px-1 font-medium text-zinc-700">
+              <span className="rounded px-1 font-medium text-text-primary">
                 {crumb.name}
               </span>
             ) : isParent ? (
@@ -65,7 +65,7 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
                 <Link
                   href={`/?folder=${crumb.id}`}
                   draggable={false}
-                  className="rounded px-1 hover:bg-zinc-100 hover:text-zinc-900"
+                  className="rounded px-1 text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary"
                 >
                   {crumb.name}
                 </Link>
@@ -73,7 +73,7 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
             ) : (
               <Link
                 href={`/?folder=${crumb.id}`}
-                className="rounded px-1 hover:bg-zinc-100 hover:text-zinc-900"
+                className="rounded px-1 text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary"
               >
                 {crumb.name}
               </Link>

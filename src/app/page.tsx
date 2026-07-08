@@ -10,6 +10,7 @@ import { DragProvider } from '@/contexts/drag-context';
 
 type SearchParams = Promise<{
   folder?: string | string[];
+  highlight?: string | string[];
 }>;
 
 function pickSingle(value: string | string[] | undefined): string | null {
@@ -25,20 +26,19 @@ export default async function HomePage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const folderId = pickSingle(params.folder);
+  const rawFolderId = pickSingle(params.folder);
+  const folderId = rawFolderId && rawFolderId.trim() !== '' ? rawFolderId : null;
+  const highlightId = pickSingle(params.highlight);
 
-  // The current folder's display name is the last breadcrumb (or
-  // "My Drive" when at the root). Used as the parent context for
-  // folder dialogs.
   const { path } = await getFolderBreadcrumbs({ folderId });
   const currentName = path[path.length - 1]?.name ?? 'My Drive';
 
   return (
     <DragProvider>
-      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 px-6 py-12">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col gap-8 bg-bg-base px-4 py-8 text-text-primary sm:px-6 sm:py-12">
         <header className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
               My Cloud Drive
             </h1>
             <Breadcrumbs folderId={folderId} />
@@ -47,14 +47,14 @@ export default async function HomePage({
         </header>
 
         <section aria-label="Upload" className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-text-secondary">
             Upload
           </h2>
           <FileUpload folderId={folderId} />
         </section>
 
         <section aria-label="Browse" className="flex flex-col gap-4">
-          <FolderBrowser folderId={folderId} parentName={currentName}>
+          <FolderBrowser folderId={folderId} parentName={currentName} initialSelectedId={highlightId}>
             <FolderList folderId={folderId} />
             <FileListEmpty folderId={folderId} />
             <FileList folderId={folderId} />

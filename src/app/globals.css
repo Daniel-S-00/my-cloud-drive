@@ -1,26 +1,146 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Custom dark theme palette. The user-facing color tokens below are
+ * derived from a Spline design and feed the Tailwind v4 theme system
+ * via the `--color-*` namespace. Each color is exposed as a Tailwind
+ * utility (e.g. `bg-bg-base`, `text-text-primary`, `border-border-subtle`)
+ * and also available as a raw CSS variable (e.g. `var(--color-bg-base)`)
+ * for use in custom styles.
+ *
+ * All values are expressed as space-separated rgb channels so that
+ * Tailwind's opacity modifier (e.g. `bg-accent-primary/20`) keeps
+ * working in Tailwind v4.
+ */
+@theme {
+  --color-bg-base: rgb(10 15 36);
+  --color-bg-surface: rgb(19 28 61);
+  --color-bg-surface-hover: rgb(30 43 84);
+  --color-border-subtle: rgb(43 59 107);
+  --color-text-primary: rgb(242 248 255);
+  --color-text-secondary: rgb(148 167 201);
+  --color-accent-primary: rgb(67 136 221);
+  --color-accent-glow: rgb(110 175 230);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* The app is dark-only. Lock color-scheme so native form controls
+ * and scrollbars use the dark palette. */
+:root {
+  color-scheme: dark;
+  --background: var(--color-bg-base);
+  --foreground: var(--color-text-primary);
+}
+
+html,
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+/* Custom scrollbar styling tuned to the dark palette. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-subtle) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-subtle);
+  border-radius: 8px;
+  border: 2px solid var(--color-bg-base);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-bg-surface-hover);
+}
+
+/*
+ * Responsive tables. Each row in the table renders two siblings:
+ *   - a desktop `<tr>` with class `desktop-row` (hidden on mobile)
+ *   - a mobile `<tr>` with class `mobile-card-row` (hidden on desktop)
+ *     that contains a single full-width cell with a card layout.
+ * On mobile we hide the table header, flatten the table, and let
+ * each mobile-card row render as a stacked list item. The card
+ * itself owns all of its padding/typography so the wrapper `<tr>`
+ * stays layout-neutral.
+ */
+.responsive-table {
+  width: 100%;
+  caption-bottom: text-sm;
+}
+
+@media (max-width: 767px) {
+  .responsive-table thead {
+    display: none;
+  }
+  .responsive-table,
+  .responsive-table tbody {
+    display: block;
+  }
+  /* Each row is rendered as a list item with a hairline divider
+   * between cards. The desktop variant is hidden on mobile. */
+  .responsive-table tr.desktop-row {
+    display: none;
+  }
+  .responsive-table tr.mobile-card-row {
+    display: block;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .responsive-table tr.mobile-card-row:last-child {
+    border-bottom: 0;
+  }
+  .responsive-table .mobile-card-cell {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+  /* The card itself is responsible for its own padding + hover. */
+  .responsive-table .mobile-card {
+    padding: 0.875rem 0.75rem;
+    background-color: var(--color-bg-surface);
+    transition: background-color 150ms ease;
+  }
+  .responsive-table .mobile-card:hover {
+    background-color: var(--color-bg-surface-hover);
+  }
+  /* On mobile, drop the outer wrapper's border so the cards are
+   * the bordered surface (otherwise we'd get a doubled outline). */
+  .responsive-table-host {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (min-width: 768px) {
+  .responsive-table tr.mobile-card-row {
+    display: none;
+  }
+}
+
+/*
+ * The preview dialog uses a custom layout — give the native
+ * <dialog> backdrop a subtle blur so the page behind the modal is
+ * visually muted without losing context entirely.
+ */
+dialog::backdrop {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  background-color: rgb(0 0 0 / 0.55);
 }

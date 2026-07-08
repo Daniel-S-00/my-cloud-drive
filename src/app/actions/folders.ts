@@ -291,7 +291,7 @@ export async function getFolderBreadcrumbs(
   const { id: userId } = await getCurrentUser();
   const path: FolderBreadcrumb[] = [{ id: 'root', name: 'My Drive' }];
 
-  if (input.folderId === null) {
+  if (input.folderId === null || input.folderId.trim() === '') {
     return { path };
   }
 

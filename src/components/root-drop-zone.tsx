@@ -168,8 +168,8 @@ export function RootDropZone() {
         isVisible ? 'flex' : 'hidden',
         'items-center justify-center gap-2 rounded-md border-2 border-dashed px-4 py-2 text-center text-sm transition-colors',
         dragOverRoot
-          ? 'animate-pulse border-blue-400 bg-blue-50 text-blue-800'
-          : 'border-zinc-300 bg-zinc-50 text-zinc-500 hover:border-zinc-400',
+          ? 'animate-pulse border-accent-glow bg-accent-primary/15 text-text-primary'
+          : 'border-border-subtle bg-bg-surface text-text-secondary hover:border-accent-glow',
       ].join(' ')}
     >
       <svg

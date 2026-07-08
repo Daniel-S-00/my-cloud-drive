@@ -8,7 +8,7 @@ export const Card = React.forwardRef<
     <div
       ref={ref}
       className={[
-        'rounded-xl border border-zinc-200 bg-white text-zinc-950 shadow',
+        'rounded-xl border border-border-subtle bg-bg-surface text-text-primary shadow',
         className,
       ]
         .filter(Boolean)
@@ -55,7 +55,7 @@ export const CardDescription = React.forwardRef<
   return (
     <div
       ref={ref}
-      className={['text-sm text-zinc-500', className]
+      className={['text-sm text-text-secondary', className]
         .filter(Boolean)
         .join(' ')}
       {...props}

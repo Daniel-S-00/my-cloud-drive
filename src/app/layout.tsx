@@ -28,13 +28,30 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-bg-base text-text-primary">
         <AuthSessionProvider>
           <Nav />
-          <main className="flex-1">{children}</main>
-          <Toaster richColors position="top-right" closeButton />
+          <main className="flex-1 bg-bg-base text-text-primary">{children}</main>
+          <Toaster
+            theme="dark"
+            position="top-right"
+            closeButton
+            toastOptions={{
+              classNames: {
+                toast:
+                  'bg-bg-surface text-text-primary border border-border-subtle',
+                description: 'text-text-secondary',
+                title: 'text-text-primary',
+                actionButton: 'bg-accent-primary text-text-primary',
+                cancelButton: 'bg-bg-surface-hover text-text-secondary',
+                success: 'border-accent-primary',
+                error: 'border-red-500',
+              },
+            }}
+          />
         </AuthSessionProvider>
       </body>
     </html>

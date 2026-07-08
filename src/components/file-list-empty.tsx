@@ -57,7 +57,7 @@ export async function FileListEmpty({ folderId }: FileListEmptyProps) {
   }
 
   return (
-    <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center text-sm text-zinc-500">
+    <div className="rounded-md border border-dashed border-border-subtle bg-bg-surface p-6 text-center text-sm text-text-secondary">
       {folderId === null
         ? 'Your drive is empty. Drop a file above or click "New folder" to organize your files.'
         : 'This folder is empty. Drop a file above or click "New folder" to organize.'}

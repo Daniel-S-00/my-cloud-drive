@@ -23,11 +23,11 @@ export function TrashBreadcrumbs({ path }: TrashBreadcrumbsProps) {
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex flex-wrap items-center gap-1 text-sm text-zinc-500"
+      className="flex flex-wrap items-center gap-1 text-sm text-text-secondary"
     >
       <Link
         href="/trash"
-        className="rounded px-1 hover:bg-zinc-100 hover:text-zinc-900"
+        className="rounded px-1 text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary"
       >
         {TRASH_ROOT_CRUMB.name}
       </Link>
@@ -35,17 +35,17 @@ export function TrashBreadcrumbs({ path }: TrashBreadcrumbsProps) {
         const isLast = crumb.id === last?.id;
         return (
           <span key={crumb.id} className="flex items-center gap-1">
-            <span aria-hidden className="text-zinc-300">
+            <span aria-hidden className="text-border-subtle">
               /
             </span>
             {isLast ? (
-              <span className="rounded px-1 font-medium text-zinc-700">
+              <span className="rounded px-1 font-medium text-text-primary">
                 {crumb.name}
               </span>
             ) : (
               <Link
                 href={`/trash?folder=${crumb.id}`}
-                className="rounded px-1 hover:bg-zinc-100 hover:text-zinc-900"
+                className="rounded px-1 text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary"
               >
                 {crumb.name}
               </Link>

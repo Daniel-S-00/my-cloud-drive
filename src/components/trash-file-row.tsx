@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { TableCell, TableRow } from '@/components/ui/table';
 import { useTrashDialogs } from '@/contexts/file-dialog-context';
 import {
   emptyTrash,
@@ -51,21 +52,13 @@ function ActionButton({
   variant: 'outline' | 'default' | 'ghost' | 'secondary' | 'destructive';
   children: React.ReactNode;
 }) {
-  // For destructive, fall back to default; we'll add a `destructive`
-  // style to button.tsx shortly. For now reuse ghost.
-  const mapped = variant === 'destructive' ? 'ghost' : variant;
   return (
     <Button
       type="button"
-      variant={mapped}
+      variant={variant}
       size="sm"
       onClick={onClick}
       disabled={disabled}
-      className={
-        variant === 'destructive'
-          ? 'text-red-600 hover:bg-red-50 hover:text-red-700'
-          : undefined
-      }
     >
       {children}
     </Button>
@@ -79,55 +72,125 @@ export function TrashFileRow({ file }: { file: TrashFileRowData }) {
   } = useTrashDialogs();
 
   return (
-    <tr className="border-b transition-colors hover:bg-zinc-50">
-      <td className="p-3 align-middle">
-        <div className="flex flex-col">
-          <span className="truncate font-medium text-zinc-900">
-            {file.name}
-          </span>
-          <span className="text-xs text-zinc-500">
-            {file.mimeType || 'unknown'}
-          </span>
-        </div>
-      </td>
-      <td className="w-32 p-3 align-middle text-zinc-600">
-        {formatBytes(file.sizeBytes)}
-      </td>
-      <td className="w-44 p-3 align-middle text-zinc-600">
-        {formatDate(file.deletedAt)}
-      </td>
-      <td className="w-40 p-3 align-middle">
-        {file.daysRemaining <= 0 ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-            Purge pending
-          </span>
-        ) : file.purgingSoon ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-            {file.daysRemaining} day{file.daysRemaining === 1 ? '' : 's'} left
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
-            {file.daysRemaining} days left
-          </span>
-        )}
-      </td>
-      <td className="w-56 p-3 text-right align-middle">
-        <div className="flex items-center justify-end gap-2">
-          <ActionButton
-            variant="outline"
-            onClick={() => openRestoreDialog(file.id)}
-          >
-            Restore
-          </ActionButton>
-          <ActionButton
-            variant="destructive"
-            onClick={() => openPermanentDeleteDialog(file.id)}
-          >
-            Delete forever
-          </ActionButton>
-        </div>
-      </td>
-    </tr>
+    <>
+      {/* Desktop row (>= md) */}
+      <TableRow className="desktop-row hidden border-b border-border-subtle text-text-primary transition-colors hover:bg-bg-surface-hover md:table-row">
+        <TableCell className="min-w-[12rem] md:min-w-0">
+          <div className="flex min-w-0 flex-col">
+            <span
+              title={file.name}
+              className="min-w-0 break-words font-medium text-text-primary"
+            >
+              {file.name}
+            </span>
+            <span className="text-xs text-text-secondary">
+              {file.mimeType || 'unknown'}
+            </span>
+          </div>
+        </TableCell>
+        <TableCell className="w-32 text-text-secondary">
+          {formatBytes(file.sizeBytes)}
+        </TableCell>
+        <TableCell className="w-44 text-text-secondary">
+          {formatDate(file.deletedAt)}
+        </TableCell>
+        <TableCell className="w-40">
+          {file.daysRemaining <= 0 ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-950/40 px-2 py-0.5 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-500/40">
+              Purge pending
+            </span>
+          ) : file.purgingSoon ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-950/40 px-2 py-0.5 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-500/40">
+              {file.daysRemaining} day{file.daysRemaining === 1 ? '' : 's'} left
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-bg-surface-hover px-2 py-0.5 text-xs font-medium text-text-secondary ring-1 ring-inset ring-border-subtle">
+              {file.daysRemaining} days left
+            </span>
+          )}
+        </TableCell>
+        <TableCell className="w-56 text-right">
+          <div className="flex flex-wrap items-center justify-end gap-2 md:flex-nowrap">
+            <ActionButton
+              variant="outline"
+              onClick={() => openRestoreDialog(file.id)}
+            >
+              Restore
+            </ActionButton>
+            <ActionButton
+              variant="destructive"
+              onClick={() => openPermanentDeleteDialog(file.id)}
+            >
+              Delete forever
+            </ActionButton>
+          </div>
+        </TableCell>
+      </TableRow>
+
+      {/* Mobile card (< md) */}
+      <tr className="mobile-card-row md:hidden">
+        <td className="mobile-card-cell" colSpan={5}>
+          <div className="mobile-card">
+            <div className="flex items-start gap-3">
+              <div
+                aria-hidden
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-bg-surface-hover text-xs font-medium text-text-secondary"
+              >
+                {file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div
+                  title={file.name}
+                  className="truncate font-medium text-text-primary"
+                >
+                  {file.name}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-text-secondary">
+                  {file.mimeType || 'unknown'}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 pl-[3.25rem] text-sm text-text-secondary">
+              <span className="whitespace-nowrap">
+                {formatBytes(file.sizeBytes)}
+              </span>
+              <span aria-hidden className="text-border-subtle">·</span>
+              <span className="whitespace-nowrap">
+                {formatDate(file.deletedAt)}
+              </span>
+              <span aria-hidden className="text-border-subtle">·</span>
+              {file.daysRemaining <= 0 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-950/40 px-2 py-0.5 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-500/40">
+                  Purge pending
+                </span>
+              ) : file.purgingSoon ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-950/40 px-2 py-0.5 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-500/40">
+                  {file.daysRemaining} day{file.daysRemaining === 1 ? '' : 's'} left
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-bg-surface-hover px-2 py-0.5 text-xs font-medium text-text-secondary ring-1 ring-inset ring-border-subtle">
+                  {file.daysRemaining} days left
+                </span>
+              )}
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <ActionButton
+                  variant="outline"
+                  onClick={() => openRestoreDialog(file.id)}
+                >
+                  Restore
+                </ActionButton>
+                <ActionButton
+                  variant="destructive"
+                  onClick={() => openPermanentDeleteDialog(file.id)}
+                >
+                  Delete forever
+                </ActionButton>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </>
   );
 }
 
@@ -236,14 +299,14 @@ export function TrashDialogs({
               <DialogHeader>
                 <DialogTitle>Restore this file?</DialogTitle>
                 <DialogDescription>
-                  <span className="font-medium text-zinc-900">
+                  <span className="font-medium text-text-primary">
                     {active.name}
                   </span>{' '}
                   will be moved back to your drive.
                 </DialogDescription>
               </DialogHeader>
               <DialogBody>
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-text-secondary">
                   If the folder this file came from is also in the trash,
                   it will be restored too (and any of{' '}
                   <em>its</em> parent folders that are in the trash). The
@@ -261,7 +324,7 @@ export function TrashDialogs({
                 </Button>
                 <Button
                   type="button"
-                  variant="default"
+                  variant="primary"
                   onClick={onConfirmRestore}
                   disabled={pending}
                 >
@@ -285,7 +348,7 @@ export function TrashDialogs({
               <DialogHeader>
                 <DialogTitle>Delete forever?</DialogTitle>
                 <DialogDescription>
-                  <span className="font-medium text-zinc-900">
+                  <span className="font-medium text-text-primary">
                     {active.name}
                   </span>{' '}
                   will be permanently removed from your drive AND from R2.
@@ -293,7 +356,7 @@ export function TrashDialogs({
                 </DialogDescription>
               </DialogHeader>
               <DialogBody>
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-text-secondary">
                   If the R2 object is already missing, the database row is
                   still removed and you will see a warning toast.
                 </p>
@@ -309,9 +372,9 @@ export function TrashDialogs({
                 </Button>
                 <Button
                   type="button"
+                  variant="destructive"
                   onClick={onConfirmPermanentDelete}
                   disabled={pending}
-                  className="bg-red-600 text-white hover:bg-red-700"
                 >
                   {pending ? 'Deleting…' : 'Delete forever'}
                 </Button>
@@ -338,7 +401,7 @@ export function TrashDialogs({
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-text-secondary">
               Each file&apos;s R2 object is deleted first, then its database
               row. Trashed folders and their contents are then removed. If an
               R2 object is already missing, the row is still removed and you
@@ -356,9 +419,9 @@ export function TrashDialogs({
             </Button>
             <Button
               type="button"
+              variant="destructive"
               onClick={onConfirmEmpty}
               disabled={pending}
-              className="bg-red-600 text-white hover:bg-red-700"
             >
               {pending ? 'Emptying…' : 'Empty trash'}
             </Button>

@@ -113,10 +113,10 @@ export function DragHandle({
   // The handle is dim while actively dragging and slightly more
   // prominent on hover so the affordance is discoverable.
   const baseClass = [
-    'flex h-7 w-5 cursor-grab items-center justify-center rounded text-zinc-400 transition-colors',
+    'flex h-7 w-5 cursor-grab items-center justify-center rounded text-text-secondary transition-colors',
     isDisabled
       ? 'cursor-not-allowed opacity-40'
-      : 'hover:bg-zinc-100 hover:text-zinc-600 active:cursor-grabbing',
+      : 'hover:bg-bg-surface-hover hover:text-text-primary active:cursor-grabbing',
     isDragging ? 'opacity-40' : '',
     className ?? '',
   ]

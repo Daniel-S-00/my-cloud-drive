@@ -110,24 +110,28 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
 
   return (
     <>
-      <TableRow className="border-b transition-colors hover:bg-zinc-50">
-        <TableCell className="max-w-0">
+      {/* Desktop row (>= md) */}
+      <TableRow className="desktop-row hidden border-b border-border-subtle transition-colors hover:bg-bg-surface-hover md:table-row">
+        <TableCell className="min-w-[12rem] md:min-w-0">
           <button
             type="button"
             onClick={navigateInto}
-            className="flex w-full items-center gap-3 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
+            className="flex w-full min-w-0 items-center gap-3 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
           >
             <span
               aria-hidden
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-zinc-200 bg-amber-50 text-amber-700"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-accent-primary/15 text-accent-glow"
             >
               <FolderIcon className="h-5 w-5" />
             </span>
-            <div className="flex flex-col">
-              <span className="truncate font-medium text-zinc-900 hover:underline">
+            <div className="flex min-w-0 flex-col">
+              <span
+                title={folder.name}
+                className="min-w-0 break-words font-medium text-text-primary hover:underline"
+              >
                 {folder.name}
               </span>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-text-secondary">
                 {folder.filesCount} file{folder.filesCount === 1 ? '' : 's'}
                 {folder.subfoldersCount > 0
                   ? `, ${folder.subfoldersCount} folder${
@@ -138,32 +142,31 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
             </div>
           </button>
         </TableCell>
-        <TableCell className="w-44 text-zinc-600">
+        <TableCell className="w-44 text-text-secondary">
           {formatDate(folder.deletedAt)}
         </TableCell>
         <TableCell className="w-40">
           {folder.daysRemaining <= 0 ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-950/40 px-2 py-0.5 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-500/40">
               Purge pending
             </span>
           ) : folder.purgingSoon ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-950/40 px-2 py-0.5 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-500/40">
               {folder.daysRemaining} day{folder.daysRemaining === 1 ? '' : 's'} left
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-bg-surface-hover px-2 py-0.5 text-xs font-medium text-text-secondary ring-1 ring-inset ring-border-subtle">
               {folder.daysRemaining} days left
             </span>
           )}
         </TableCell>
         <TableCell className="w-56 text-right">
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2 md:flex-nowrap">
             <Button
               type="button"
-              variant="default"
+              variant="primary"
               size="sm"
               onClick={() => setDialog('restore')}
-              className="bg-green-600 text-white hover:bg-green-700"
             >
               Restore
             </Button>
@@ -179,6 +182,79 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
         </TableCell>
       </TableRow>
 
+      {/* Mobile card (< md) */}
+      <tr className="mobile-card-row md:hidden">
+        <td className="mobile-card-cell" colSpan={4}>
+          <div className="mobile-card">
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-accent-primary/15 text-accent-glow"
+              >
+                <FolderIcon className="h-5 w-5" />
+              </span>
+              <button
+                type="button"
+                onClick={navigateInto}
+                className="min-w-0 flex-1 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+              >
+                <div
+                  title={folder.name}
+                  className="truncate font-medium text-text-primary"
+                >
+                  {folder.name}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-text-secondary">
+                  {folder.filesCount} file{folder.filesCount === 1 ? '' : 's'}
+                  {folder.subfoldersCount > 0
+                    ? `, ${folder.subfoldersCount} folder${
+                        folder.subfoldersCount === 1 ? '' : 's'
+                      } inside`
+                    : ' inside'}
+                </div>
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 pl-[3.25rem] text-sm text-text-secondary">
+              <span className="whitespace-nowrap">
+                {formatDate(folder.deletedAt)}
+              </span>
+              <span aria-hidden className="text-border-subtle">·</span>
+              {folder.daysRemaining <= 0 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-950/40 px-2 py-0.5 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-500/40">
+                  Purge pending
+                </span>
+              ) : folder.purgingSoon ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-950/40 px-2 py-0.5 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-500/40">
+                  {folder.daysRemaining} day{folder.daysRemaining === 1 ? '' : 's'} left
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-bg-surface-hover px-2 py-0.5 text-xs font-medium text-text-secondary ring-1 ring-inset ring-border-subtle">
+                  {folder.daysRemaining} days left
+                </span>
+              )}
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setDialog('restore')}
+                >
+                  Restore
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDialog('permanent-delete')}
+                >
+                  Delete forever
+                </Button>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+
       <Dialog
         open={dialog === 'restore'}
         onOpenChange={(open) => {
@@ -189,7 +265,7 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
           <DialogHeader>
             <DialogTitle>Restore this folder?</DialogTitle>
             <DialogDescription>
-              <span className="font-medium text-zinc-900">
+              <span className="font-medium text-text-primary">
                 {folder.name}
               </span>{' '}
               will be moved back to your drive, along with{' '}
@@ -199,7 +275,7 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-text-secondary">
               If the folder this one came from is also in the trash, it will be
               restored too. The bytes in R2 are not touched.
             </p>
@@ -215,9 +291,9 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
             </Button>
             <Button
               type="button"
+              variant="primary"
               onClick={onConfirmRestore}
               disabled={pending}
-              className="bg-green-600 text-white hover:bg-green-700"
             >
               {pending ? 'Restoring…' : 'Restore'}
             </Button>
@@ -235,7 +311,7 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
           <DialogHeader>
             <DialogTitle>Delete forever?</DialogTitle>
             <DialogDescription>
-              <span className="font-medium text-zinc-900">
+              <span className="font-medium text-text-primary">
                 {folder.name}
               </span>{' '}
               and all {folder.filesCount} file
@@ -244,7 +320,7 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-text-secondary">
               Each file&apos;s R2 object is deleted first, then the database
               rows. If an R2 object is already missing, the row is still
               removed and you will see a summary warning.

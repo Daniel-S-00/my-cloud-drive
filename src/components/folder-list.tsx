@@ -1,13 +1,13 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import {
   FolderDialogs,
-  FolderRow,
   type FolderRowData,
 } from '@/components/folder-row';
 import { FolderDialogProvider } from '@/contexts/file-dialog-context';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { folders, type Folder } from '@/server/db/schema';
+import { FolderListClient } from '@/components/folder-list-client';
 
 type FolderListProps = {
   folderId: string | null;
@@ -127,52 +127,14 @@ function FolderListBody({
 }) {
   if (!hasFolders) return null;
 
-  return (
-    <section
-      aria-label="Folders"
-      className="overflow-hidden rounded-md border border-zinc-200 bg-white"
-    >
-      <table className="w-full caption-bottom text-sm">
-        <thead className="border-b bg-zinc-50">
-          <tr>
-            <th
-              scope="col"
-              className="h-10 w-9 px-1 text-left align-middle font-medium text-zinc-500"
-              aria-label="Drag handle"
-            >
-              <span className="sr-only">Drag handle</span>
-            </th>
-            <th className="h-10 px-3 text-left align-middle font-medium text-zinc-500">
-              Name
-            </th>
-            <th className="h-10 w-32 px-3 text-left align-middle font-medium text-zinc-500">
-              Size
-            </th>
-            <th className="h-10 w-44 px-3 text-left align-middle font-medium text-zinc-500">
-              Modified
-            </th>
-            <th className="h-10 w-32 px-3 text-left align-middle font-medium text-zinc-500">
-              Contents
-            </th>
-            <th className="h-10 w-44 px-3 text-right align-middle font-medium text-zinc-500">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((f) => {
-            const row: FolderRowData = {
-              id: f.id,
-              name: f.name,
-              createdAt: f.createdAt.toISOString(),
-              updatedAt: f.updatedAt.toISOString(),
-              filesCount: f.filesCount,
-              subfoldersCount: f.subfoldersCount,
-            };
-            return <FolderRow key={f.id} folder={row} />;
-          })}
-        </tbody>
-      </table>
-    </section>
-  );
+  const folderRows: FolderRowData[] = items.map((f) => ({
+    id: f.id,
+    name: f.name,
+    createdAt: f.createdAt.toISOString(),
+    updatedAt: f.updatedAt.toISOString(),
+    filesCount: f.filesCount,
+    subfoldersCount: f.subfoldersCount,
+  }));
+
+  return <FolderListClient folders={folderRows} />;
 }
