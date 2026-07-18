@@ -1,12 +1,13 @@
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { FileList } from '@/components/file-list';
-import { FileUpload } from '@/components/file-upload';
 import { FolderBrowser } from '@/components/folder-browser';
 import { FolderList } from '@/components/folder-list';
 import { LogoutButton } from '@/components/logout-button';
 import { getFolderBreadcrumbs } from '@/app/actions/folders';
 import { FileListEmpty } from '@/components/file-list-empty';
 import { DragProvider } from '@/contexts/drag-context';
+import { GlobalDropOverlay } from '@/components/global-drop-overlay';
+import { UploadFab } from '@/components/upload-fab';
 
 type SearchParams = Promise<{
   folder?: string | string[];
@@ -46,13 +47,6 @@ export default async function HomePage({
           <LogoutButton />
         </header>
 
-        <section aria-label="Upload" className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-text-secondary">
-            Upload
-          </h2>
-          <FileUpload folderId={folderId} />
-        </section>
-
         <section aria-label="Browse" className="flex flex-col gap-4">
           <FolderBrowser folderId={folderId} parentName={currentName} initialSelectedId={highlightId}>
             <FolderList folderId={folderId} />
@@ -61,6 +55,8 @@ export default async function HomePage({
           </FolderBrowser>
         </section>
       </div>
+      <UploadFab folderId={folderId} />
+      <GlobalDropOverlay folderId={folderId} currentFolderName={currentName} />
     </DragProvider>
   );
 }

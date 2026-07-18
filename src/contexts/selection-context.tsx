@@ -11,6 +11,7 @@ import {
 type SelectionContextValue = {
   selectedId: string | null;
   onSelect: (id: string) => void;
+  shouldScroll: boolean;
 };
 
 const SelectionContext = createContext<SelectionContextValue | null>(null);
@@ -26,12 +27,17 @@ export function SelectionProvider({
     initialSelectedId ?? null,
   );
 
+  const [isAutoSelected, setIsAutoSelected] = useState(!!initialSelectedId);
+
   const onSelect = useCallback((id: string) => {
+    setIsAutoSelected(false);
     setSelectedId((prev) => (prev === id ? null : id));
   }, []);
 
+  const shouldScroll = isAutoSelected && selectedId !== null;
+
   return (
-    <SelectionContext.Provider value={{ selectedId, onSelect }}>
+    <SelectionContext.Provider value={{ selectedId, onSelect, shouldScroll }}>
       {children}
     </SelectionContext.Provider>
   );

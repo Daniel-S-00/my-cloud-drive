@@ -112,7 +112,7 @@ export async function FolderList({ folderId }: FolderListProps) {
 
   return (
     <FolderDialogProvider>
-      <FolderListBody items={items} hasFolders={items.length > 0} />
+      <FolderListBody items={items} folderId={folderId} />
       <FolderDialogs parentFolderName={items[0]?.name ?? ''} />
     </FolderDialogProvider>
   );
@@ -120,13 +120,11 @@ export async function FolderList({ folderId }: FolderListProps) {
 
 function FolderListBody({
   items,
-  hasFolders,
+  folderId,
 }: {
   items: FolderWithCounts[];
-  hasFolders: boolean;
+  folderId: string | null;
 }) {
-  if (!hasFolders) return null;
-
   const folderRows: FolderRowData[] = items.map((f) => ({
     id: f.id,
     name: f.name,
@@ -136,5 +134,15 @@ function FolderListBody({
     subfoldersCount: f.subfoldersCount,
   }));
 
-  return <FolderListClient folders={folderRows} />;
+  // Key on folderId so the client remounts and replays its scale-up
+  // entrance on every folder navigation, not just when the list
+  // flips between empty/non-empty (which caused the animation to
+  // fire inconsistently in the past).
+  return (
+    <FolderListClient
+      key={folderId ?? 'root'}
+      folderId={folderId}
+      folders={folderRows}
+    />
+  );
 }

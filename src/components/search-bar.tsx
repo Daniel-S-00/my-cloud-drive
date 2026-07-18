@@ -3,84 +3,22 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { searchItems, type SearchResult } from '@/app/actions/search';
+import { File as FileIcon, Folder, LoaderCircle, Search, X } from 'lucide-react';
 
 function SearchIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
+  return <Search className={className} aria-hidden />;
 }
 
 function FolderIconSm({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.379a2 2 0 0 1 1.414.586l1.121 1.121A2 2 0 0 0 12.828 7.5H18.5A2.5 2.5 0 0 1 21 10v7.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-10Z"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Folder className={className} aria-hidden />;
 }
 
 function FileIconSm({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2Z"
-        strokeLinejoin="round"
-      />
-      <path d="M14 2v6h6" strokeLinejoin="round" />
-    </svg>
-  );
+  return <FileIcon className={className} aria-hidden />;
 }
 
 function Spinner({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="2"
-        className="opacity-25"
-      />
-      <path
-        d="M4 12a8 8 0 0 1 8-8"
-        stroke="currentColor"
-        strokeWidth="2"
-        className="origin-center animate-spin"
-      />
-    </svg>
-  );
+  return <LoaderCircle className={`${className ?? ''} animate-spin`} aria-hidden />;
 }
 
 function HighlightedName({
@@ -245,17 +183,7 @@ export function SearchBar() {
             className="absolute right-2 flex h-5 w-5 items-center justify-center rounded text-text-secondary hover:text-text-primary transition-colors"
             aria-label="Clear search"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="h-3.5 w-3.5"
-              aria-hidden
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
+            <X className="h-3.5 w-3.5" aria-hidden />
           </button>
         )}
       </div>

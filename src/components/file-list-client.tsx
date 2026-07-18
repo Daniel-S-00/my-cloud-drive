@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FileDialogs,
   type FileDialogsFile,
@@ -8,6 +8,7 @@ import {
 } from '@/components/file-dialogs';
 import { FileGrid, type FileGridFile } from '@/components/file-grid';
 import { FileRow } from '@/components/file-row';
+import { ShareDialog } from '@/components/share-dialog';
 import {
   Table,
   TableBody,
@@ -16,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { FileDialogProvider, useFileDialogs } from '@/contexts/file-dialog-context';
+import { ShareDialogProvider } from '@/contexts/share-dialog-context';
 import { useDragContext } from '@/contexts/drag-context';
 import { useSelection } from '@/contexts/selection-context';
 import { useViewMode } from '@/hooks/use-view-mode';
@@ -23,16 +25,21 @@ import { useViewMode } from '@/hooks/use-view-mode';
 export type FileListRow = FileDialogsFile & {
   createdAt: string;
   uploadStatus: 'pending' | 'uploading' | 'complete' | 'failed';
+  existingShare?: { id: string; shareUrl: string; expiresAt: string | null } | null;
 };
 
 function FileTableView({
   rows,
   selectedId,
   onSelect,
+  shouldScroll,
+  animate,
 }: {
   rows: FileListRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  shouldScroll: boolean;
+  animate: boolean;
 }) {
   return (
     <Table>
@@ -61,12 +68,15 @@ function FileTableView({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((file) => (
+        {rows.map((file, index) => (
           <FileRow
             key={file.id}
             file={file}
+            index={index}
             isSelected={selectedId === file.id}
             onSelect={onSelect}
+            shouldScroll={shouldScroll}
+            animate={animate}
           />
         ))}
       </TableBody>
@@ -93,24 +103,54 @@ export function FileListClient({ rows }: { rows: FileListRow[] }) {
   );
 
   const { viewMode } = useViewMode();
-  const { selectedId, onSelect } = useSelection();
+  const { selectedId, onSelect, shouldScroll } = useSelection();
+
+  // Only play the staggered spawn entrance on the very first mount.
+  // After the first commit we flip `animate` off so later navigations
+  // (entering a folder / returning to root) swap rows without
+  // replaying the per-item animation.
+  const mountedRef = useRef(false);
+  const [animate, setAnimate] = useState(true);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      setAnimate(false);
+    }
+  }, []);
+
+  // No files in this folder: render nothing. The shared <FileListEmpty />
+  // handles the combined "no folders, no files" hint, and an empty
+  // folder with subfolders should just show the folder table.
+  if (rows.length === 0) return null;
 
   return (
     <FileDialogProvider>
-      {viewMode === 'list' ? (
-        <FileTableView
-          rows={rows}
-          selectedId={selectedId}
-          onSelect={onSelect}
-        />
-      ) : (
-        <FileGridWrapper
-          rows={rows}
-          selectedId={selectedId}
-          onSelect={onSelect}
-        />
-      )}
-      <FileDialogs files={dialogFiles} mediaFiles={mediaFiles} />
+      <ShareDialogProvider>
+        <div
+          key={viewMode}
+          className="animate-in fade-in zoom-in-95 duration-300"
+        >
+          {viewMode === 'list' ? (
+            <FileTableView
+              rows={rows}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              shouldScroll={shouldScroll}
+              animate={animate}
+            />
+          ) : (
+            <FileGridWrapper
+              rows={rows}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              shouldScroll={shouldScroll}
+              animate={animate}
+            />
+          )}
+        </div>
+        <FileDialogs files={dialogFiles} mediaFiles={mediaFiles} />
+        <ShareDialog />
+      </ShareDialogProvider>
     </FileDialogProvider>
   );
 }
@@ -119,10 +159,14 @@ function FileGridWrapper({
   rows,
   selectedId,
   onSelect,
+  shouldScroll,
+  animate,
 }: {
   rows: FileListRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  shouldScroll: boolean;
+  animate: boolean;
 }) {
   const { openPreviewDialog } = useFileDialogs();
   const { isMoving } = useDragContext();
@@ -135,6 +179,7 @@ function FileGridWrapper({
         mimeType: r.mimeType,
         thumbnailUrl: r.thumbnailUrl,
         uploadStatus: r.uploadStatus,
+        existingShare: r.existingShare,
       })),
     [rows],
   );
@@ -150,6 +195,8 @@ function FileGridWrapper({
       onSelect={onSelect}
       onOpen={handleOpen}
       isMoving={isMoving}
+      shouldScroll={shouldScroll}
+      animate={animate}
     />
   );
 }

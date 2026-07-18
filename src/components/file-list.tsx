@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { FileListClient, type FileListRow } from '@/components/file-list-client';
+import { getExistingShareForFile } from '@/app/actions/shares';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, type File } from '@/server/db/schema';
@@ -15,6 +16,10 @@ function isImageMimeType(mimeType: string): boolean {
 
 function isVideoMimeType(mimeType: string): boolean {
   return mimeType.toLowerCase().startsWith('video/');
+}
+
+function isAudioMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase().startsWith('audio/');
 }
 
 export async function FileList({ folderId }: FileListProps) {
@@ -35,12 +40,13 @@ export async function FileList({ folderId }: FileListProps) {
     )
     .orderBy(desc(files.createdAt));
 
+  // The Browse section renders a shared empty-state when both
+  // folders and files are empty (see <FileListEmpty />). When the
+  // folder list has rows but the file list is empty, we still render
+  // the client (with no rows) and key it on folderId so it remounts
+  // and replays the scale-up entrance on every navigation.
   if (dbRows.length === 0) {
-    // The Browse section renders a shared empty-state when both
-    // folders and files are empty (see <FileListEmpty />). When the
-    // folder list has rows but the file list is empty, we render
-    // nothing here so the user sees only the folder table.
-    return null;
+    return <FileListClient key={folderId ?? 'root'} rows={[]} />;
   }
 
   // Pre-sign preview URLs SERVER-SIDE for all viewable media (images
@@ -53,7 +59,7 @@ export async function FileList({ folderId }: FileListProps) {
     dbRows.map(async (row) => {
       let thumbnailUrl: string | null = null;
       const isViewable =
-        (isImageMimeType(row.mimeType) || isVideoMimeType(row.mimeType)) &&
+        (isImageMimeType(row.mimeType) || isVideoMimeType(row.mimeType) || isAudioMimeType(row.mimeType)) &&
         row.uploadStatus === 'complete';
       if (isViewable && row.storageKey) {
         try {
@@ -74,9 +80,10 @@ export async function FileList({ folderId }: FileListProps) {
           : '',
         uploadStatus: row.uploadStatus,
         thumbnailUrl,
+        existingShare: await getExistingShareForFile(row.id),
       };
     }),
   );
 
-  return <FileListClient rows={rows} />;
+  return <FileListClient key={folderId ?? 'root'} rows={rows} />;
 }

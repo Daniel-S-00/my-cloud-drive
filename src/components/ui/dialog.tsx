@@ -46,12 +46,136 @@ export type DialogContentProps = Omit<
 > & {
   children: React.ReactNode;
   onClose?: () => void;
+  /** Enables enter/leave CSS transitions instead of the native dialog top layer. */
+  animated?: boolean;
 };
 
-export const DialogContent = React.forwardRef<HTMLDialogElement, DialogContentProps>(
-  function DialogContent({ className, children, onClose, ...props }, ref) {
-    const { open, setOpen, titleId, descriptionId } = useDialogContext('DialogContent');
+/**
+ * Animated dialog using a plain `<div>` (not the native `<dialog>` element).
+ * Uses a simple two-state boolean so open/close transitions are reliable.
+ * GPU-friendly: only `opacity` + `transform: scale()` are animated.
+ */
+function AnimatedDialogContent({
+  className,
+  children,
+  onClose,
+  ...props
+}: Omit<DialogContentProps, 'animated'>) {
+  const { open, setOpen, titleId, descriptionId } = useDialogContext('AnimatedDialogContent');
+  const innerRef = React.useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [shouldRender, setShouldRender] = React.useState(false);
+
+  // Mount phase: when the parent sets open=true, render the DOM, then
+  // flip isOpen on the next frame so the CSS transition plays.
+  React.useEffect(() => {
+    if (open && !shouldRender) {
+      requestAnimationFrame(() => setShouldRender(true));
+    }
+  }, [open, shouldRender]);
+
+  React.useEffect(() => {
+    if (shouldRender) {
+      requestAnimationFrame(() => setIsOpen(true));
+    }
+  }, [shouldRender]);
+
+  // Unmount phase: parent sets open=false → isOpen flips to false →
+  // CSS close transition plays → after 150ms unmount from DOM.
+  React.useEffect(() => {
+    if (!open && shouldRender) {
+      requestAnimationFrame(() => {
+        setIsOpen(false);
+        setTimeout(() => setShouldRender(false), 150);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const handleClose = React.useCallback(() => {
+    setIsOpen(false);
+    setTimeout(() => {
+      setOpen(false);
+      onClose?.();
+    }, 150);
+  }, [setOpen, onClose]);
+
+  // Keyboard: Escape to close
+  React.useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        event.preventDefault();
+        handleClose();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isOpen, handleClose]);
+
+  if (!shouldRender) return null;
+
+  return (
+    <>
+      {/* Manual backdrop overlay with fade */}
+      <div
+        aria-hidden
+        className={[
+          'fixed inset-0 z-50 bg-black/60',
+          'transition-opacity duration-200 ease-out',
+          isOpen ? 'opacity-100' : 'opacity-0',
+        ].join(' ')}
+        onClick={handleClose}
+      />
+      {/* Modal panel with scale + opacity transition */}
+      <div
+        ref={innerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className={[
+          'fixed inset-0 z-50 m-auto flex flex-col h-auto max-h-[85vh] max-w-[calc(100%-2rem)] sm:max-w-[90vw] rounded-xl border border-border-subtle bg-bg-surface p-0 text-text-primary shadow-lg overflow-auto',
+          'transition-all duration-200 ease-out',
+          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95',
+          className,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        onClick={(event) => {
+          if (event.target === innerRef.current) {
+            handleClose();
+          }
+        }}
+        {...(props as React.HTMLAttributes<HTMLDivElement>)}
+      >
+        {children}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Native `<dialog>` rendering using `showModal()` / `close()`.
+ * The browser provides backdrop, focus trapping, and Esc handling.
+ */
+const NativeDialogContent = React.forwardRef<HTMLDialogElement, DialogContentProps>(
+  function NativeDialogContent(
+    { className, children, onClose, ...props },
+    _ref,
+  ) {
+    const { open, setOpen, titleId, descriptionId } =
+      useDialogContext('NativeDialogContent');
     const innerRef = React.useRef<HTMLDialogElement | null>(null);
+
+    // Merge external ref with local ref
+    const setRef = React.useCallback(
+      (node: HTMLDialogElement | null) => {
+        innerRef.current = node;
+        if (typeof _ref === 'function') _ref(node);
+        else if (_ref) (_ref as React.MutableRefObject<HTMLDialogElement | null>).current = node;
+      },
+      [_ref],
+    );
 
     React.useEffect(() => {
       const el = innerRef.current;
@@ -74,21 +198,9 @@ export const DialogContent = React.forwardRef<HTMLDialogElement, DialogContentPr
       return () => el.removeEventListener('close', handleClose);
     }, [setOpen, onClose]);
 
-    const setRefs = React.useCallback(
-      (node: HTMLDialogElement | null) => {
-        innerRef.current = node;
-        if (typeof ref === 'function') {
-          ref(node);
-        } else if (ref) {
-          (ref as React.MutableRefObject<HTMLDialogElement | null>).current = node;
-        }
-      },
-      [ref],
-    );
-
     return (
       <dialog
-        ref={setRefs}
+        ref={setRef}
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         className={[
@@ -107,6 +219,15 @@ export const DialogContent = React.forwardRef<HTMLDialogElement, DialogContentPr
         <div className="overflow-auto">{children}</div>
       </dialog>
     );
+  },
+);
+
+export const DialogContent = React.forwardRef<HTMLDialogElement, DialogContentProps>(
+  function DialogContent({ animated, ...rest }, ref) {
+    if (animated) {
+      return <AnimatedDialogContent {...rest} />;
+    }
+    return <NativeDialogContent ref={ref} {...rest} />;
   },
 );
 

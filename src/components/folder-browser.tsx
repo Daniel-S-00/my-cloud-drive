@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { LayoutGrid, List } from 'lucide-react';
 import { FolderDialogs, NewFolderTrigger } from '@/components/folder-row';
 import { RootDropZone } from '@/components/root-drop-zone';
 import { FolderDialogProvider } from '@/contexts/file-dialog-context';
@@ -16,45 +17,11 @@ type FolderBrowserProps = {
 };
 
 function ListIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <line x1="8" y1="6" x2="21" y2="6" />
-      <line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" />
-      <line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
-  );
+  return <List className={className} aria-hidden />;
 }
 
 function GridIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-    </svg>
-  );
+  return <LayoutGrid className={className} aria-hidden />;
 }
 
 function CleanHighlightParam() {
@@ -72,12 +39,6 @@ function CleanHighlightParam() {
   return null;
 }
 
-/**
- * The browse section of the drive page. Assumes it is rendered
- * inside a <DragProvider> (the page-level provider wraps the
- * breadcrumbs AND this component so that the breadcrumb drop zone
- * and the folder rows share the same drag state).
- */
 export function FolderBrowser({
   folderId,
   parentName,

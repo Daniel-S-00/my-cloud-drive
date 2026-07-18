@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { Folder } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition, type DragEvent } from 'react';
+import { useEffect, useRef, useState, useTransition, type DragEvent } from 'react';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { createFolder, deleteFolder, moveFolder } from '@/app/actions/folders';
@@ -37,32 +38,35 @@ export type FolderRowData = {
 };
 
 function FolderIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.379a2 2 0 0 1 1.414.586l1.121 1.121A2 2 0 0 0 12.828 7.5H18.5A2.5 2.5 0 0 1 21 10v7.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-10Z"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Folder className={className} aria-hidden />;
 }
 
 export function FolderRow({
   folder,
+  index = 0,
   isSelected,
   onSelect,
+  shouldScroll,
+  animate,
 }: {
   folder: FolderRowData;
+  index?: number;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
+  shouldScroll?: boolean;
+  animate?: boolean;
 }) {
+  const desktopRef = useRef<HTMLTableRowElement>(null);
+  const mobileRef = useRef<HTMLTableRowElement>(null);
+
+  useEffect(() => {
+    if (isSelected && shouldScroll) {
+      const el = desktopRef.current ?? mobileRef.current;
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [isSelected, shouldScroll]);
   const { openDeleteDialog } = useFolderDialogs();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -250,6 +254,10 @@ export function FolderRow({
     router.push(`/?folder=${folder.id}`);
   };
 
+  const spawnClass = animate
+    ? 'animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out'
+    : '';
+
   return (
     <>
       {/*
@@ -258,13 +266,15 @@ export function FolderRow({
        * first cell initiates a drag.
        */}
       <TableRow
+        ref={desktopRef}
         onDragOver={onDragOver}
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
-        className={['desktop-row', 'hidden md:table-row', rowClass || '']
+        style={{ animationDelay: `${index * 50}ms` }}
+        className={['desktop-row', 'hidden md:table-row', spawnClass, rowClass || '']
           .filter(Boolean)
           .join(' ')}
       >
@@ -336,9 +346,11 @@ export function FolderRow({
        * <tr> is layout-neutral.
        */}
       <tr
-        className={['mobile-card-row', 'md:hidden', rowClass || '']
+        ref={mobileRef}
+        className={['mobile-card-row', 'md:hidden', spawnClass, rowClass || '']
           .filter(Boolean)
           .join(' ')}
+        style={{ animationDelay: `${index * 50}ms` }}
         onDragOver={onDragOver}
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}

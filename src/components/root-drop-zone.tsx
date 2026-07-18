@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { ArrowUp } from 'lucide-react';
 import { useTransition, type DragEvent } from 'react';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
@@ -172,20 +173,7 @@ export function RootDropZone() {
           : 'border-border-subtle bg-bg-surface text-text-secondary hover:border-accent-glow',
       ].join(' ')}
     >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        className="h-4 w-4"
-        aria-hidden
-      >
-        <path
-          d="M12 19V5M5 12l7-7 7 7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <ArrowUp className="h-4 w-4" aria-hidden />
       <span>
         {pending
           ? 'Moving…'

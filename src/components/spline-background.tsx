@@ -30,7 +30,7 @@ class SplineErrorBoundary extends Component<
 
 export default function SplineBackground() {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div className="absolute inset-0 overflow-hidden">
       <SplineErrorBoundary>
         <Spline scene="/scene.splinecode" className="h-full w-full" />
       </SplineErrorBoundary>

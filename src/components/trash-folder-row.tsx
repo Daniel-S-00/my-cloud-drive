@@ -8,6 +8,7 @@ import {
   restoreFolder,
 } from '@/app/actions/folders';
 import { Button } from '@/components/ui/button';
+import { Folder } from 'lucide-react';
 import {
   Dialog,
   DialogBody,
@@ -33,21 +34,7 @@ export type TrashFolderRowData = {
 type DialogKind = 'restore' | 'permanent-delete' | null;
 
 function FolderIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.379a2 2 0 0 1 1.414.586l1.121 1.121A2 2 0 0 0 12.828 7.5H18.5A2.5 2.5 0 0 1 21 10v7.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-10Z"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Folder className={className} aria-hidden />;
 }
 
 export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {

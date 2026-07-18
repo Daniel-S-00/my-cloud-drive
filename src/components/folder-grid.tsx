@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useTransition, type DragEvent } from 'react';
-import type { ReactNode } from 'react';
+import { Folder } from 'lucide-react';
+import { useEffect, useRef, useTransition, type DragEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { moveFolder } from '@/app/actions/folders';
@@ -20,27 +20,16 @@ export type FolderGridItemData = {
 
 type FolderGridItemProps = {
   folder: FolderGridItemData;
+  index?: number;
   isSelected: boolean;
   onSelect: (id: string) => void;
   dragHandle?: ReactNode;
+  shouldScroll?: boolean;
+  animate?: boolean;
 };
 
 function FolderIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.379a2 2 0 0 1 1.414.586l1.121 1.121A2 2 0 0 0 12.828 7.5H18.5A2.5 2.5 0 0 1 21 10v7.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-10Z"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Folder className={className} aria-hidden />;
 }
 
 function canAcceptDrop(
@@ -54,12 +43,17 @@ function canAcceptDrop(
 
 function FolderGridItem({
   folder,
+  index = 0,
   isSelected,
   onSelect,
   dragHandle,
+  shouldScroll,
+  animate = true,
 }: FolderGridItemProps) {
   const router = useRouter();
+  const itemRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
+
   const {
     dragOverFolderId,
     dragItemRef,
@@ -69,6 +63,10 @@ function FolderGridItem({
   } = useDragContext();
 
   const isHovered = dragOverFolderId === folder.id;
+
+  const spawnClass = animate
+    ? 'animate-in fade-in slide-in-from-bottom-4 duration-200 ease-out'
+    : '';
 
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
     if (!event.dataTransfer.types.includes(DRAG_MIME)) return;
@@ -160,16 +158,25 @@ function FolderGridItem({
   };
 
   const cardClass = [
-    'group relative flex cursor-pointer flex-col rounded-lg border border-border-subtle bg-bg-surface transition-colors hover:bg-bg-surface-hover',
+    'group relative flex cursor-pointer flex-col rounded-lg border border-border-subtle bg-bg-surface transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-accent-primary/10',
+    spawnClass,
     isSelected ? 'ring-2 ring-accent-primary' : '',
     isHovered ? 'bg-accent-primary/15 ring-1 ring-inset ring-accent-glow' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
+  useEffect(() => {
+    if (isSelected && shouldScroll && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isSelected, shouldScroll]);
+
   return (
     <div
+      ref={itemRef}
       className={cardClass}
+      style={{ animationDelay: `${index * 50}ms` }}
       onClick={() => onSelect(folder.id)}
       onDoubleClick={() => router.push(`/?folder=${folder.id}`)}
       onDragOver={onDragOver}
@@ -225,6 +232,8 @@ type FolderGridProps = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   isMoving?: boolean;
+  shouldScroll?: boolean;
+  animate?: boolean;
 };
 
 export function FolderGrid({
@@ -232,17 +241,22 @@ export function FolderGrid({
   selectedId,
   onSelect,
   isMoving = false,
+  shouldScroll,
+  animate = true,
 }: FolderGridProps) {
   if (folders.length === 0) return null;
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      {folders.map((folder) => (
+      {folders.map((folder, index) => (
         <FolderGridItem
           key={folder.id}
           folder={folder}
+          index={index}
           isSelected={selectedId === folder.id}
           onSelect={onSelect}
+          shouldScroll={shouldScroll}
+          animate={animate}
           dragHandle={
             <DragHandle
               item={{ type: 'folder', id: folder.id, name: folder.name }}

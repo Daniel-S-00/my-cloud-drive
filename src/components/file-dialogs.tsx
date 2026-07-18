@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { ChevronLeft, ChevronRight, LoaderCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   deleteFile,
@@ -45,17 +46,20 @@ function formatBytes(bytes: number): string {
 
 /**
  * True for files the Media Viewer can render in-browser. Images are
- * shown via `<Image>`; videos via the native `<video controls>`.
- * PDFs, text, audio, etc. are NOT viewable here — they would need
- * a different renderer.
+ * shown via `<Image>`; videos via the native `<video controls>`;
+ * audio via `<audio controls>`.
  */
 export function isViewableMedia(mimeType: string): boolean {
   const mt = mimeType.toLowerCase();
-  return mt.startsWith('image/') || mt.startsWith('video/');
+  return mt.startsWith('image/') || mt.startsWith('video/') || mt.startsWith('audio/');
 }
 
 function isVideoMimeType(mimeType: string): boolean {
   return mimeType.toLowerCase().startsWith('video/');
+}
+
+function isAudioMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase().startsWith('audio/');
 }
 
 /**
@@ -70,27 +74,7 @@ function PreviewSpinner() {
       aria-live="polite"
       className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 text-sm text-text-secondary"
     >
-      <svg
-        className="h-8 w-8 animate-spin text-accent-glow"
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden
-      >
-        <circle
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeOpacity="0.25"
-          strokeWidth="3"
-        />
-        <path
-          d="M12 2a10 10 0 0 1 10 10"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
+      <LoaderCircle className="h-8 w-8 animate-spin text-accent-glow" aria-hidden />
       <span>Loading preview…</span>
     </div>
   );
@@ -112,8 +96,25 @@ function PreviewBody({ file }: PreviewBodyProps) {
     return <PreviewSpinner />;
   }
 
+  if (isAudioMimeType(file.mimeType)) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-3 md:p-4">
+        <audio
+          key={url}
+          src={url}
+          controls
+          autoPlay
+          preload="metadata"
+          className="w-full max-w-lg"
+        >
+          Your browser does not support audio playback.
+        </audio>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-2">
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden">
       {isVideoMimeType(file.mimeType) ? (
         <video
           key={url}
@@ -122,7 +123,7 @@ function PreviewBody({ file }: PreviewBodyProps) {
           autoPlay
           playsInline
           preload="metadata"
-          className="max-h-[80vh] max-w-full object-contain"
+          className="max-h-full max-w-full object-contain"
         >
           Your browser does not support video playback.
         </video>
@@ -133,7 +134,7 @@ function PreviewBody({ file }: PreviewBodyProps) {
           width={1920}
           height={1080}
           unoptimized
-          className="max-h-[80vh] max-w-full object-contain"
+          className="max-h-full max-w-full object-contain"
         />
       )}
     </div>
@@ -141,43 +142,8 @@ function PreviewBody({ file }: PreviewBodyProps) {
 }
 
 /**
- * Hand-rolled chevron icon. The codebase doesn't depend on
- * lucide-react so we keep the pattern used by the close-X button
- * in this file and the GripVertical in <DragHandle />.
+ * Chevron for prev/next media navigation. Provided by lucide-react.
  */
-function ChevronLeft({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M15 18l-6-6 6-6" />
-    </svg>
-  );
-}
-
-function ChevronRight({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
-}
 
 type PreviewDialogProps = {
   files: FileDialogsFile[];
@@ -261,101 +227,79 @@ function PreviewDialog({
       : null;
 
   return (
-    <DialogContent className="m-auto w-auto max-w-[95vw] max-h-[95vh] overflow-hidden p-0 sm:rounded-xl">
-      <div className="flex max-h-[95vh] min-h-0 w-full flex-col">
-        <DialogHeader className="flex-row items-start justify-between gap-3 border-b border-border-subtle p-4 sm:p-6">
-          <div className="flex min-w-0 flex-col gap-1">
-            <DialogTitle
-              title={activeFile.name}
-              className="break-words text-text-primary"
-            >
-              {activeFile.name}
-            </DialogTitle>
-            <DialogDescription>
-              {activeFile.mimeType || 'Unknown type'} ·{' '}
-              {formatBytes(activeFile.sizeBytes)}
-              {mediaPosition ? (
-                <span className="text-text-secondary/70">
-                  {' · '}
-                  {mediaPosition}
-                </span>
-              ) : null}
-            </DialogDescription>
-          </div>
+    <DialogContent animated className="sm:rounded-xl">
+      <DialogHeader className="flex-row items-start justify-between gap-3 border-b border-border-subtle p-3 md:p-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <DialogTitle
+            title={activeFile.name}
+            className="break-words text-text-primary"
+          >
+            {activeFile.name}
+          </DialogTitle>
+          <DialogDescription>
+            {activeFile.mimeType || 'Unknown type'} ·{' '}
+            {formatBytes(activeFile.sizeBytes)}
+            {mediaPosition ? (
+              <span className="text-text-secondary/70">
+                {' · '}
+                {mediaPosition}
+              </span>
+            ) : null}
+          </DialogDescription>
+        </div>
+        <button
+          type="button"
+          onClick={closeDialog}
+          aria-label="Close preview"
+          className="-m-2 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+        >
+          <X className="h-5 w-5" aria-hidden />
+        </button>
+      </DialogHeader>
+      <div className="relative flex min-h-[300px] flex-1 flex-col bg-bg-base">
+        <PreviewBody key={activeFile.id} file={activeFile} />
+        {canGoPrev ? (
           <button
             type="button"
-            onClick={closeDialog}
-            aria-label="Close preview"
-            className="-m-2 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+            onClick={goPrev}
+            aria-label={`Previous media (${mediaFiles[mediaIndex - 1]?.name ?? ''})`}
+            className="absolute left-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:flex"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-              aria-hidden
-            >
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
+            <ChevronLeft className="h-6 w-6" />
           </button>
-        </DialogHeader>
-        <div className="relative flex min-h-0 flex-1 flex-col bg-bg-base">
-          <PreviewBody key={activeFile.id} file={activeFile} />
-          {/*
-           * Prev / next navigation buttons. Absolutely positioned
-           * over the preview area, vertically centered. The semi-
-           * transparent surface + backdrop blur keeps them visible
-           * against light or dark media without obscuring it.
-           * Hidden on mobile (swipe / keyboard are still
-           * available) and on the ends of the list.
-           */}
-          {canGoPrev ? (
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label={`Previous media (${mediaFiles[mediaIndex - 1]?.name ?? ''})`}
-              className="absolute left-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:flex"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </button>
-          ) : null}
-          {canGoNext ? (
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label={`Next media (${mediaFiles[mediaIndex + 1]?.name ?? ''})`}
-              className="absolute right-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:flex"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </button>
-          ) : null}
-        </div>
-        <DialogFooter className="flex-row items-center justify-between gap-3 border-t border-border-subtle p-4 sm:p-6">
-          <span className="text-xs text-text-secondary/70">
-            Use{' '}
-            <kbd className="rounded border border-border-subtle bg-bg-surface-hover px-1 font-mono text-[0.7rem]">
-              ←
-            </kbd>{' '}
-            <kbd className="rounded border border-border-subtle bg-bg-surface-hover px-1 font-mono text-[0.7rem]">
-              →
-            </kbd>{' '}
-            to browse ·{' '}
-            <kbd className="rounded border border-border-subtle bg-bg-surface-hover px-1 font-mono text-[0.7rem]">
-              Esc
-            </kbd>{' '}
-            to close
-          </span>
-          <Button
+        ) : null}
+        {canGoNext ? (
+          <button
             type="button"
-            variant="primary"
-            onClick={() => onDownload(activeFile.id)}
+            onClick={goNext}
+            aria-label={`Next media (${mediaFiles[mediaIndex + 1]?.name ?? ''})`}
+            className="absolute right-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:flex"
           >
-            Download
-          </Button>
-        </DialogFooter>
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        ) : null}
+      </div>
+      <div className="flex flex-col-reverse items-center justify-between gap-2 border-t border-border-subtle p-3 md:flex-row md:p-4">
+        <span className="flex items-center gap-1 text-xs text-text-secondary/70">
+          <kbd className="rounded border border-border-subtle bg-bg-surface-hover px-1 font-mono text-[0.7rem]">
+            ←
+          </kbd>
+          <kbd className="rounded border border-border-subtle bg-bg-surface-hover px-1 font-mono text-[0.7rem]">
+            →
+          </kbd>
+          to browse ·
+          <kbd className="rounded border border-border-subtle bg-bg-surface-hover px-1 font-mono text-[0.7rem]">
+            Esc
+          </kbd>
+          to close
+        </span>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => onDownload(activeFile.id)}
+        >
+          Download
+        </Button>
       </div>
     </DialogContent>
   );
@@ -459,7 +403,7 @@ export function FileDialogs({ files, mediaFiles: mediaFilesProp }: FileDialogsPr
           if (!open) closeDialog();
         }}
       >
-        <DialogContent>
+        <DialogContent animated>
           {fileToDelete ? (
             <>
               <DialogHeader>

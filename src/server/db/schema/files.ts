@@ -33,9 +33,7 @@ export const files = pgTable(
     storageKey: text('storage_key').notNull(),
     mimeType: text('mime_type').notNull().default('application/octet-stream'),
     sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
-    etag: text('etag'),
     uploadStatus: uploadStatus('upload_status').notNull().default('pending'),
-    r2UploadId: text('r2_upload_id'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),

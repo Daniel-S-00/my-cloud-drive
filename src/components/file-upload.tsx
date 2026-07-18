@@ -16,10 +16,9 @@ function formatBytes(bytes: number): string {
 
 type FileUploadProps = {
   folderId: string | null;
-  onUploadComplete?: () => void;
 };
 
-export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
+export function FileUpload({ folderId }: FileUploadProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [activeFile, setActiveFile] = useState<File | null>(null);
@@ -39,11 +38,11 @@ export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const file = files[0];
-    if (!file) return;
-    setActiveFile(file);
-    await upload(file);
-    if (onUploadComplete) onUploadComplete();
+    const fileArray = Array.from(files);
+    for (const file of fileArray) {
+      setActiveFile(file);
+      await upload(file);
+    }
     router.refresh();
   };
 
@@ -107,7 +106,7 @@ export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
         ].join(' ')}
       >
         <p className="text-base font-medium text-text-primary">
-          Drop a file to upload
+          Drop files to upload
         </p>
         <p className="text-sm text-text-secondary">or</p>
         <Button
@@ -121,6 +120,7 @@ export function FileUpload({ folderId, onUploadComplete }: FileUploadProps) {
         <input
           ref={inputRef}
           type="file"
+          multiple
           className="hidden"
           onChange={onChange}
           disabled={isUploading}

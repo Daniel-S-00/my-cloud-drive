@@ -1,10 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { Play, Music } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { generateDownloadUrl } from '@/app/actions/files';
 import { Button } from '@/components/ui/button';
+import { ShareButton } from '@/components/share-button';
 import { DragHandle } from '@/components/drag-handle';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
@@ -18,6 +20,7 @@ type FileRowData = {
   createdAt: string;
   uploadStatus: 'pending' | 'uploading' | 'complete' | 'failed';
   thumbnailUrl?: string | null | undefined;
+  existingShare?: { id: string; shareUrl: string; expiresAt: string | null } | null;
 };
 
 function isImageMimeType(mimeType: string): boolean {
@@ -26,6 +29,10 @@ function isImageMimeType(mimeType: string): boolean {
 
 function isVideoMimeType(mimeType: string): boolean {
   return mimeType.toLowerCase().startsWith('video/');
+}
+
+function isAudioMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase().startsWith('audio/');
 }
 
 function formatBytes(bytes: number): string {
@@ -41,15 +48,33 @@ import { formatDateTime as formatDate } from '@/lib/format-date';
 
 export function FileRow({
   file,
+  index = 0,
   isSelected,
   onSelect,
+  shouldScroll,
+  animate,
 }: {
   file: FileRowData;
+  index?: number;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
+  shouldScroll?: boolean;
+  animate?: boolean;
 }) {
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  const mobileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isSelected && shouldScroll) {
+      const el = rowRef.current ?? mobileRef.current;
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [isSelected, shouldScroll]);
   const isImage = isImageMimeType(file.mimeType);
   const isVideo = isVideoMimeType(file.mimeType);
+  const isAudio = isAudioMimeType(file.mimeType);
   const inFlight =
     file.uploadStatus === 'pending' || file.uploadStatus === 'uploading';
   const isComplete = file.uploadStatus === 'complete';
@@ -58,6 +83,7 @@ export function FileRow({
   const { draggedItem, isMoving } = useDragContext();
 
   const [isDownloading, setIsDownloading] = useState(false);
+  const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
 
   const isSelfDragged =
     draggedItem?.type === 'file' && draggedItem.id === file.id;
@@ -97,19 +123,26 @@ export function FileRow({
   };
 
   const handleRowDoubleClick = () => {
-    if (isComplete && (isImage || isVideo)) {
+    if (isComplete && (isImage || isVideo || isAudio)) {
       openPreviewDialog(file.id);
     }
   };
 
+  const spawnClass = animate
+    ? 'animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out'
+    : '';
+
   return (
     <>
       <TableRow
+        ref={rowRef}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
+        style={{ animationDelay: `${index * 50}ms` }}
         className={[
           'desktop-row',
           'hidden md:table-row',
+          spawnClass,
           isSelfDragged ? 'opacity-50' : '',
           isSelected ? 'bg-accent-primary/10' : '',
           'cursor-pointer',
@@ -131,29 +164,28 @@ export function FileRow({
           <div className="flex min-w-0 items-center gap-3">
             {isImage && isComplete ? (
               <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
-                {thumbnailUrl ? (
+                {!thumbnailLoaded && (
+                  <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-bg-surface via-bg-surface-hover to-bg-surface" />
+                )}
+                {thumbnailUrl && (
                   <Image
                     src={thumbnailUrl}
                     alt=""
                     fill
                     sizes="40px"
                     unoptimized
-                    className="object-cover"
+                    onLoad={() => setThumbnailLoaded(true)}
+                    className={`object-cover transition-opacity duration-300 ${thumbnailLoaded ? 'opacity-100' : 'opacity-0'}`}
                   />
-                ) : (
-                  <span className="absolute inset-0 animate-pulse bg-bg-surface-hover" />
                 )}
               </div>
             ) : isVideo && isComplete ? (
               <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-accent-primary/15 text-accent-glow">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="h-5 w-5"
-                  aria-hidden
-                >
-                  <path d="M8 5.5v13a.5.5 0 0 0 .77.42l10-6.5a.5.5 0 0 0 0-.84l-10-6.5A.5.5 0 0 0 8 5.5Z" />
-                </svg>
+                  <Play className="h-5 w-5" aria-hidden />
+              </div>
+            ) : isAudio && isComplete ? (
+              <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-accent-primary/15 text-accent-glow">
+                <Music className="h-5 w-5" aria-hidden />
               </div>
             ) : (
               <div
@@ -194,6 +226,11 @@ export function FileRow({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-wrap items-center justify-end gap-2 md:flex-nowrap">
+            <ShareButton
+              fileId={file.id}
+              fileName={file.name}
+              existing={file.existingShare}
+            />
             <Button
               type="button"
               variant="outline"
@@ -221,9 +258,10 @@ export function FileRow({
        * vertical stack: thumbnail + name (top), then size · date
        * · actions (bottom).
        */}
-      <tr className="mobile-card-row md:hidden">
+      <tr className={['mobile-card-row', 'md:hidden', spawnClass].filter(Boolean).join(' ')} style={{ animationDelay: `${index * 50}ms` }}>
         <td className="mobile-card-cell" colSpan={6}>
           <div
+            ref={mobileRef}
             onClick={handleRowClick}
             onDoubleClick={handleRowDoubleClick}
             className={[
@@ -239,29 +277,28 @@ export function FileRow({
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
                 {isImage && isComplete ? (
                   <div className="relative h-full w-full">
-                    {thumbnailUrl ? (
+                    {!thumbnailLoaded && (
+                      <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-bg-surface via-bg-surface-hover to-bg-surface" />
+                    )}
+                    {thumbnailUrl && (
                       <Image
                         src={thumbnailUrl}
                         alt=""
                         fill
                         sizes="40px"
                         unoptimized
-                        className="object-cover"
+                        onLoad={() => setThumbnailLoaded(true)}
+                        className={`object-cover transition-opacity duration-300 ${thumbnailLoaded ? 'opacity-100' : 'opacity-0'}`}
                       />
-                    ) : (
-                      <span className="absolute inset-0 animate-pulse bg-bg-surface-hover" />
                     )}
                   </div>
                 ) : isVideo && isComplete ? (
                   <div className="flex h-full w-full items-center justify-center bg-accent-primary/15 text-accent-glow">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="h-5 w-5"
-                      aria-hidden
-                    >
-                      <path d="M8 5.5v13a.5.5 0 0 0 .77.42l10-6.5a.5.5 0 0 0 0-.84l-10-6.5A.5.5 0 0 0 8 5.5Z" />
-                    </svg>
+                    <Play className="h-5 w-5" aria-hidden />
+                  </div>
+                ) : isAudio && isComplete ? (
+                  <div className="flex h-full w-full items-center justify-center bg-accent-primary/15 text-accent-glow">
+                    <Music className="h-5 w-5" aria-hidden />
                   </div>
                 ) : (
                   <span aria-hidden className="text-xs font-medium text-text-secondary">
@@ -327,6 +364,11 @@ export function FileRow({
                 className="ml-auto flex flex-wrap items-center gap-2"
                 onClick={(e) => e.stopPropagation()}
               >
+                <ShareButton
+                  fileId={file.id}
+                  fileName={file.name}
+                  existing={file.existingShare}
+                />
                 <Button
                   type="button"
                   variant="outline"

@@ -12,6 +12,7 @@ type NavItem = {
 
 const ITEMS: NavItem[] = [
   { href: '/', label: 'My Drive', matchPrefix: '/' },
+  { href: '/shares', label: 'Shares', matchPrefix: '/shares' },
   { href: '/trash', label: 'Trash', matchPrefix: '/trash' },
 ];
 
