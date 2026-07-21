@@ -90,7 +90,7 @@ Thumbs.db
 .psql_history
 
 
-# Graphify (spec-driven dev tooling)
-graphify-out/manifest.json
+# Graphify
+graphify-out/**/manifest.json
 graphify-out/cost.json
 graphify-out/cache/
