@@ -37,13 +37,11 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    setInfo(null);
     setIsPending(true);
     try {
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -76,8 +74,12 @@ export default function SignupPage() {
         router.push('/');
         router.refresh();
       } else {
-        setInfo(
-          'Check your email to confirm your account, then sign in.',
+        // Email confirmation is required — redirect to the
+        // verify-email page so the user knows to check their inbox.
+        router.push(
+          `/verify-email?email=${encodeURIComponent(
+            data.user?.email ?? email,
+          )}`,
         );
       }
     } catch {
@@ -124,14 +126,27 @@ export default function SignupPage() {
               </p>
             </div>
             {error && (
-              <p className="text-sm text-red-400" role="alert">
-                {error}
-              </p>
-            )}
-            {info && (
-              <p className="text-sm text-accent-glow" role="status">
-                {info}
-              </p>
+              <div className="text-sm text-red-400" role="alert">
+                <p>{error}</p>
+                {error.toLowerCase().includes('already') && (
+                  <div className="mt-1 flex gap-2">
+                    <Link
+                      href="/login"
+                      className="font-medium underline underline-offset-2"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      href={`/verify-email?email=${encodeURIComponent(
+                        email.trim().toLowerCase(),
+                      )}`}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      Resend verification
+                    </Link>
+                  </div>
+                )}
+              </div>
             )}
             <Button type="submit" variant="primary" disabled={isPending}>
               {isPending ? 'Creating account...' : 'Create account'}

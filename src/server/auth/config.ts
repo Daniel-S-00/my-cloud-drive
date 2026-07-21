@@ -79,6 +79,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         if (error || !data.user) return null;
 
+        // Block unverified emails from signing in via credentials.
+        // OAuth providers (Google/GitHub) bypass this check entirely
+        // because they verify the email themselves.
+        if (
+          !data.user.email_confirmed_at &&
+          !data.user.user_metadata?.email_verified
+        ) {
+          throw new Error(
+            'Please verify your email before signing in. Check your inbox or request a new verification link.',
+          );
+        }
+
         return {
           id: data.user.id,
           email: data.user.email ?? null,

@@ -25,6 +25,9 @@ const OAUTH_ERRORS: Record<string, string> = {
     'An account with this email already exists. Sign in with email instead.',
   Callback: 'Authentication failed. Please try again.',
   SessionRequired: 'You must be signed in to view this page.',
+  'verification-failed': 'Verification failed. Please try again.',
+  'verification-expired':
+    'Your verification link has expired. Request a new one.',
   default: 'Authentication failed. Please try again.',
 };
 
@@ -36,6 +39,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
@@ -48,6 +52,7 @@ export default function LoginPage() {
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    setNeedsVerification(false);
     setIsPending(true);
     try {
       const result = await signIn('credentials', {
@@ -56,7 +61,17 @@ export default function LoginPage() {
         redirect: false,
       });
       if (!result || result.error) {
-        setError('Invalid email or password.');
+        const msg = result?.error ?? '';
+        if (
+          msg.includes('verify') ||
+          msg.includes('confirm') ||
+          msg.includes('verification')
+        ) {
+          setNeedsVerification(true);
+          setError(result?.error ?? 'Please verify your email first.');
+        } else {
+          setError('Invalid email or password.');
+        }
         return;
       }
       router.push(callbackUrl);
@@ -107,6 +122,17 @@ export default function LoginPage() {
             {error && (
               <p className="text-sm text-red-400" role="alert">
                 {error}
+                {needsVerification && (
+                  <>
+                    {' '}
+                    <Link
+                      href={`/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}`}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      Resend verification email
+                    </Link>
+                  </>
+                )}
               </p>
             )}
             <Button type="submit" variant="primary" disabled={isPending}>
