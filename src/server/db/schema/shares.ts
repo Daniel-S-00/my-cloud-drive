@@ -26,6 +26,7 @@ export const shares = pgTable(
       .defaultNow()
       .notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     viewCount: integer('view_count').notNull().default(0),
   },
   (t) => ({

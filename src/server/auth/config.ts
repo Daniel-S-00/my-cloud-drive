@@ -4,6 +4,9 @@ import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 import { SupabaseAdapter } from '@auth/supabase-adapter';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { eq } from 'drizzle-orm';
+import { db } from '@/server/db/client';
+import { users } from '@/server/db/schema';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -88,6 +91,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ) {
           throw new Error(
             'Please verify your email before signing in. Check your inbox or request a new verification link.',
+          );
+        }
+
+        // Check if the account is scheduled for deletion.
+        const [deletedUser] = await db
+          .select({ deletedAt: users.deletedAt })
+          .from(users)
+          .where(eq(users.id, data.user.id))
+          .limit(1);
+
+        if (deletedUser?.deletedAt) {
+          throw new Error(
+            'This account has been deactivated. Please contact support.',
           );
         }
 

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { Settings } from 'lucide-react';
 import { SearchBar } from '@/components/search-bar';
 
 type NavItem = {
@@ -76,6 +77,21 @@ export function NavLinks({ trashCount }: { trashCount: number }) {
       })}
       <div className="hidden sm:block sm:ml-auto" />
       <SearchBar />
+      <div className="flex items-center">
+        <Link
+          href="/settings"
+          className={[
+            'flex items-center gap-2 rounded-md px-2 py-1.5 font-medium transition-colors',
+            pathname === '/settings'
+              ? 'bg-accent-primary text-white'
+              : 'text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary',
+          ].join(' ')}
+          title="Settings"
+        >
+          <Settings className="h-4 w-4" />
+          <span className="sm:hidden">Settings</span>
+        </Link>
+      </div>
     </>
   );
 }

@@ -69,6 +69,11 @@ export default function LoginPage() {
         ) {
           setNeedsVerification(true);
           setError(result?.error ?? 'Please verify your email first.');
+        } else if (
+          msg.includes('deactivated') ||
+          msg.includes('deleted')
+        ) {
+          setError(result?.error ?? 'This account has been deactivated.');
         } else {
           setError('Invalid email or password.');
         }

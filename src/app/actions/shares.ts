@@ -7,7 +7,7 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
-import { files, shares } from '@/server/db/schema';
+import { files, shares, users } from '@/server/db/schema';
 import { r2, R2_BUCKET } from '@/server/storage/r2';
 
 // URL-safe alphabet (no look-alike chars), 12 chars.
@@ -333,16 +333,24 @@ export async function getShareByToken(
       createdAt: shares.createdAt,
       expiresAt: shares.expiresAt,
       viewCount: shares.viewCount,
+      shareDeletedAt: shares.deletedAt,
       fileId2: files.id,
       fileName: files.name,
       mimeType: files.mimeType,
       sizeBytes: files.sizeBytes,
       fileDeletedAt: files.deletedAt,
+      ownerDeletedAt: users.deletedAt,
     })
     .from(shares)
     .innerJoin(files, eq(shares.fileId, files.id))
+    .innerJoin(users, eq(shares.createdBy, users.id))
     .where(
-      and(eq(shares.token, token), isNull(files.deletedAt)),
+      and(
+        eq(shares.token, token),
+        isNull(files.deletedAt),
+        isNull(shares.deletedAt),
+        isNull(users.deletedAt),
+      ),
     )
     .limit(1);
 

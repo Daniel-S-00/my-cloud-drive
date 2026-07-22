@@ -6,6 +6,11 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deletionScheduledFor: timestamp('deletion_scheduled_for', {
+    withTimezone: true,
+  }),
+  originalEmail: text('original_email'),
 });
 
 export type User = typeof users.$inferSelect;
