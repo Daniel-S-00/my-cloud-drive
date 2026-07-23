@@ -4,7 +4,7 @@ import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 import { SupabaseAdapter } from '@auth/supabase-adapter';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { db } from '@/server/db/client';
 import { users } from '@/server/db/schema';
 
@@ -132,6 +132,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      // OAuth providers sign in with an email that may belong to a
+      // deleted account. Block sign-in so the user sees the recovery
+      // link instead of silently creating a duplicate account.
+      if (account?.provider !== 'credentials' && user?.email) {
+        const email = user.email.toLowerCase();
+        const [match] = await db
+          .select({ deletedAt: users.deletedAt })
+          .from(users)
+          .where(
+            or(
+              eq(users.email, email),
+              eq(users.originalEmail, email),
+            ),
+          )
+          .limit(1);
+
+        if (match?.deletedAt) {
+          return '/login?error=account-deleted';
+        }
+      }
+      return true;
+    },
     async jwt({ token, user }) {
       if (user?.id) {
         token.sub = user.id;

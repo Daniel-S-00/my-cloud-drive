@@ -80,6 +80,10 @@ export function DeleteAccountDialog({
             <li>You will be signed out immediately</li>
             <li>You cannot sign in during the grace period</li>
           </ul>
+          <p className="text-sm text-accent-glow">
+            A recovery link will be sent to your email. You have 30 days
+            to change your mind.
+          </p>
           <p className="font-medium text-red-400">
             This cannot be undone after 30 days.
           </p>

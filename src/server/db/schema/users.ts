@@ -11,6 +11,10 @@ export const users = pgTable('users', {
     withTimezone: true,
   }),
   originalEmail: text('original_email'),
+  recoveryToken: text('recovery_token').unique(),
+  recoveryTokenExpiresAt: timestamp('recovery_token_expires_at', {
+    withTimezone: true,
+  }),
 });
 
 export type User = typeof users.$inferSelect;

@@ -39,12 +39,21 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
+    const recovered = searchParams.get('recovered');
+    if (recovered === 'true') {
+      setInfo('Your account has been restored. You can now sign in.');
+    }
     const oauthError = searchParams.get('error');
-    if (oauthError) {
+    if (oauthError === 'account-deleted') {
+      setError(
+        'This account is scheduled for deletion. Recover it to sign in again.',
+      );
+    } else if (oauthError) {
       setError(OAUTH_ERRORS[oauthError] ?? OAUTH_ERRORS.default);
     }
   }, [searchParams]);
@@ -124,6 +133,11 @@ export default function LoginPage() {
                 disabled={isPending}
               />
             </div>
+            {info && (
+              <p className="text-sm text-accent-glow" role="status">
+                {info}
+              </p>
+            )}
             {error && (
               <p className="text-sm text-red-400" role="alert">
                 {error}
@@ -139,6 +153,14 @@ export default function LoginPage() {
                   </>
                 )}
               </p>
+            )}
+            {error?.includes('deletion') && (
+              <Link
+                href="/recover-account"
+                className="text-sm text-accent-glow hover:underline"
+              >
+                Recover your account
+              </Link>
             )}
             <Button type="submit" variant="primary" disabled={isPending}>
               {isPending ? 'Signing in...' : 'Sign in'}
@@ -174,7 +196,7 @@ export default function LoginPage() {
             </Button>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col gap-2">
           <p className="text-sm text-text-secondary">
             Don&apos;t have an account?{' '}
             <Link
@@ -184,6 +206,12 @@ export default function LoginPage() {
               Sign up
             </Link>
           </p>
+          <Link
+            href="/recover-account"
+            className="text-xs text-text-secondary underline-offset-2 hover:text-text-primary hover:underline"
+          >
+            Need to recover a deleted account?
+          </Link>
         </CardFooter>
     </AuthShell>
   );

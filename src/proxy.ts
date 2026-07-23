@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { auth } from '@/server/auth/config';
 
-const PUBLIC_PREFIXES = ['/login', '/signup', '/api/auth', '/auth', '/verify-email', '/s'];
+const PUBLIC_PREFIXES = ['/login', '/signup', '/api/auth', '/auth', '/verify-email', '/recover-account', '/s'];
 const PUBLIC_EXACT = new Set<string>(['/login', '/signup']);
 const ROOT_PATH = '/';
 
