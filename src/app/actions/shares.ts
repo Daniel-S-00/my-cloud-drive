@@ -19,9 +19,11 @@ const generateToken = customAlphabet(
 const TOKEN_MAX_DAYS = 365;
 
 function buildShareUrl(token: string): string {
-  const override = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
-  if (override) {
-    return `${override}/s/${token}`;
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
+    (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000');
+  if (base) {
+    return `${base}/s/${token}`;
   }
   return `/s/${token}`;
 }

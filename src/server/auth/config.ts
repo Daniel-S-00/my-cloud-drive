@@ -8,6 +8,7 @@ import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { db } from '@/server/db/client';
 import { user2fa, users } from '@/server/db/schema';
 import { generatePendingToken } from '@/server/security/pending-tokens';
+import { validateProductionEnv } from '@/server/env';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -38,6 +39,9 @@ function createSupabaseAuthClient(
 // Env reads are still deferred via getters on the SupabaseAdapter
 // options, so a missing var only breaks the actual R2/Supabase call,
 // not module load.
+//
+// In production, validate critical secrets before accepting traffic.
+validateProductionEnv();
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: SupabaseAdapter({
     get url() {

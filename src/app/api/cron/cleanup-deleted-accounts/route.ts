@@ -9,9 +9,18 @@ import { db } from '@/server/db/client';
 import { files, folders, shares, users } from '@/server/db/schema';
 import { r2, R2_BUCKET } from '@/server/storage/r2';
 
+export async function GET(req: NextRequest) {
+  return handleCleanup(req);
+}
+
 export async function POST(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret');
-  if (!secret || secret !== process.env.CRON_SECRET) {
+  return handleCleanup(req);
+}
+
+async function handleCleanup(req: NextRequest) {
+  const header = req.headers.get('authorization') ?? '';
+  const expected = `Bearer ${process.env.CRON_SECRET}`;
+  if (!header || header !== expected) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
