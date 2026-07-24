@@ -200,6 +200,8 @@ export async function verify2FALogin(
 
   const secret = decrypt(row.secret);
   let valid = verifyToken(secret, code);
+  let backupIdx = -1;
+  let backupHashedCodes: string[] | null = null;
 
   if (!valid && row.backupCodes) {
     const hashedCodes: string[] = JSON.parse(row.backupCodes);
@@ -207,12 +209,8 @@ export async function verify2FALogin(
 
     if (idx !== -1) {
       valid = true;
-      // Remove the used backup code.
-      hashedCodes.splice(idx, 1);
-      await db
-        .update(user2fa)
-        .set({ backupCodes: JSON.stringify(hashedCodes) })
-        .where(eq(user2fa.userId, pending.userId));
+      backupIdx = idx;
+      backupHashedCodes = hashedCodes;
     }
   }
 
@@ -267,14 +265,6 @@ export async function verify2FALogin(
     maxAge: 30 * 24 * 60 * 60, // 30 days
   });
 
-  // eslint-disable-next-line no-console
-  console.log(
-    '[verify2FALogin] writing session cookie for user',
-    dbUser.id,
-    'name=',
-    cookieName,
-  );
-
   const cookieStore = await cookies();
   cookieStore.set(cookieName, token, {
     httpOnly: true,
@@ -284,8 +274,16 @@ export async function verify2FALogin(
     maxAge: 30 * 24 * 60 * 60,
   });
 
-  // eslint-disable-next-line no-console
-  console.log('[verify2FALogin] session cookie written');
+  // The session cookie is now written. Only now do we consume a
+  // single-use backup code so that a code is never spent on a
+  // verify that didn't result in a live session.
+  if (backupIdx !== -1 && backupHashedCodes) {
+    backupHashedCodes.splice(backupIdx, 1);
+    await db
+      .update(user2fa)
+      .set({ backupCodes: JSON.stringify(backupHashedCodes) })
+      .where(eq(user2fa.userId, pending.userId));
+  }
 
   return {
     ok: true,

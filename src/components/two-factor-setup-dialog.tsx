@@ -49,8 +49,6 @@ export function TwoFactorSetupDialog({
   };
 
   const doSetup2FA = async () => {
-    // eslint-disable-next-line no-console
-    console.log('[2FA dialog] calling setup2FA');
     setIsLoading(true);
     setError(null);
     setQrCodeImage(null);
@@ -71,8 +69,6 @@ export function TwoFactorSetupDialog({
   // invoked on close — nothing calls it for open. So we use a
   // useEffect on the `open` prop to detect when we're being opened.
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[2FA dialog] useEffect fired, open=', open);
     if (open) {
       reset();
       void doSetup2FA();
