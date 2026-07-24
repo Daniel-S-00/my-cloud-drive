@@ -71,6 +71,20 @@ export default function LoginPage() {
       });
       if (!result || result.error) {
         const msg = result?.error ?? '';
+
+        // Check for 2FA challenge.
+        if (msg.includes('2fa_required')) {
+          try {
+            const parsed = JSON.parse(msg);
+            if (parsed.type === '2fa_required' && parsed.pendingToken) {
+              router.push(`/verify-2fa?token=${parsed.pendingToken}`);
+              return;
+            }
+          } catch {
+            // Not JSON — fall through.
+          }
+        }
+
         if (
           msg.includes('verify') ||
           msg.includes('confirm') ||

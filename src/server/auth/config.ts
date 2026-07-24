@@ -6,7 +6,8 @@ import { SupabaseAdapter } from '@auth/supabase-adapter';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { db } from '@/server/db/client';
-import { users } from '@/server/db/schema';
+import { user2fa, users } from '@/server/db/schema';
+import { generatePendingToken } from '@/server/security/pending-tokens';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -107,6 +108,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           );
         }
 
+        // Check if 2FA is enabled. If so, generate a pending token
+        // instead of creating a session — the user must complete the
+        // 2FA challenge on /verify-2fa.
+        const [twoFactor] = await db
+          .select({ enabled: user2fa.enabled })
+          .from(user2fa)
+          .where(
+            and(
+              eq(user2fa.userId, data.user.id),
+              eq(user2fa.enabled, true),
+            ),
+          )
+          .limit(1);
+
+        if (twoFactor) {
+          const pendingToken = await generatePendingToken(data.user.id);
+          throw new Error(
+            JSON.stringify({
+              type: '2fa_required',
+              pendingToken,
+            }),
+          );
+        }
+
         return {
           id: data.user.id,
           email: data.user.email ?? null,
@@ -133,24 +158,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // OAuth providers sign in with an email that may belong to a
-      // deleted account. Block sign-in so the user sees the recovery
-      // link instead of silently creating a duplicate account.
-      if (account?.provider !== 'credentials' && user?.email) {
+      if (user?.email) {
         const email = user.email.toLowerCase();
-        const [match] = await db
-          .select({ deletedAt: users.deletedAt })
-          .from(users)
-          .where(
-            or(
-              eq(users.email, email),
-              eq(users.originalEmail, email),
-            ),
-          )
-          .limit(1);
 
-        if (match?.deletedAt) {
-          return '/login?error=account-deleted';
+        // Block deleted accounts (both email and originalEmail).
+        if (account?.provider !== 'credentials') {
+          const [match] = await db
+            .select({ deletedAt: users.deletedAt, id: users.id })
+            .from(users)
+            .where(
+              or(
+                eq(users.email, email),
+                eq(users.originalEmail, email),
+              ),
+            )
+            .limit(1);
+
+          if (match?.deletedAt) {
+            return '/login?error=account-deleted';
+          }
+
+          // Check 2FA for the user this OAuth account links to.
+          if (match) {
+            const [twoFactor] = await db
+              .select({ enabled: user2fa.enabled })
+              .from(user2fa)
+              .where(
+                and(
+                  eq(user2fa.userId, match.id),
+                  eq(user2fa.enabled, true),
+                ),
+              )
+              .limit(1);
+
+            if (twoFactor) {
+              const pendingToken = await generatePendingToken(match.id);
+              return `/verify-2fa?token=${pendingToken}`;
+            }
+          }
         }
       }
       return true;
