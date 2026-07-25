@@ -64,12 +64,13 @@ export default function LoginContent() {
     setNeedsVerification(false);
     setIsPending(true);
     try {
-      const result = await signIn('credentials', {
-        email: email.trim().toLowerCase(),
-        password,
-        redirect: false,
-      });
-      if (!result || result.error) {
+        const result = await signIn('credentials', {
+          email: email.trim().toLowerCase(),
+          password,
+          redirect: false,
+        });
+        console.log('signin result', result);
+        if (!result || result.error) {
         const msg = result?.error ?? '';
 
         // 2FA: the token is stored in an httpOnly cookie by the
