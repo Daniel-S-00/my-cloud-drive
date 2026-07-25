@@ -4,7 +4,7 @@ import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 import { SupabaseAdapter } from '@auth/supabase-adapter';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { and, eq, isNotNull, or } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import { cookies, headers } from 'next/headers';
 import { db } from '@/server/db/client';
 import { user2fa, users } from '@/server/db/schema';
@@ -13,6 +13,14 @@ import { validateProductionEnv } from '@/server/env';
 
 class TwoFactorRequired extends CredentialsSignin {
   code = '2fa_required';
+}
+
+class EmailNotVerified extends CredentialsSignin {
+  code = 'email_not_verified';
+}
+
+class AccountDeactivated extends CredentialsSignin {
+  code = 'account_deactivated';
 }
 
 function requireEnv(name: string): string {
@@ -99,9 +107,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           !data.user.email_confirmed_at &&
           !data.user.user_metadata?.email_verified
         ) {
-          throw new Error(
-            'Please verify your email before signing in. Check your inbox or request a new verification link.',
-          );
+          throw new EmailNotVerified();
         }
 
         // Check if the account is scheduled for deletion.
@@ -112,9 +118,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .limit(1);
 
         if (deletedUser?.deletedAt) {
-          throw new Error(
-            'This account has been deactivated. Please contact support.',
-          );
+          throw new AccountDeactivated();
         }
 
         // Check if 2FA is enabled. If so, generate a pending token
