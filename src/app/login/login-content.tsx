@@ -69,14 +69,13 @@ export default function LoginContent() {
           password,
           redirect: false,
         });
-        console.log('signin result', result);
         if (!result || result.error) {
         const msg = result?.error ?? '';
 
         // 2FA: the token is stored in an httpOnly cookie by the
         // Credentials provider, so the client just navigates to the
         // verify page with no sensitive data in the URL.
-        if (msg === '2fa_required') {
+        if (result?.code === '2fa_required') {
           router.push('/verify-2fa');
           return;
         }
