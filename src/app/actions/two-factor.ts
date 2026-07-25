@@ -2,7 +2,7 @@
 
 import { encode } from '@auth/core/jwt';
 import { eq, and } from 'drizzle-orm';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
@@ -251,9 +251,16 @@ export async function verify2FALogin(
     };
   }
 
-  // Determine secure cookie name prefix — matches what Auth.js does
-  // internally for JWT sessions.
-  const secure = !!process.env.AUTH_URL?.startsWith('https://');
+  // Determine whether this request is over HTTPS by reading the
+  // x-forwarded-proto header (Vercel always injects it on https).
+  // Fall back to AUTH_URL, then to false. This mirrors how Auth.js
+  // itself decides the __Secure- cookie prefix.
+  const headersList = await headers();
+  const proto = headersList.get('x-forwarded-proto');
+  const secure =
+    proto === 'https' ||
+    !!process.env.AUTH_URL?.startsWith('https://');
+
   const cookieName = secure
     ? '__Secure-authjs.session-token'
     : 'authjs.session-token';
@@ -266,6 +273,16 @@ export async function verify2FALogin(
   });
 
   const cookieStore = await cookies();
+
+  // If we're on https, clear any stale bare cookie left by a
+  // broken previous build so the middleware doesn't see both.
+  if (secure) {
+    cookieStore.set('authjs.session-token', '', {
+      path: '/',
+      maxAge: 0,
+    });
+  }
+
   cookieStore.set(cookieName, token, {
     httpOnly: true,
     secure,
