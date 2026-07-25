@@ -72,17 +72,12 @@ export default function LoginContent() {
       if (!result || result.error) {
         const msg = result?.error ?? '';
 
-        // Check for 2FA challenge.
-        if (msg.includes('2fa_required')) {
-          try {
-            const parsed = JSON.parse(msg);
-            if (parsed.type === '2fa_required' && parsed.pendingToken) {
-              router.push(`/verify-2fa?token=${parsed.pendingToken}`);
-              return;
-            }
-          } catch {
-            // Not JSON — fall through.
-          }
+        // 2FA: the token is stored in an httpOnly cookie by the
+        // Credentials provider, so the client just navigates to the
+        // verify page with no sensitive data in the URL.
+        if (msg === '2fa_required') {
+          router.push('/verify-2fa');
+          return;
         }
 
         if (

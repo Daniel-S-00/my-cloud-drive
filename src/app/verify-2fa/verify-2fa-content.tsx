@@ -16,10 +16,17 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-export default function Verify2FAContent() {
+export default function Verify2FAContent({
+  cookieToken,
+}: {
+  cookieToken: string | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get('token') ?? '';
+
+  // Prefer the httpOnly cookie (credentials path), fall back to
+  // ?token query param (OAuth path).
+  const token = cookieToken ?? searchParams.get('token') ?? '';
 
   const [code, setCode] = useState('');
   const [mode, setMode] = useState<'totp' | 'backup'>('totp');

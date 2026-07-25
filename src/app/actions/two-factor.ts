@@ -165,9 +165,23 @@ export async function confirm2FA(token: string): Promise<Confirm2FAResult> {
 // ── Login verification ──────────────────────────────────────────────────
 
 export async function verify2FALogin(
-  pendingToken: string,
+  fallbackToken: string,
   code: string,
 ): Promise<Verify2FALoginResult> {
+  // Always read the pending token from the httpOnly cookie set by the
+  // auth config. Fall back to the client-provided argument only for
+  // the OAuth ?token redirect path (which also sets the cookie, so
+  // this is a belt-and-suspenders safety net).
+  const pendingToken =
+    (await cookies()).get('pending-2fa-token')?.value ?? fallbackToken;
+
+  if (!pendingToken) {
+    return {
+      ok: false,
+      message: 'No pending verification. Please sign in again.',
+    };
+  }
+
   const {
     validatePendingToken,
     incrementPendingTokenAttempts,
@@ -289,6 +303,12 @@ export async function verify2FALogin(
     sameSite: 'lax',
     path: '/',
     maxAge: 30 * 24 * 60 * 60,
+  });
+
+  // Clear the pending-2fa-token cookie so it cannot be replayed.
+  cookieStore.set('pending-2fa-token', '', {
+    path: '/',
+    maxAge: 0,
   });
 
   // The session cookie is now written. Only now do we consume a
