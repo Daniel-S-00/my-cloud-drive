@@ -1,14 +1,27 @@
-import NextAuth from 'next-auth';
+import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 import { SupabaseAdapter } from '@auth/supabase-adapter';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { and, eq, isNotNull, or } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
+import { cookies, headers } from 'next/headers';
 import { db } from '@/server/db/client';
 import { user2fa, users } from '@/server/db/schema';
 import { generatePendingToken } from '@/server/security/pending-tokens';
 import { validateProductionEnv } from '@/server/env';
+
+class TwoFactorRequired extends CredentialsSignin {
+  code = '2fa_required';
+}
+
+class EmailNotVerified extends CredentialsSignin {
+  code = 'email_not_verified';
+}
+
+class AccountDeactivated extends CredentialsSignin {
+  code = 'account_deactivated';
+}
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -94,9 +107,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           !data.user.email_confirmed_at &&
           !data.user.user_metadata?.email_verified
         ) {
-          throw new Error(
-            'Please verify your email before signing in. Check your inbox or request a new verification link.',
-          );
+          throw new EmailNotVerified();
         }
 
         // Check if the account is scheduled for deletion.
@@ -107,9 +118,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .limit(1);
 
         if (deletedUser?.deletedAt) {
-          throw new Error(
-            'This account has been deactivated. Please contact support.',
-          );
+          throw new AccountDeactivated();
         }
 
         // Check if 2FA is enabled. If so, generate a pending token
@@ -128,12 +137,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (twoFactor) {
           const pendingToken = await generatePendingToken(data.user.id);
-          throw new Error(
-            JSON.stringify({
-              type: '2fa_required',
-              pendingToken,
-            }),
-          );
+
+          // Write the pending token into an httpOnly cookie so the
+          // client never touches it. The /verify-2fa page reads it
+          // server-side.
+          const headersList = await headers();
+          const proto = headersList.get('x-forwarded-proto');
+          const secure =
+            proto === 'https' ||
+            !!process.env.AUTH_URL?.startsWith('https://');
+
+          const cookieStore = await cookies();
+          cookieStore.set('pending-2fa-token', pendingToken, {
+            httpOnly: true,
+            secure,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 300, // 5 minutes
+          });
+
+          throw new TwoFactorRequired();
         }
 
         return {
@@ -197,6 +220,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
             if (twoFactor) {
               const pendingToken = await generatePendingToken(match.id);
+
+              // Write the pending token into an httpOnly cookie so
+              // verify-2fa can read it server-side without a ?token
+              // query param. Keep the ?token param as a fallback.
+              const headersList = await headers();
+              const proto = headersList.get('x-forwarded-proto');
+              const secure =
+                proto === 'https' ||
+                !!process.env.AUTH_URL?.startsWith('https://');
+
+              const cookieStore = await cookies();
+              cookieStore.set('pending-2fa-token', pendingToken, {
+                httpOnly: true,
+                secure,
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 300,
+              });
+
               return `/verify-2fa?token=${pendingToken}`;
             }
           }

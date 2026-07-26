@@ -22,7 +22,9 @@ export function verifyToken(secret: string, token: string): boolean {
       token,
       epochTolerance: WINDOW,
     });
-    return result != null;
+    // otplib v13 returns { valid: boolean, ... } — never null/undefined.
+    // Checking `!= null` accepts every token. Use `.valid` instead.
+    return result?.valid === true;
   } catch {
     return false;
   }

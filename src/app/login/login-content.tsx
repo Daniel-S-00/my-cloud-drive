@@ -4,7 +4,7 @@ import { Globe } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import AuthShell from '@/components/auth-shell';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,27 +36,25 @@ export default function LoginContent() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
 
+  const recovered = searchParams.get('recovered');
+  const oauthError = searchParams.get('error');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    oauthError === 'account-deleted'
+      ? 'This account is scheduled for deletion. Recover it to sign in again.'
+      : oauthError
+        ? OAUTH_ERRORS[oauthError] ?? OAUTH_ERRORS.default
+        : null,
+  );
+  const [info] = useState<string | null>(
+    recovered === 'true'
+      ? 'Your account has been restored. You can now sign in.'
+      : null,
+  );
   const [needsVerification, setNeedsVerification] = useState(false);
   const [isPending, setIsPending] = useState(false);
-
-  useEffect(() => {
-    const recovered = searchParams.get('recovered');
-    if (recovered === 'true') {
-      setInfo('Your account has been restored. You can now sign in.');
-    }
-    const oauthError = searchParams.get('error');
-    if (oauthError === 'account-deleted') {
-      setError(
-        'This account is scheduled for deletion. Recover it to sign in again.',
-      );
-    } else if (oauthError) {
-      setError(OAUTH_ERRORS[oauthError] ?? OAUTH_ERRORS.default);
-    }
-  }, [searchParams]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -64,39 +62,27 @@ export default function LoginContent() {
     setNeedsVerification(false);
     setIsPending(true);
     try {
-      const result = await signIn('credentials', {
-        email: email.trim().toLowerCase(),
-        password,
-        redirect: false,
-      });
-      if (!result || result.error) {
-        const msg = result?.error ?? '';
+        const result = await signIn('credentials', {
+          email: email.trim().toLowerCase(),
+          password,
+          redirect: false,
+        });
+        if (!result || result.error) {
+        const code = result?.code;
 
-        // Check for 2FA challenge.
-        if (msg.includes('2fa_required')) {
-          try {
-            const parsed = JSON.parse(msg);
-            if (parsed.type === '2fa_required' && parsed.pendingToken) {
-              router.push(`/verify-2fa?token=${parsed.pendingToken}`);
-              return;
-            }
-          } catch {
-            // Not JSON — fall through.
-          }
+        // 2FA: the token is stored in an httpOnly cookie by the
+        // Credentials provider, so the client just navigates to the
+        // verify page with no sensitive data in the URL.
+        if (code === '2fa_required') {
+          router.push('/verify-2fa');
+          return;
         }
 
-        if (
-          msg.includes('verify') ||
-          msg.includes('confirm') ||
-          msg.includes('verification')
-        ) {
+        if (code === 'email_not_verified') {
           setNeedsVerification(true);
-          setError(result?.error ?? 'Please verify your email first.');
-        } else if (
-          msg.includes('deactivated') ||
-          msg.includes('deleted')
-        ) {
-          setError(result?.error ?? 'This account has been deactivated.');
+          setError('Please verify your email before signing in.');
+        } else if (code === 'account_deactivated') {
+          setError('This account has been deactivated. Please contact support.');
         } else {
           setError('Invalid email or password.');
         }

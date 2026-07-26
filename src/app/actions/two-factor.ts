@@ -2,7 +2,7 @@
 
 import { encode } from '@auth/core/jwt';
 import { eq, and } from 'drizzle-orm';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
@@ -165,9 +165,23 @@ export async function confirm2FA(token: string): Promise<Confirm2FAResult> {
 // ── Login verification ──────────────────────────────────────────────────
 
 export async function verify2FALogin(
-  pendingToken: string,
+  fallbackToken: string,
   code: string,
 ): Promise<Verify2FALoginResult> {
+  // Always read the pending token from the httpOnly cookie set by the
+  // auth config. Fall back to the client-provided argument only for
+  // the OAuth ?token redirect path (which also sets the cookie, so
+  // this is a belt-and-suspenders safety net).
+  const pendingToken =
+    (await cookies()).get('pending-2fa-token')?.value ?? fallbackToken;
+
+  if (!pendingToken) {
+    return {
+      ok: false,
+      message: 'No pending verification. Please sign in again.',
+    };
+  }
+
   const {
     validatePendingToken,
     incrementPendingTokenAttempts,
@@ -251,9 +265,16 @@ export async function verify2FALogin(
     };
   }
 
-  // Determine secure cookie name prefix — matches what Auth.js does
-  // internally for JWT sessions.
-  const secure = !!process.env.AUTH_URL?.startsWith('https://');
+  // Determine whether this request is over HTTPS by reading the
+  // x-forwarded-proto header (Vercel always injects it on https).
+  // Fall back to AUTH_URL, then to false. This mirrors how Auth.js
+  // itself decides the __Secure- cookie prefix.
+  const headersList = await headers();
+  const proto = headersList.get('x-forwarded-proto');
+  const secure =
+    proto === 'https' ||
+    !!process.env.AUTH_URL?.startsWith('https://');
+
   const cookieName = secure
     ? '__Secure-authjs.session-token'
     : 'authjs.session-token';
@@ -266,12 +287,28 @@ export async function verify2FALogin(
   });
 
   const cookieStore = await cookies();
+
+  // If we're on https, clear any stale bare cookie left by a
+  // broken previous build so the middleware doesn't see both.
+  if (secure) {
+    cookieStore.set('authjs.session-token', '', {
+      path: '/',
+      maxAge: 0,
+    });
+  }
+
   cookieStore.set(cookieName, token, {
     httpOnly: true,
     secure,
     sameSite: 'lax',
     path: '/',
     maxAge: 30 * 24 * 60 * 60,
+  });
+
+  // Clear the pending-2fa-token cookie so it cannot be replayed.
+  cookieStore.set('pending-2fa-token', '', {
+    path: '/',
+    maxAge: 0,
   });
 
   // The session cookie is now written. Only now do we consume a
