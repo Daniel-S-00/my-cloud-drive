@@ -213,15 +213,6 @@ export async function verify2FALogin(
   }
 
   const secret = decrypt(row.secret);
-
-  // TEMP DEBUG: verify TOTP validation is working correctly
-  // eslint-disable-next-line no-console
-  console.log('[verify2FALogin] DEBUG', {
-    secretPrefix: secret.slice(0, 4),
-    codeEntered: code,
-    verifyResult: verifyToken(secret, code),
-  });
-
   let valid = verifyToken(secret, code);
   let backupIdx = -1;
   let backupHashedCodes: string[] | null = null;
