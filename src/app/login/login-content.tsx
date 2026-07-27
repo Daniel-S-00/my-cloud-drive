@@ -31,12 +31,16 @@ const OAUTH_ERRORS: Record<string, string> = {
   default: 'Authentication failed. Please try again.',
 };
 
+const RESET_SUCCESS =
+  'Your password has been updated. Please sign in with your new password.';
+
 export default function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
 
   const recovered = searchParams.get('recovered');
+  const resetDone = searchParams.get('reset') === 'success';
   const oauthError = searchParams.get('error');
 
   const [email, setEmail] = useState('');
@@ -51,7 +55,9 @@ export default function LoginContent() {
   const [info] = useState<string | null>(
     recovered === 'true'
       ? 'Your account has been restored. You can now sign in.'
-      : null,
+      : resetDone
+        ? RESET_SUCCESS
+        : null,
   );
   const [needsVerification, setNeedsVerification] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -132,6 +138,14 @@ export default function LoginContent() {
                 autoComplete="current-password"
                 disabled={isPending}
               />
+            </div>
+            <div className="-mt-2 flex justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-xs text-text-secondary underline-offset-2 hover:text-text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
             </div>
             {info && (
               <p className="text-sm text-accent-glow" role="status">
