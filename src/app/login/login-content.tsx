@@ -88,7 +88,9 @@ export default function LoginContent() {
           setNeedsVerification(true);
           setError('Please verify your email before signing in.');
         } else if (code === 'account_deactivated') {
-          setError('This account has been deactivated. Please contact support.');
+          setError(
+            'This account is scheduled for deletion. Recover it before the grace period ends.',
+          );
         } else {
           setError('Invalid email or password.');
         }
