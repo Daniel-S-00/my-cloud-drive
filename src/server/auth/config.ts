@@ -98,6 +98,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email,
           password,
         });
+        if (error?.code === 'email_not_confirmed') {
+          throw new EmailNotVerified();
+        }
         if (error || !data.user) return null;
 
         // Block unverified emails from signing in via credentials.
