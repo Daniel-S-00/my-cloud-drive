@@ -1,4 +1,4 @@
-import { generateSecret as otpGenerateSecret, verify, verifySync } from 'otplib';
+import { generateSecret as otpGenerateSecret, verifySync } from 'otplib';
 import { randomBytes, createHash } from 'crypto';
 
 const WINDOW = 30;

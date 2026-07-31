@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, Copy, Loader2, RefreshCw } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { setup2FA, confirm2FA } from '@/app/actions/two-factor';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,10 +70,11 @@ export function TwoFactorSetupDialog({
   // useEffect on the `open` prop to detect when we're being opened.
   useEffect(() => {
     if (open) {
-      reset();
-      void doSetup2FA();
+      queueMicrotask(() => {
+        reset();
+        void doSetup2FA();
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const onConfirm = async () => {
@@ -160,6 +161,8 @@ export function TwoFactorSetupDialog({
               </div>
             ) : qrCodeImage ? (
               <>
+                {/* next/image does not support dynamic base64 QR code data URLs. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={qrCodeImage}
                   alt="QR code for authenticator setup"

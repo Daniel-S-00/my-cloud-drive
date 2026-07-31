@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   recoverAccount,
   requestRecoveryEmail,
@@ -28,13 +28,7 @@ export default function RecoverAccountContent() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
-
-  // When there's a token, validate it and show the restore prompt.
-  useEffect(() => {
-    if (!token) return;
-    setIsRestoring(true);
-  }, [token]);
+  const [isRestoring, setIsRestoring] = useState(() => !!token);
 
   const onRestore = async () => {
     if (!token) return;

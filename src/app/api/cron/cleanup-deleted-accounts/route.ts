@@ -85,7 +85,6 @@ async function handleCleanup(req: NextRequest) {
       results.push(`Deleted user ${user.id}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // eslint-disable-next-line no-console
       console.error(`Failed to delete user ${user.id}:`, msg);
       results.push(`FAILED user ${user.id}: ${msg}`);
     }

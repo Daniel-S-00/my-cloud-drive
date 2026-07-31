@@ -141,7 +141,6 @@ function FolderListBody({
   return (
     <FolderListClient
       key={folderId ?? 'root'}
-      folderId={folderId}
       folders={folderRows}
     />
   );

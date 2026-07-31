@@ -50,7 +50,6 @@ export async function setup2FA(): Promise<Setup2FAResult> {
     // Validate encryption key before anything else.
     const encKey = process.env.TWO_FA_ENCRYPTION_KEY;
     if (!encKey || encKey.length !== 64) {
-      // eslint-disable-next-line no-console
       console.error(
         '[setup2FA] TWO_FA_ENCRYPTION_KEY is missing or not a 64-char hex string.',
       );
@@ -107,7 +106,6 @@ export async function setup2FA(): Promise<Setup2FAResult> {
       secret,
     };
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('[setup2FA] Unexpected error:', err);
     return {
       ok: false,
