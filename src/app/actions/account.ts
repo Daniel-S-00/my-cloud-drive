@@ -1,5 +1,6 @@
 'use server';
 
+import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { and, eq, isNotNull, isNull, lte, not, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -148,9 +149,10 @@ export async function recoverAccount(
         });
       }
     }
-  } catch {
+  } catch (err) {
     // Auth user restore is best-effort. The mirror table is the
     // canonical source for application data.
+    Sentry.captureException(err);
   }
 
   // Restore the user row.
@@ -328,15 +330,17 @@ export async function deleteAccount(): Promise<AccountDeletionResult> {
       });
       await admin.auth.admin.signOut(user.id);
     }
-  } catch {
+  } catch (err) {
     // Best-effort.
+    Sentry.captureException(err);
   }
 
   // Send the recovery email (logs to console in dev).
   try {
     await generateRecoveryLink(user.id);
-  } catch {
+  } catch (err) {
     // Best-effort — deletion succeeded even if email fails.
+    Sentry.captureException(err);
   }
 
   await signOut({ redirect: false });
