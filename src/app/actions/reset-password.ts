@@ -1,5 +1,6 @@
 'use server';
 
+import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 
@@ -116,6 +117,7 @@ export async function requestPasswordReset(
   } catch (err) {
     // Never throw to the client. Log server-side, return neutral ok.
     console.error('[reset-password] requestPasswordReset threw:', err);
+    Sentry.captureException(err);
     return { ok: true };
   }
 }
@@ -231,12 +233,14 @@ export async function completePasswordReset({
         }
       } catch (err) {
         console.error('[reset-password] session revocation failed:', err);
+        Sentry.captureException(err);
       }
     }
 
     return { ok: true };
   } catch (err) {
     console.error('[reset-password] completePasswordReset threw:', err);
+    Sentry.captureException(err);
     return {
       ok: false,
       error: 'Something went wrong. Please try again.',

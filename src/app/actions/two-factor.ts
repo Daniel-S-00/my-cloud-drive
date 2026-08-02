@@ -1,5 +1,6 @@
 'use server';
 
+import * as Sentry from '@sentry/nextjs';
 import { encode } from '@auth/core/jwt';
 import { eq, and } from 'drizzle-orm';
 import { cookies, headers } from 'next/headers';
@@ -107,6 +108,7 @@ export async function setup2FA(): Promise<Setup2FAResult> {
     };
   } catch (err) {
     console.error('[setup2FA] Unexpected error:', err);
+    Sentry.captureException(err);
     return {
       ok: false,
       message:
