@@ -2,7 +2,11 @@
 
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { confirmUpload, generateUploadUrl } from '@/app/actions/upload';
+import {
+  cancelUpload,
+  confirmUpload,
+  generateUploadUrl,
+} from '@/app/actions/upload';
 
 export type UseUploadInput = {
   folderId: string | null;
@@ -52,12 +56,17 @@ export function useUpload({ folderId }: UseUploadInput): UseUploadReturn {
       setIsUploading(true);
       setProgress(0);
 
+      let pendingFileId: string | null = null;
+      let pendingStorageKey: string | null = null;
+
       try {
         const { presignedUrl, storageKey, fileId, fileName, wasRenamed } =
           await generateUploadUrl({
             folderId,
             fileName: file.name,
           });
+        pendingFileId = fileId;
+        pendingStorageKey = storageKey;
 
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
@@ -120,6 +129,21 @@ export function useUpload({ folderId }: UseUploadInput): UseUploadReturn {
           err instanceof Error ? err.message : 'Unknown upload error';
         setError(message);
         toast.error('Upload failed', { description: message });
+
+        // The R2 upload failed before confirmUpload ran, so the pending
+        // DB row would linger as a 0-byte ghost file. Remove it.
+        if (pendingFileId && pendingStorageKey) {
+          try {
+            await cancelUpload({
+              fileId: pendingFileId,
+              storageKey: pendingStorageKey,
+              sizeBytes: file.size,
+            });
+          } catch {
+            // Best-effort cleanup; a lingering row is handled by the
+            // delete action, which is now enabled for pending files.
+          }
+        }
       } finally {
         setIsUploading(false);
       }

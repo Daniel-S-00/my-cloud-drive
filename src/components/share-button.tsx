@@ -9,11 +9,14 @@ export function ShareButton({
   fileName,
   existing,
   size = 'sm',
+  enabled = true,
 }: {
   fileId: string;
   fileName: string;
   existing?: { id: string; shareUrl: string; expiresAt: string | null } | null;
   size?: 'sm' | 'icon';
+  /** When false, the button is disabled (e.g. files that never finished uploading). */
+  enabled?: boolean;
 }) {
   const { openShareDialog } = useShareDialogs();
 
@@ -23,7 +26,7 @@ export function ShareButton({
       variant="ghost"
       size={size}
       onClick={() => openShareDialog({ id: fileId, name: fileName, existing })}
-      disabled={!fileId}
+      disabled={!fileId || !enabled}
       aria-label={`Share ${fileName}`}
       title="Share"
     >
