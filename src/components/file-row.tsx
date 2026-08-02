@@ -78,6 +78,10 @@ export function FileRow({
   const inFlight =
     file.uploadStatus === 'pending' || file.uploadStatus === 'uploading';
   const isComplete = file.uploadStatus === 'complete';
+  // A pending/failed row is a ghost (upload never finished); deleting it
+  // is safe and lets users clean up. Only an actively-uploading row is
+  // off-limits (cancelUpload handles that path instead).
+  const canDelete = file.uploadStatus !== 'uploading';
 
   const { openPreviewDialog, openDeleteDialog } = useFileDialogs();
   const { draggedItem, isMoving } = useDragContext();
@@ -230,6 +234,7 @@ export function FileRow({
               fileId={file.id}
               fileName={file.name}
               existing={file.existingShare}
+              enabled={isComplete}
             />
             <Button
               type="button"
@@ -245,7 +250,7 @@ export function FileRow({
               variant="ghost"
               size="sm"
               onClick={() => openDeleteDialog(file.id)}
-              disabled={!isComplete}
+              disabled={!canDelete}
             >
               Delete
             </Button>
@@ -368,6 +373,7 @@ export function FileRow({
                   fileId={file.id}
                   fileName={file.name}
                   existing={file.existingShare}
+                  enabled={isComplete}
                 />
                 <Button
                   type="button"
@@ -383,7 +389,7 @@ export function FileRow({
                   variant="ghost"
                   size="sm"
                   onClick={() => openDeleteDialog(file.id)}
-                  disabled={!isComplete}
+                  disabled={!canDelete}
                 >
                   Delete
                 </Button>

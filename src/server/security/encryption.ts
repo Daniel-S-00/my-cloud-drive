@@ -2,7 +2,6 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
-const AUTH_TAG_LENGTH = 16;
 
 function getKey(): Buffer {
   const raw = process.env.TWO_FA_ENCRYPTION_KEY;
@@ -32,7 +31,7 @@ export function decrypt(encrypted: string): string {
   const key = getKey();
   const [ivHex, authTagHex, cipherText] = encrypted.split(':');
 
-  if (!ivHex || !authTagHex || !cipherText) {
+  if (ivHex === undefined || authTagHex === undefined || cipherText === undefined) {
     throw new Error('Invalid encrypted data format.');
   }
 

@@ -233,3 +233,46 @@ export async function confirmUpload(
     sizeBytes: updated.sizeBytes,
   };
 }
+
+export type CancelUploadOutput = {
+  cancelled: boolean;
+};
+
+/**
+ * Removes the file record for an upload that failed before completion.
+ * The row was inserted with uploadStatus='pending' when the presigned
+ * URL was generated; if the client never reaches confirmUpload (R2
+ * rejected the PUT, network error, abort), this deletes the orphaned
+ * record so it doesn't linger as a 0-byte ghost file.
+ *
+ * A pending row has no R2 object yet, so there is nothing to purge
+ * from storage — only the database row is removed. Only the owner can
+ * cancel, and only non-complete rows are eligible.
+ */
+export async function cancelUpload(
+  input: ConfirmUploadInput,
+): Promise<CancelUploadOutput> {
+  const { fileId, storageKey } = input;
+
+  if (!fileId || !storageKey) {
+    throw new Error('fileId and storageKey are required');
+  }
+
+  const { id: userId } = await getCurrentUser();
+
+  const deleted = await db
+    .delete(files)
+    .where(
+      and(
+        eq(files.id, fileId),
+        eq(files.ownerId, userId),
+        eq(files.storageKey, storageKey),
+        isNull(files.deletedAt),
+      ),
+    )
+    .returning({ id: files.id });
+
+  revalidatePath('/');
+
+  return { cancelled: deleted.length > 0 };
+}

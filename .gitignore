@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
@@ -96,3 +98,6 @@ graphify-out/
 graphify-out/**/manifest.json
 graphify-out/cost.json
 graphify-out/cache/
+
+# Codex
+.atl/

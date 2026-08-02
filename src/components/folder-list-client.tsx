@@ -16,10 +16,9 @@ import { useEffect, useRef, useState } from 'react';
 
 type FolderListClientProps = {
   folders: FolderRowData[];
-  folderId: string | null;
 };
 
-export function FolderListClient({ folders, folderId }: FolderListClientProps) {
+export function FolderListClient({ folders }: FolderListClientProps) {
   const { viewMode } = useViewMode();
   const { selectedId, onSelect, shouldScroll } = useSelection();
   const { isMoving } = useDragContext();

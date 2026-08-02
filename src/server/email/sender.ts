@@ -25,7 +25,6 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
       });
       return;
     }
-    // eslint-disable-next-line no-console
     console.warn(
       'RESEND_API_KEY not set. Recovery email not sent. Target:',
       input.to,
@@ -33,15 +32,4 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
     return;
   }
 
-  // Development: log the email content to the console.
-  // eslint-disable-next-line no-console
-  console.log('\n── RECOVERY EMAIL (dev) ──');
-  // eslint-disable-next-line no-console
-  console.log('To:', input.to);
-  // eslint-disable-next-line no-console
-  console.log('Subject:', input.subject);
-  // eslint-disable-next-line no-console
-  console.log('Body:', input.html);
-  // eslint-disable-next-line no-console
-  console.log('──────────────────────────────\n');
 }

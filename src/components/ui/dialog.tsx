@@ -89,6 +89,7 @@ function AnimatedDialogContent({
         setTimeout(() => setShouldRender(false), 150);
       });
     }
+    // Depend only on `open` so the close animation starts once per transition.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
