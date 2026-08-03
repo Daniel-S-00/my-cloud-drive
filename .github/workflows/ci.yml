@@ -33,8 +33,8 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    # Se activa solos cuando existen las credenciales del test user en los
-    # secrets del repo. Si no estan, el job queda "skipped" (no falla).
+    # Activates on its own once the test user's credentials exist in the
+    # repo secrets. If missing, the job stays "skipped" (does not fail).
     needs: test
     if: ${{ secrets.E2E_TEST_EMAIL != '' && secrets.E2E_TEST_PASSWORD != '' }}
     steps:
@@ -52,8 +52,8 @@ jobs:
 
       - name: E2E tests
         env:
-          # Env minimas para que el dev server arranque y corra login/2FA.
-          # Los secrets NEXT_PUBLIC_* no son sensibles; el resto si.
+          # Minimum envs for the dev server to boot and run login/2FA.
+          # NEXT_PUBLIC_* secrets are not sensitive; the rest are.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
