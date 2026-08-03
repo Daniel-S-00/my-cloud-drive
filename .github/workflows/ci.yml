@@ -31,12 +31,30 @@ jobs:
       - name: Unit / integration tests
         run: npm test
 
+  # The `secrets` context is unavailable in job-level `if`, so the gate is a
+  # tiny job that checks the credentials in a step and exposes the verdict as
+  # an output. The e2e job then runs only when run_e2e is true.
+  e2e-gate:
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      run_e2e: ${{ steps.check.outputs.run_e2e }}
+    steps:
+      - id: check
+        env:
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+        run: |
+          if [[ -n "$E2E_TEST_EMAIL" && -n "$E2E_TEST_PASSWORD" ]]; then
+            echo "run_e2e=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_e2e=false" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
     runs-on: ubuntu-latest
-    # Activates on its own once the test user's credentials exist in the
-    # repo secrets. If missing, the job stays "skipped" (does not fail).
-    needs: test
-    if: ${{ secrets.E2E_TEST_EMAIL != '' && secrets.E2E_TEST_PASSWORD != '' }}
+    needs: e2e-gate
+    if: ${{ needs.e2e-gate.outputs.run_e2e == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
