@@ -75,9 +75,6 @@ describe('generatePendingToken', () => {
 
     expect(hoisted.db.delete).toHaveBeenCalled(); // cleanup of expired tokens
     expect(hoisted.db.insert).toHaveBeenCalled();
-    const values = hoisted.db.insert.mock.calls.length
-      ? vi.mocked(hoisted.db.insert).mock.results[0]?.value
-      : null;
 
     expect(token).toBe('mocked-token-1234567890abcdef');
 
