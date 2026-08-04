@@ -19,7 +19,7 @@ export default async function SharesPage() {
     <div className="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col gap-8 bg-bg-base px-4 py-8 text-text-primary sm:px-6 sm:py-12">
       <header className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">
             Shared links
           </h1>
           <p className="text-sm text-text-secondary">

@@ -9,9 +9,9 @@ export function Cta() {
       </div>
 
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center px-4 py-24 text-center sm:px-6">
-        <h2 className="text-balance text-4xl font-semibold tracking-tight text-text-primary sm:text-5xl">
+        <h2 className="text-balance font-display text-4xl font-semibold tracking-tight text-text-primary sm:text-5xl">
           Ready to bring your files{' '}
-          <span className="landing-serif font-normal italic text-accent-glow">
+          <span className="landing-display font-normal text-accent-glow">
             back home?
           </span>
         </h2>

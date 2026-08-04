@@ -34,9 +34,9 @@ export function Security() {
               <ShieldCheck className="h-4 w-4" />
               Security
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl">
+            <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl">
               Protected{' '}
-              <span className="landing-serif font-normal italic text-accent-glow">
+              <span className="landing-display font-normal text-accent-glow">
                 from the ground up.
               </span>
             </h2>

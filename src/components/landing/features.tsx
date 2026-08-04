@@ -48,9 +48,9 @@ export function Features() {
         <p className="font-mono text-xs uppercase tracking-widest text-accent-glow">
           Capabilities
         </p>
-        <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl">
+        <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl">
           Everything you need.{' '}
-          <span className="landing-serif font-normal italic text-accent-glow">
+          <span className="landing-display font-normal text-accent-glow">
             Nothing you don&apos;t.
           </span>
         </h2>

@@ -195,11 +195,11 @@ export function Hero() {
         </p>
 
         <h1
-          className="landing-fade mt-7 max-w-3xl text-balance text-5xl font-semibold leading-[1.04] tracking-tight text-text-primary sm:text-6xl md:text-7xl"
+          className="landing-fade mt-7 max-w-3xl text-balance font-display text-5xl font-semibold leading-[1.04] tracking-tight text-text-primary sm:text-6xl md:text-7xl"
           style={reveal('90ms')}
         >
           Your files,{' '}
-          <span className="landing-serif font-normal italic text-accent-glow">
+          <span className="landing-display font-normal text-accent-glow">
             in your orbit.
           </span>
         </h1>

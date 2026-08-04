@@ -23,8 +23,9 @@
   --color-accent-primary: rgb(67 136 221);
   --color-accent-glow: rgb(110 175 230);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-ibm-plex-mono);
+  --font-display: var(--font-syne);
 }
 
 /* The app is dark-only. Lock color-scheme so native form controls
@@ -163,8 +164,8 @@ dialog::backdrop {
  * and staggered reveal. Scoped to `.landing-*` so nothing leaks into
  * the authenticated app.
  */
-.landing-serif {
-  font-family: var(--font-instrument-serif), Georgia, 'Times New Roman', serif;
+.landing-display {
+  font-family: var(--font-display), 'Arial Black', Arial, sans-serif;
 }
 
 .landing-fade {

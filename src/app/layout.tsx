@@ -1,18 +1,27 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Manrope, Syne } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthSessionProvider } from "@/components/auth-session-provider";
 import { Nav } from "@/components/nav";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const syne = Syne({
   subsets: ["latin"],
+  variable: "--font-syne",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const ibmPlexMono = IBM_Plex_Mono({
+  weight: ["400", "500", "600"],
   subsets: ["latin"],
+  variable: "--font-ibm-plex-mono",
+  display: "swap",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -28,7 +37,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${syne.variable} ${ibmPlexMono.variable} ${manrope.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-bg-base text-text-primary">
