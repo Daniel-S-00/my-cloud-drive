@@ -14,10 +14,10 @@
  * working in Tailwind v4.
  */
 @theme {
-  --color-bg-base: rgb(10 15 36);
-  --color-bg-surface: rgb(19 28 61);
-  --color-bg-surface-hover: rgb(30 43 84);
-  --color-border-subtle: rgb(43 59 107);
+  --color-bg-base: rgb(4 8 20);
+  --color-bg-surface: rgb(12 20 42);
+  --color-bg-surface-hover: rgb(20 34 66);
+  --color-border-subtle: rgb(29 44 82);
   --color-text-primary: rgb(242 248 255);
   --color-text-secondary: rgb(148 167 201);
   --color-accent-primary: rgb(67 136 221);
@@ -43,6 +43,18 @@ body {
   transition:
     background-color 200ms ease,
     color 200ms ease;
+}
+
+/* Smooth in-page anchor navigation (landing #features / #security).
+   Disabled for reduced-motion users. */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* Custom scrollbar styling tuned to the dark palette. */
