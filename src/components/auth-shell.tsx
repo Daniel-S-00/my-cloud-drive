@@ -31,7 +31,7 @@ export default function AuthShell({ children }: { children: ReactNode }) {
       <div
         onMouseEnter={resetSplineHover}
         onPointerEnter={resetSplineHover}
-        className="relative z-10 w-full max-w-sm rounded-xl border border-white/10 bg-bg-base/70 shadow-2xl backdrop-blur-xl"
+        className="relative z-10 w-full max-w-sm rounded-xl border border-white/10 bg-bg-base/95 shadow-2xl"
       >
         {children}
       </div>
