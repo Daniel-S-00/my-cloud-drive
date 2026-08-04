@@ -2,7 +2,12 @@
 
 import Image from 'next/image';
 import { Play, Music } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { toast } from 'sonner';
 import { generateDownloadUrl } from '@/app/actions/files';
 import { Button } from '@/components/ui/button';
@@ -11,6 +16,7 @@ import { DragHandle } from '@/components/drag-handle';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFileDialogs } from '@/contexts/file-dialog-context';
+import { isCoarsePointer } from '@/lib/pointer';
 
 type FileRowData = {
   id: string;
@@ -78,6 +84,7 @@ export function FileRow({
   const inFlight =
     file.uploadStatus === 'pending' || file.uploadStatus === 'uploading';
   const isComplete = file.uploadStatus === 'complete';
+  const canPreview = isComplete && (isImage || isVideo || isAudio);
   // A pending/failed row is a ghost (upload never finished); deleting it
   // is safe and lets users clean up. Only an actively-uploading row is
   // off-limits (cancelUpload handles that path instead).
@@ -123,11 +130,21 @@ export function FileRow({
       : file.uploadStatus;
 
   const handleRowClick = () => {
+    // On touch devices a single tap opens the preview directly — no
+    // double-tap needed. Selection stays for non-previewable files
+    // and desktop precision pointers.
+    if (canPreview && isCoarsePointer()) {
+      openPreviewDialog(file.id);
+      return;
+    }
     onSelect?.(file.id);
   };
 
-  const handleRowDoubleClick = () => {
-    if (isComplete && (isImage || isVideo || isAudio)) {
+  const handleRowDoubleClick = (event: ReactMouseEvent) => {
+    // Stop the browser's double-click word selection so only a manual
+    // drag inside the text selects it.
+    event.preventDefault();
+    if (canPreview) {
       openPreviewDialog(file.id);
     }
   };

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Folder } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition, type DragEvent } from 'react';
+import { useEffect, useRef, useState, useTransition, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { createFolder, deleteFolder, moveFolder } from '@/app/actions/folders';
@@ -250,7 +250,10 @@ export function FolderRow({
     onSelect?.(folder.id);
   };
 
-  const handleRowDoubleClick = () => {
+  const handleRowDoubleClick = (event: ReactMouseEvent) => {
+    // Stop the browser's double-click word selection so only a manual
+    // drag inside the text selects it.
+    event.preventDefault();
     router.push(`/drive?folder=${folder.id}`);
   };
 

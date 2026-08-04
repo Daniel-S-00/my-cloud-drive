@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Folder } from 'lucide-react';
-import { useEffect, useRef, useTransition, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useTransition, type DragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { moveFolder } from '@/app/actions/folders';
@@ -178,7 +178,11 @@ function FolderGridItem({
       className={cardClass}
       style={{ animationDelay: `${index * 50}ms` }}
       onClick={() => onSelect(folder.id)}
-      onDoubleClick={() => router.push(`/drive?folder=${folder.id}`)}
+      onDoubleClick={(e: ReactMouseEvent) => {
+        // Stop the browser's double-click word selection.
+        e.preventDefault();
+        router.push(`/drive?folder=${folder.id}`);
+      }}
       onDragOver={onDragOver}
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}

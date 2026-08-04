@@ -5,6 +5,7 @@ import { Play, Music } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { DragHandle } from '@/components/drag-handle';
 import { ShareButton } from '@/components/share-button';
+import { isCoarsePointer } from '@/lib/pointer';
 
 export type FileGridFile = {
   id: string;
@@ -77,8 +78,19 @@ function FileGridItem({
         spawnClass,
         isSelected ? 'ring-2 ring-accent-primary' : '',
       ].join(' ')}
-      onClick={() => onSelect(file.id)}
-      onDoubleClick={() => onOpen(file.id)}
+      onClick={() => {
+        // Touch-first devices open on a single tap (no double-tap).
+        if (isCoarsePointer()) {
+          onOpen(file.id);
+          return;
+        }
+        onSelect(file.id);
+      }}
+      onDoubleClick={(e) => {
+        // Stop the browser's double-click word selection.
+        e.preventDefault();
+        onOpen(file.id);
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
