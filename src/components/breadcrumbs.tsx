@@ -36,7 +36,7 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
       className="flex items-center gap-1 text-sm text-text-secondary"
     >
       <Link
-        href="/"
+        href="/drive"
         className="rounded px-1 text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary"
       >
         {ROOT_CRUMB.name}
@@ -63,7 +63,7 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
                 parentFolderName={crumb.name}
               >
                 <Link
-                  href={`/?folder=${crumb.id}`}
+                  href={`/drive?folder=${crumb.id}`}
                   draggable={false}
                   className="rounded px-1 text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary"
                 >
@@ -72,7 +72,7 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
               </BreadcrumbDropZone>
             ) : (
               <Link
-                href={`/?folder=${crumb.id}`}
+                href={`/drive?folder=${crumb.id}`}
                 className="rounded px-1 text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary"
               >
                 {crumb.name}

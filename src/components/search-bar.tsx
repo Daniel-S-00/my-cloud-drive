@@ -100,11 +100,11 @@ export function SearchBar() {
   const navigateToResult = useCallback(
     (result: SearchResult) => {
       if (result.type === 'folder') {
-        router.push(`/?folder=${result.id}&highlight=${result.id}`);
+        router.push(`/drive?folder=${result.id}&highlight=${result.id}`);
       } else if (result.parentFolderId) {
-        router.push(`/?folder=${result.parentFolderId}&highlight=${result.id}`);
+        router.push(`/drive?folder=${result.parentFolderId}&highlight=${result.id}`);
       } else {
-        router.push(`/?highlight=${result.id}`);
+        router.push(`/drive?highlight=${result.id}`);
       }
       setIsOpen(false);
       setQuery('');

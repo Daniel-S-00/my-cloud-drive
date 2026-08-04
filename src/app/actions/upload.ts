@@ -225,7 +225,7 @@ export async function confirmUpload(
     );
   }
 
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     fileId: updated.id,
@@ -272,7 +272,7 @@ export async function cancelUpload(
     )
     .returning({ id: files.id });
 
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return { cancelled: deleted.length > 0 };
 }

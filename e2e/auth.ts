@@ -8,8 +8,8 @@ export async function loginAsTestUser(page: Page) {
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/password|contraseña/i).fill(password);
   await page.getByRole('button', { name: /sign in|iniciar|login/i }).click();
-  // Tras login con callbackUrl por defecto se aterriza en "/" (la raíz = drive).
-  await page.waitForURL('/');
+  // Tras login con callbackUrl por defecto se aterriza en "/drive" (el drive).
+  await page.waitForURL('/drive');
 }
 
 export const hasTestUser =

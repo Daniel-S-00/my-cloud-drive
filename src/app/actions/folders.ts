@@ -185,9 +185,9 @@ export async function createFolder(
       throw new Error('Failed to create folder');
     }
 
-    revalidatePath('/');
+    revalidatePath('/drive');
     if (parentFolderId) {
-      revalidatePath(`/?folder=${parentFolderId}`);
+      revalidatePath(`/drive?folder=${parentFolderId}`);
     }
 
     return {
@@ -273,9 +273,9 @@ export async function deleteFolder(
     )
     .returning({ id: folders.id });
 
-  revalidatePath('/');
+  revalidatePath('/drive');
   revalidatePath('/trash');
-  revalidatePath(`/?folder=${root.id}`);
+  revalidatePath(`/drive?folder=${root.id}`);
 
   return {
     folderId: root.id,
@@ -477,8 +477,8 @@ export async function restoreFolder(
   }
 
   revalidatePath('/trash');
-  revalidatePath('/');
-  revalidatePath(`/?folder=${root.id}`);
+  revalidatePath('/drive');
+  revalidatePath(`/drive?folder=${root.id}`);
 
   return {
     folderId: root.id,
@@ -539,7 +539,7 @@ export async function permanentDeleteFolder(
   }
 
   revalidatePath('/trash');
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     folderId: root.id,
@@ -658,12 +658,12 @@ export async function moveFolder(
     .where(eq(folders.id, folderId));
 
   // Revalidate the source parent, the destination parent, and `/`.
-  revalidatePath('/');
+  revalidatePath('/drive');
   if (folder.parentId) {
-    revalidatePath(`/?folder=${folder.parentId}`);
+    revalidatePath(`/drive?folder=${folder.parentId}`);
   }
   if (targetParentId) {
-    revalidatePath(`/?folder=${targetParentId}`);
+    revalidatePath(`/drive?folder=${targetParentId}`);
   }
 
   return {

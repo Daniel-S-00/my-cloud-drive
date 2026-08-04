@@ -178,7 +178,7 @@ function FolderGridItem({
       className={cardClass}
       style={{ animationDelay: `${index * 50}ms` }}
       onClick={() => onSelect(folder.id)}
-      onDoubleClick={() => router.push(`/?folder=${folder.id}`)}
+      onDoubleClick={() => router.push(`/drive?folder=${folder.id}`)}
       onDragOver={onDragOver}
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}

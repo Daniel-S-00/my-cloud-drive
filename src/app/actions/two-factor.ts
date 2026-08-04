@@ -325,7 +325,7 @@ export async function verify2FALogin(
   return {
     ok: true,
     message: 'Verification successful.',
-    redirectUrl: '/',
+    redirectUrl: '/drive',
   };
 }
 

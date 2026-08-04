@@ -206,7 +206,7 @@ export async function deleteFile(
     );
   }
 
-  revalidatePath('/');
+  revalidatePath('/drive');
   revalidatePath('/trash');
 
   return {
@@ -299,7 +299,7 @@ export async function restoreFile(
   }
 
   revalidatePath('/trash');
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     fileId: updated.id,
@@ -394,7 +394,7 @@ export async function restoreFileWithParents(
   }
 
   revalidatePath('/trash');
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     fileId: updated.id,
@@ -413,7 +413,7 @@ export async function permanentDeleteFile(
   await db.delete(files).where(eq(files.id, row.id));
 
   revalidatePath('/trash');
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     fileId: row.id,
@@ -476,7 +476,7 @@ export async function emptyTrash(): Promise<EmptyTrashOutput> {
   }
 
   revalidatePath('/trash');
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     deletedCount: fileResult.length,
@@ -581,12 +581,12 @@ export async function moveFile(
   // the destination folder (so the file appears there, possibly
   // under a new name). Always revalidate `/` to refresh any other
   // listing that might be mounted.
-  revalidatePath('/');
+  revalidatePath('/drive');
   if (file.folderId) {
-    revalidatePath(`/?folder=${file.folderId}`);
+    revalidatePath(`/drive?folder=${file.folderId}`);
   }
   if (targetFolderId) {
-    revalidatePath(`/?folder=${targetFolderId}`);
+    revalidatePath(`/drive?folder=${targetFolderId}`);
   }
 
   return {

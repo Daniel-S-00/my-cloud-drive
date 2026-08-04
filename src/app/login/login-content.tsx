@@ -36,7 +36,7 @@ const RESET_SUCCESS =
 export default function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/';
+  const callbackUrl = searchParams.get('callbackUrl') ?? '/drive';
 
   const recovered = searchParams.get('recovered');
   const resetDone = searchParams.get('reset') === 'success';

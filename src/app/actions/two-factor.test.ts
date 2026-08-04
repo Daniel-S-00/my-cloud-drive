@@ -258,7 +258,7 @@ describe('verify2FALogin', () => {
     expect(res).toEqual({
       ok: true,
       message: 'Verification successful.',
-      redirectUrl: '/',
+      redirectUrl: '/drive',
     });
     expect(hoisted.cookieStore.set).toHaveBeenCalledWith(
       'authjs.session-token',

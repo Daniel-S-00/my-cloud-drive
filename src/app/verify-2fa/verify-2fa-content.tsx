@@ -41,7 +41,7 @@ export default function Verify2FAContent({
       const result = await verify2FALogin(token, code);
       if (result.ok) {
         router.refresh();
-        router.push(result.redirectUrl ?? '/');
+        router.push(result.redirectUrl ?? '/drive');
       } else {
         setError(result.message);
         if (result.message.includes('expired')) {

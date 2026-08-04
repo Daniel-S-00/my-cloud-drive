@@ -251,7 +251,7 @@ export function FolderRow({
   };
 
   const handleRowDoubleClick = () => {
-    router.push(`/?folder=${folder.id}`);
+    router.push(`/drive?folder=${folder.id}`);
   };
 
   const spawnClass = animate
@@ -287,7 +287,7 @@ export function FolderRow({
         </TableCell>
         <TableCell className="min-w-[12rem] md:min-w-0">
           <Link
-            href={`/?folder=${folder.id}`}
+            href={`/drive?folder=${folder.id}`}
             draggable={false}
             onClick={(e) => e.preventDefault()}
             className="flex min-w-0 items-center gap-3 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
@@ -371,7 +371,7 @@ export function FolderRow({
               </span>
               <div className="min-w-0 flex-1">
                 <Link
-                  href={`/?folder=${folder.id}`}
+                  href={`/drive?folder=${folder.id}`}
                   draggable={false}
                   onClick={(e) => e.preventDefault()}
                   className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"

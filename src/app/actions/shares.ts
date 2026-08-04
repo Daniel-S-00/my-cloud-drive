@@ -215,7 +215,7 @@ export async function createShare(
     throw new Error('Failed to create share');
   }
 
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     id: created.id,
@@ -243,7 +243,7 @@ export async function revokeShare(
     throw new Error('Share not found or not owned by the current user');
   }
 
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     id: deleted.id,

@@ -71,7 +71,7 @@ export default function SignupPage() {
           router.push('/login');
           return;
         }
-        router.push('/');
+        router.push('/drive');
         router.refresh();
       } else {
         // Email confirmation is required — redirect to the

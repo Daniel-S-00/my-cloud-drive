@@ -1,62 +1,41 @@
-import { Breadcrumbs } from '@/components/breadcrumbs';
-import { FileList } from '@/components/file-list';
-import { FolderBrowser } from '@/components/folder-browser';
-import { FolderList } from '@/components/folder-list';
-import { LogoutButton } from '@/components/logout-button';
-import { getFolderBreadcrumbs } from '@/app/actions/folders';
-import { FileListEmpty } from '@/components/file-list-empty';
-import { DragProvider } from '@/contexts/drag-context';
-import { GlobalDropOverlay } from '@/components/global-drop-overlay';
-import { UploadFab } from '@/components/upload-fab';
+import type { Metadata } from 'next';
+import { Instrument_Serif } from 'next/font/google';
+import { Cta } from '@/components/landing/cta';
+import { Features } from '@/components/landing/features';
+import { Footer } from '@/components/landing/footer';
+import { Hero } from '@/components/landing/hero';
+import { LandingNav } from '@/components/landing/landing-nav';
+import { Pillars } from '@/components/landing/pillars';
+import { Security } from '@/components/landing/security';
 
-type SearchParams = Promise<{
-  folder?: string | string[];
-  highlight?: string | string[];
-}>;
+const instrumentSerif = Instrument_Serif({
+  weight: '400',
+  style: ['normal', 'italic'],
+  subsets: ['latin'],
+  variable: '--font-instrument-serif',
+  display: 'swap',
+});
 
-function pickSingle(value: string | string[] | undefined): string | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-  return value ?? null;
-}
+export const metadata: Metadata = {
+  title: 'My Cloud Drive — Private cloud storage',
+  description:
+    'A private, encrypted home for your files. Drag-and-drop uploads, shareable links, trash recovery, and two-factor security.',
+};
 
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const params = await searchParams;
-  const rawFolderId = pickSingle(params.folder);
-  const folderId = rawFolderId && rawFolderId.trim() !== '' ? rawFolderId : null;
-  const highlightId = pickSingle(params.highlight);
-
-  const { path } = await getFolderBreadcrumbs({ folderId });
-  const currentName = path[path.length - 1]?.name ?? 'My Drive';
-
+export default function LandingPage() {
   return (
-    <DragProvider>
-      <div className="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col gap-8 bg-bg-base px-4 py-8 text-text-primary sm:px-6 sm:py-12">
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-              My Cloud Drive
-            </h1>
-            <Breadcrumbs folderId={folderId} />
-          </div>
-          <LogoutButton />
-        </header>
-
-        <section aria-label="Browse" className="flex flex-col gap-4">
-          <FolderBrowser folderId={folderId} parentName={currentName} initialSelectedId={highlightId}>
-            <FolderList folderId={folderId} />
-            <FileListEmpty folderId={folderId} />
-            <FileList folderId={folderId} />
-          </FolderBrowser>
-        </section>
+    <div
+      className={`${instrumentSerif.variable} flex min-h-full flex-col bg-bg-base text-text-primary`}
+    >
+      <LandingNav />
+      <div className="flex-1">
+        <Hero />
+        <Pillars />
+        <Features />
+        <Security />
+        <Cta />
       </div>
-      <UploadFab folderId={folderId} />
-      <GlobalDropOverlay folderId={folderId} currentFolderName={currentName} />
-    </DragProvider>
+      <Footer />
+    </div>
   );
 }

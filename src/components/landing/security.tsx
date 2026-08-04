@@ -1,0 +1,71 @@
+import { Check, ShieldCheck } from 'lucide-react';
+
+const assurances = [
+  {
+    title: 'Passwords never stored in plain text',
+    desc: 'Credentials are salted and hashed before they ever touch the database.',
+  },
+  {
+    title: 'Two-factor with backup codes',
+    desc: 'TOTP via your authenticator app, plus rotating single-use backup codes.',
+  },
+  {
+    title: 'Recoverable deletion',
+    desc: 'Accounts and files move to a grace-period trash before anything is gone for good.',
+  },
+  {
+    title: 'Ownership enforced on every write',
+    desc: 'Server actions verify the current user before any file or folder mutation.',
+  },
+];
+
+export function Security() {
+  return (
+    <section id="security" className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 pb-24 sm:px-6">
+      <div className="relative overflow-hidden rounded-3xl border border-border-subtle bg-bg-surface/50">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="landing-grid-bg absolute inset-0 opacity-60" />
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent-primary/12 blur-[100px]" />
+        </div>
+
+        <div className="relative grid gap-10 p-8 sm:p-12 lg:grid-cols-2 lg:gap-14">
+          <div>
+            <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-accent-glow">
+              <ShieldCheck className="h-4 w-4" />
+              Security
+            </p>
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl">
+              Protected{' '}
+              <span className="landing-serif font-normal italic text-accent-glow">
+                from the ground up.
+              </span>
+            </h2>
+            <p className="mt-4 max-w-md text-base leading-relaxed text-text-secondary">
+              Storage is only half the story. Every account, file, and share is
+              guarded by the same practices you&apos;d expect from a service you
+              pay for — because your data deserves nothing less.
+            </p>
+          </div>
+
+          <ul className="flex flex-col gap-5">
+            {assurances.map(({ title, desc }) => (
+              <li key={title} className="flex items-start gap-3.5">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-accent-primary/40 bg-accent-primary/15 text-accent-glow">
+                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">
+                    {title}
+                  </p>
+                  <p className="mt-0.5 text-sm leading-relaxed text-text-secondary">
+                    {desc}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}

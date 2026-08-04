@@ -196,7 +196,7 @@ export async function recoverAccount(
       ),
     );
 
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     ok: true,
@@ -345,7 +345,7 @@ export async function deleteAccount(): Promise<AccountDeletionResult> {
 
   await signOut({ redirect: false });
 
-  revalidatePath('/');
+  revalidatePath('/drive');
 
   return {
     ok: true,

@@ -12,7 +12,7 @@ type NavItem = {
 };
 
 const ITEMS: NavItem[] = [
-  { href: '/', label: 'My Drive', matchPrefix: '/' },
+  { href: '/drive', label: 'My Drive', matchPrefix: '/drive' },
   { href: '/shares', label: 'Shares', matchPrefix: '/shares' },
   { href: '/trash', label: 'Trash', matchPrefix: '/trash' },
 ];
@@ -20,7 +20,6 @@ const ITEMS: NavItem[] = [
 function isActive(pathname: string, item: NavItem): boolean {
   if (item.href === pathname) return true;
   if (!item.matchPrefix) return false;
-  if (item.matchPrefix === '/') return pathname === '/';
   return pathname === item.matchPrefix || pathname.startsWith(`${item.matchPrefix}/`);
 }
 
@@ -31,7 +30,7 @@ function shortId(id: string): string {
 export function NavLinks({ trashCount }: { trashCount: number }) {
   const pathname = usePathname() || '/';
   const searchParams = useSearchParams();
-  const folderId = pathname === '/' ? searchParams.get('folder') : null;
+  const folderId = pathname === '/drive' ? searchParams.get('folder') : null;
 
   return (
     <>
@@ -63,7 +62,7 @@ export function NavLinks({ trashCount }: { trashCount: number }) {
                 </span>
               ) : null}
             </Link>
-            {item.href === '/' && folderId ? (
+            {item.href === '/drive' && folderId ? (
               <span
                 aria-hidden
                 className="ml-1 max-w-[14rem] truncate rounded bg-bg-surface-hover px-2 py-0.5 font-mono text-xs text-text-secondary"
