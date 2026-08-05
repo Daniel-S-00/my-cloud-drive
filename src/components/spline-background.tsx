@@ -64,7 +64,8 @@ function StaticBackdrop() {
   return (
     <div className="absolute inset-0 overflow-hidden" aria-hidden>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgb(67_136_221/0.18),transparent_55%)]" />
-      <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgb(67_136_221/0.06)_1px,transparent_1px),linear-gradient(90deg,rgb(67_136_221/0.06)_1px,transparent_1px)] [background-size:56px_56px]" />
+      <div className="drafting-grid absolute inset-0" />
+      <div className="landing-grain absolute inset-0" />
       <div className="absolute -left-24 top-1/3 h-72 w-72 rounded-full bg-accent-primary/10 blur-[100px]" />
       <div className="absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-accent-glow/10 blur-[120px]" />
     </div>

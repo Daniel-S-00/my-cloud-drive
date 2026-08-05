@@ -15,7 +15,11 @@ export const metadata: Metadata = {
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-full flex-col bg-bg-base text-text-primary">
+    <div className="relative isolate flex min-h-full flex-col bg-bg-base text-text-primary">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+        <div className="drafting-grid absolute inset-0" />
+        <div className="landing-grain absolute inset-0" />
+      </div>
       <LandingNav />
       <div className="flex-1">
         <Hero />

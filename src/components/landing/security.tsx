@@ -24,7 +24,6 @@ export function Security() {
     <section id="security" className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 pb-24 sm:px-6">
       <div className="relative overflow-hidden rounded-3xl border border-border-subtle bg-bg-surface/50">
         <div className="pointer-events-none absolute inset-0">
-          <div className="landing-grid-bg absolute inset-0 opacity-60" />
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent-primary/12 blur-[100px]" />
         </div>
 
