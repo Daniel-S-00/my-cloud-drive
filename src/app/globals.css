@@ -216,6 +216,15 @@ dialog::backdrop {
   animation: landing-pulse 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
+/* While the window is being resized, pause all animations so the
+   browser isn't re-compositing animated layers on top of the resize
+   reflow (the main GPU spike on this page). Added by ResizePause. */
+html.resizing *,
+html.resizing *::before,
+html.resizing *::after {
+  animation: none !important;
+}
+
 @keyframes landing-fade-up {
   from {
     opacity: 0;
