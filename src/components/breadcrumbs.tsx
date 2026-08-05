@@ -33,7 +33,7 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex items-center gap-1 text-sm text-text-secondary"
+      className="flex items-center gap-1 text-[1.75rem] text-text-secondary"
     >
       <Link
         href="/drive"
