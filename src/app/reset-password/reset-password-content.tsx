@@ -14,8 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 
 // PKCE: ?code=...&type=recovery (server exchanges once via the action).
 // Implicit: #access_token=...&refresh_token=...&type=recovery (client
@@ -229,9 +229,8 @@ export default function ResetPasswordContent() {
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="password">New password</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -244,9 +243,8 @@ export default function ResetPasswordContent() {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="confirm">Confirm password</Label>
-            <Input
+            <PasswordInput
               id="confirm"
-              type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               required
