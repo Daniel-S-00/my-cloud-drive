@@ -1,10 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { Play, Music } from 'lucide-react';
+import { Music, Play, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { DragHandle } from '@/components/drag-handle';
 import { ShareButton } from '@/components/share-button';
+import { Button } from '@/components/ui/button';
+import { useFileDialogs } from '@/contexts/file-dialog-context';
 import { isCoarsePointer } from '@/lib/pointer';
 
 export type FileGridFile = {
@@ -53,6 +55,7 @@ function FileGridItem({
 }: FileGridItemProps) {
   const itemRef = useRef<HTMLDivElement>(null);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
+  const { openDeleteDialog } = useFileDialogs();
 
   const isImage = isImageMimeType(file.mimeType);
   const isVideo = isVideoMimeType(file.mimeType);
@@ -107,9 +110,19 @@ function FileGridItem({
       ) : null}
 
       <div
-        className="absolute bottom-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+        className="absolute bottom-1 right-1 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
         onClick={(e) => e.stopPropagation()}
       >
+        <Button
+          type="button"
+          variant="destructiveOutline"
+          size="icon"
+          aria-label={`Delete ${file.name}`}
+          title="Delete"
+          onClick={() => openDeleteDialog(file.id)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
         <ShareButton
           fileId={file.id}
           fileName={file.name}

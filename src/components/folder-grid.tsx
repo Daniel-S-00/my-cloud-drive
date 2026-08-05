@@ -1,13 +1,15 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Folder } from 'lucide-react';
+import { Folder, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useTransition, type DragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { moveFolder } from '@/app/actions/folders';
 import { DragHandle } from '@/components/drag-handle';
+import { Button } from '@/components/ui/button';
 import { useDragContext } from '@/contexts/drag-context';
+import { useFolderDialogs } from '@/contexts/file-dialog-context';
 
 const DRAG_MIME = 'text/plain';
 
@@ -53,6 +55,7 @@ function FolderGridItem({
   const router = useRouter();
   const itemRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
+  const { openDeleteDialog } = useFolderDialogs();
 
   const {
     dragOverFolderId,
@@ -201,6 +204,22 @@ function FolderGridItem({
           {dragHandle}
         </div>
       ) : null}
+
+      <div
+        className="absolute bottom-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Button
+          type="button"
+          variant="destructiveOutline"
+          size="icon"
+          aria-label={`Delete ${folder.name}`}
+          title="Delete"
+          onClick={() => openDeleteDialog(folder)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
 
       <div className="flex aspect-square w-full items-center justify-center rounded-t-lg bg-accent-primary/10">
         <FolderIcon className="h-16 w-16 text-accent-primary/50" />
