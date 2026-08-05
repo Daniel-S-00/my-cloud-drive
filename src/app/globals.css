@@ -14,7 +14,7 @@
  * working in Tailwind v4.
  */
 @theme {
-  --color-bg-base: rgb(4 8 20);
+  --color-bg-base: rgb(4 8 16);
   --color-bg-surface: rgb(12 20 42);
   --color-bg-surface-hover: rgb(20 34 66);
   --color-border-subtle: rgb(29 44 82);
