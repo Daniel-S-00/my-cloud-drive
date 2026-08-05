@@ -28,8 +28,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit / integration tests
-        run: npm test
+      - name: Unit / integration tests (coverage gate)
+        run: npm run test:coverage
 
   # The `secrets` context is unavailable in job-level `if`, so the gate is a
   # tiny job that checks the credentials in a step and exposes the verdict as
