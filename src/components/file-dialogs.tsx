@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronLeft, ChevronRight, LoaderCircle, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileQuestion, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   deleteFile,
@@ -63,19 +63,26 @@ function isAudioMimeType(mimeType: string): boolean {
 }
 
 /**
- * A simple spinning loader shown while the presigned URL for a
- * preview is being fetched (initial open or after next/prev
- * navigation).
+ * Fallback body for files that have no preview URL — either a type
+ * the viewer can't render (HTML, PDF, zip, ...) or media that isn't
+ * ready yet. The modal footer already carries the Download button.
  */
-function PreviewSpinner() {
+function CannotPreview({ file }: PreviewBodyProps) {
   return (
     <div
       role="status"
-      aria-live="polite"
-      className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 text-sm text-text-secondary"
+      className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 p-6 text-center"
     >
-      <LoaderCircle className="h-8 w-8 animate-spin text-accent-glow" aria-hidden />
-      <span>Loading preview…</span>
+      <FileQuestion className="h-10 w-10 text-text-secondary/60" aria-hidden />
+      <p className="text-sm font-medium text-text-primary">
+        This file type can&apos;t be previewed.
+      </p>
+      <p className="max-w-sm break-words text-xs text-text-secondary">
+        {file.name}
+      </p>
+      <p className="text-xs text-text-secondary">
+        Use the Download button below to get the file.
+      </p>
     </div>
   );
 }
@@ -85,15 +92,15 @@ type PreviewBodyProps = {
 };
 
 function PreviewBody({ file }: PreviewBodyProps) {
-  // The preview URL is now signed SERVER-SIDE and passed in via the
-  // `thumbnailUrl` prop (a cached, long-lived 24h URL). We no longer
-  // fetch it in a useEffect on mount — that re-signed on every open
-  // and every prev/next navigation, producing a different URL string
-  // each time and defeating the browser cache.
+  // The preview URL is signed SERVER-SIDE and passed in via the
+  // `thumbnailUrl` prop (a cached, long-lived 24h URL), so it's
+  // available synchronously. When it's absent the file simply has
+  // nothing to preview — show the fallback instead of a spinner that
+  // could never resolve.
   const url = file.thumbnailUrl ?? null;
 
   if (!url) {
-    return <PreviewSpinner />;
+    return <CannotPreview file={file} />;
   }
 
   if (isAudioMimeType(file.mimeType)) {
