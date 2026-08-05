@@ -137,15 +137,13 @@ export default async function TrashPage({
     const fileRows = mapFileRows(childFiles, now);
 
     return (
-      <div className="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col gap-8 bg-bg-base px-4 py-8 text-text-primary sm:px-6 sm:py-12">
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">
-              Trash
-            </h1>
-            <TrashBreadcrumbs path={trashPath} />
-          </div>
-        </header>
+      <div className="flex flex-col gap-6 px-4 py-6 sm:px-6">
+        <div className="flex flex-col gap-2">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">
+            Trash
+          </h1>
+          <TrashBreadcrumbs path={trashPath} />
+        </div>
 
         <TrashFolderNavigator
           folderRows={folderRows}
@@ -195,19 +193,17 @@ export default async function TrashPage({
   const totalItems = folderRows.length + fileRows.length;
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col gap-8 bg-bg-base px-4 py-8 text-text-primary sm:px-6 sm:py-12">
-      <header className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">
-            Trash
-          </h1>
-          <p className="text-sm text-text-secondary">
-            {totalItems === 0
-              ? 'Trash is empty. Folders and files you delete from your drive will appear here for 30 days.'
-              : `${folderRows.length} folder${folderRows.length === 1 ? '' : 's'} and ${fileRows.length} file${fileRows.length === 1 ? '' : 's'} in trash. Items are permanently deleted after ${TRASH_RETENTION_DAYS} days.`}
-          </p>
-        </div>
-      </header>
+    <div className="flex flex-col gap-6 px-4 py-6 sm:px-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">
+          Trash
+        </h1>
+        <p className="text-sm text-text-secondary">
+          {totalItems === 0
+            ? 'Trash is empty. Folders and files you delete from your drive will appear here for 30 days.'
+            : `${folderRows.length} folder${folderRows.length === 1 ? '' : 's'} and ${fileRows.length} file${fileRows.length === 1 ? '' : 's'} in trash. Items are permanently deleted after ${TRASH_RETENTION_DAYS} days.`}
+        </p>
+      </div>
 
       <TrashFolderNavigator
         folderRows={folderRows}

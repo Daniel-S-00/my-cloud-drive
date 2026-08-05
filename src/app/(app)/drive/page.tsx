@@ -35,23 +35,17 @@ export default async function HomePage({
 
   return (
     <DragProvider>
-      <div className="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col gap-8 bg-bg-base px-4 py-8 text-text-primary sm:px-6 sm:py-12">
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">
-              My Cloud Drive
-            </h1>
-            <Breadcrumbs folderId={folderId} />
-          </div>
-        </header>
-
-        <section aria-label="Browse" className="flex flex-col gap-4">
-          <FolderBrowser folderId={folderId} parentName={currentName} initialSelectedId={highlightId}>
-            <FolderList folderId={folderId} />
-            <FileListEmpty folderId={folderId} />
-            <FileList folderId={folderId} />
-          </FolderBrowser>
-        </section>
+      <div className="flex flex-col px-4 py-6 sm:px-6">
+        <FolderBrowser
+          folderId={folderId}
+          parentName={currentName}
+          initialSelectedId={highlightId}
+          breadcrumbs={<Breadcrumbs folderId={folderId} />}
+        >
+          <FolderList folderId={folderId} />
+          <FileListEmpty folderId={folderId} />
+          <FileList folderId={folderId} />
+        </FolderBrowser>
       </div>
       <UploadFab folderId={folderId} />
       <GlobalDropOverlay folderId={folderId} currentFolderName={currentName} />

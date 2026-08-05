@@ -34,7 +34,7 @@ export default function SettingsPage() {
   }, [setup2FAOpen, disable2FAOpen, regenerateOpen]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-8">
+    <div className="mx-auto w-full max-w-2xl px-4 py-6">
       <h1 className="font-display mb-6 text-2xl font-bold text-text-primary">
         Settings
       </h1>

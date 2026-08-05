@@ -14,6 +14,7 @@ type FolderBrowserProps = {
   parentName: string;
   children: ReactNode;
   initialSelectedId?: string | null;
+  breadcrumbs?: ReactNode;
 };
 
 function ListIcon({ className }: { className?: string }) {
@@ -44,16 +45,19 @@ export function FolderBrowser({
   parentName,
   children,
   initialSelectedId,
+  breadcrumbs,
 }: FolderBrowserProps) {
   const { viewMode, toggleViewMode } = useViewMode();
 
   return (
     <FolderDialogProvider>
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-text-secondary">
-            Browse
-          </h2>
+        <div className="flex items-center justify-between gap-3">
+          {breadcrumbs ?? (
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-secondary">
+              Browse
+            </h2>
+          )}
           <div className="flex items-center gap-2">
             <button
               type="button"
