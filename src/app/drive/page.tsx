@@ -2,7 +2,6 @@ import { Breadcrumbs } from '@/components/breadcrumbs';
 import { FileList } from '@/components/file-list';
 import { FolderBrowser } from '@/components/folder-browser';
 import { FolderList } from '@/components/folder-list';
-import { LogoutButton } from '@/components/logout-button';
 import { getFolderBreadcrumbs } from '@/app/actions/folders';
 import { FileListEmpty } from '@/components/file-list-empty';
 import { DragProvider } from '@/contexts/drag-context';
@@ -44,7 +43,6 @@ export default async function HomePage({
             </h1>
             <Breadcrumbs folderId={folderId} />
           </div>
-          <LogoutButton />
         </header>
 
         <section aria-label="Browse" className="flex flex-col gap-4">

@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/server/auth/session';
 import { getUserShares } from '@/app/actions/shares';
-import { LogoutButton } from '@/components/logout-button';
 import { SharesList } from '@/components/shares-list';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +27,6 @@ export default async function SharesPage() {
               : `${shares.length} shared link${shares.length === 1 ? '' : 's'}. Anyone with the link can view the file.`}
           </p>
         </div>
-        <LogoutButton />
       </header>
 
       <SharesList shares={shares} />
