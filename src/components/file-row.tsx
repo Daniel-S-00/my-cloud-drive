@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Play, Music } from 'lucide-react';
+import { Link2, Music, Play } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -216,11 +216,33 @@ export function FileRow({
                 {file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'}
               </div>
             )}
-            <span
-              title={file.name}
-              className="min-w-0 flex-1 break-words font-medium text-text-primary"
-            >
-              {file.name}
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span
+                title={file.name}
+                className="min-w-0 break-words font-medium text-text-primary"
+              >
+                {file.name}
+              </span>
+              {file.existingShare ? (
+                <span
+                  title="Shared"
+                  role="img"
+                  aria-label="Shared"
+                  className="inline-flex shrink-0 items-center text-text-secondary"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                </span>
+              ) : null}
+              {inFlight ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-bg-surface-hover px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-glow" />
+                  {file.uploadStatus}
+                </span>
+              ) : file.uploadStatus === 'failed' ? (
+                <span className="inline-flex shrink-0 items-center rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+                  {file.uploadStatus}
+                </span>
+              ) : null}
             </span>
           </div>
         </TableCell>
@@ -229,18 +251,6 @@ export function FileRow({
         </TableCell>
         <TableCell className="w-40 text-text-secondary">
           {formatDate(file.createdAt)}
-        </TableCell>
-        <TableCell className="w-32">
-          {inFlight ? (
-            <span className="inline-flex items-center gap-2 text-text-secondary">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
-              {file.uploadStatus}
-            </span>
-          ) : file.uploadStatus === 'complete' ? (
-            <span className="text-accent-glow">complete</span>
-          ) : (
-            <span className="text-red-400">{file.uploadStatus}</span>
-          )}
         </TableCell>
         <TableCell
           className="w-44 text-right"

@@ -59,9 +59,6 @@ function FileTableView({
           <TableHead scope="col" className="w-40">
             Uploaded
           </TableHead>
-          <TableHead scope="col" className="w-32">
-            Status
-          </TableHead>
           <TableHead scope="col" className="w-44 text-right">
             <span className="sr-only">Actions</span>
           </TableHead>
