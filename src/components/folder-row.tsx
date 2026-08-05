@@ -332,7 +332,7 @@ export function FolderRow({
           ) : (
             <Button
               type="button"
-              variant="ghost"
+              variant="destructiveOutline"
               size="sm"
               onClick={() => openDeleteDialog(folder)}
             >
@@ -422,7 +422,7 @@ export function FolderRow({
                 ) : (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="destructiveOutline"
                     size="sm"
                     onClick={() => openDeleteDialog(folder)}
                   >

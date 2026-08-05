@@ -274,7 +274,7 @@ export function FileRow({
             </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="destructiveOutline"
               size="sm"
               onClick={() => openDeleteDialog(file.id)}
               disabled={!canDelete}
@@ -413,7 +413,7 @@ export function FileRow({
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="destructiveOutline"
                   size="sm"
                   onClick={() => openDeleteDialog(file.id)}
                   disabled={!canDelete}
