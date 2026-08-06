@@ -43,7 +43,7 @@ const features: { icon: LucideIcon; title: string; desc: string }[] = [
 
 export function Features() {
   return (
-    <section id="features" className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-24 sm:px-6">
+    <section id="features" data-testid="features" className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-24 sm:px-6">
       <div className="mx-auto max-w-2xl text-center">
         <p className="font-mono text-xs uppercase tracking-widest text-accent-glow">
           Capabilities

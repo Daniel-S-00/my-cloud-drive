@@ -13,7 +13,7 @@ const accountLinks = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-border-subtle/70">
+    <footer data-testid="footer" className="border-t border-border-subtle/70">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6">
         <div className="flex flex-col justify-between gap-8 md:flex-row md:items-start">
           <div className="max-w-sm">

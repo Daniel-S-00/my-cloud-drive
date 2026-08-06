@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export function Cta() {
   return (
-    <section className="relative overflow-hidden border-t border-border-subtle/70">
+    <section data-testid="cta" className="relative overflow-hidden border-t border-border-subtle/70">
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-1/2 h-[420px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-primary/12 blur-[120px]" />
       </div>
