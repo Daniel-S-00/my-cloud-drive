@@ -13,7 +13,7 @@ const accountLinks = [
 
 export function Footer() {
   return (
-    <footer data-testid="footer" className="border-t border-border-subtle/70">
+    <footer data-testid="footer" className="border-t border-border-subtle/70 bg-bg-base">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6">
         <div className="flex flex-col justify-between gap-8 md:flex-row md:items-start">
           <div className="max-w-sm">
@@ -26,7 +26,7 @@ export function Footer() {
               </span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-              A private, encrypted home for your files — built as a portfolio
+              A private home for your files — built as a portfolio
               project with Next.js, PostgreSQL, and Cloudflare R2.
             </p>
           </div>

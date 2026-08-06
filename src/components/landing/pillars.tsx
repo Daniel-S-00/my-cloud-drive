@@ -3,8 +3,8 @@ import { Lock, RotateCcw, Share2, ShieldCheck, type LucideIcon } from 'lucide-re
 const pillars: { icon: LucideIcon; title: string; desc: string }[] = [
   {
     icon: Lock,
-    title: 'Private by design',
-    desc: 'Your files live in storage you own — no third-party peeking.',
+    title: 'Private to you',
+    desc: 'No other user can see your files — only the people you share with.',
   },
   {
     icon: ShieldCheck,

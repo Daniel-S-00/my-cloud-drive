@@ -19,17 +19,17 @@ function reveal(delay: string): CSSProperties {
 function HeroVisual() {
   return (
     <div
-      className="relative mx-auto mt-8 h-[240px] w-full max-w-4xl sm:h-[300px]"
+      className="relative mx-auto mt-10 h-[290px] w-full max-w-4xl sm:h-[360px]"
       aria-hidden
     >
       {/* Orbit rings */}
-      <div className="absolute left-1/2 top-1/2 h-[180px] w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-accent-primary/25 sm:h-[220px] sm:w-[220px] landing-spin" />
-      <div className="absolute left-1/2 top-1/2 h-[240px] w-[240px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-border-subtle/40 sm:h-[300px] sm:w-[300px]" />
+      <div className="absolute left-1/2 top-1/2 h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-accent-primary/25 sm:h-[265px] sm:w-[265px] landing-spin" />
+      <div className="absolute left-1/2 top-1/2 h-[290px] w-[290px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-border-subtle/40 sm:h-[360px] sm:w-[360px]" />
 
       {/* Drive core */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-        <div className="landing-pulse absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-accent-glow/50 sm:h-28 sm:w-28" />
-        <div className="relative flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-2xl border border-accent-primary/40 bg-bg-surface shadow-2xl shadow-accent-primary/25 sm:h-28 sm:w-28">
+        <div className="landing-pulse absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-accent-glow/50 sm:h-32 sm:w-32" />
+        <div className="relative flex h-28 w-28 flex-col items-center justify-center gap-1 rounded-2xl border border-accent-primary/40 bg-bg-surface shadow-2xl shadow-accent-primary/25 sm:h-32 sm:w-32">
           <div className="absolute inset-0 rounded-2xl bg-accent-primary/15 blur-xl" />
           <HardDrive
             className="relative h-7 w-7 text-accent-glow"
@@ -37,9 +37,6 @@ function HeroVisual() {
           />
           <span className="relative text-xs font-semibold text-text-primary">
             My Drive
-          </span>
-          <span className="relative font-mono text-[10px] uppercase tracking-widest text-text-secondary">
-            Core
           </span>
         </div>
       </div>
@@ -62,7 +59,6 @@ function HeroVisual() {
             </p>
           </div>
         </div>
-        <div className="mt-2.5 h-10 rounded-md bg-gradient-to-br from-accent-primary/35 via-accent-glow/20 to-bg-surface-hover" />
       </div>
 
       <div
@@ -81,19 +77,6 @@ function HeroVisual() {
               128 files · 2 folders
             </p>
           </div>
-        </div>
-        <div className="mt-2.5 flex items-center gap-1.5">
-          {['bg-accent-primary/40', 'bg-accent-glow/30', 'bg-border-subtle'].map(
-            (tint) => (
-              <span
-                key={tint}
-                className={`h-1.5 w-1.5 rounded-full ${tint}`}
-              />
-            ),
-          )}
-          <span className="ml-auto font-mono text-[10px] text-text-secondary">
-            synced
-          </span>
         </div>
       </div>
 
@@ -153,7 +136,7 @@ function HeroVisual() {
       >
         <Lock className="h-3.5 w-3.5 text-accent-glow" />
         <span className="font-mono text-[10px] uppercase tracking-wider text-text-secondary">
-          Encrypted
+          Access-controlled
         </span>
       </div>
 
@@ -174,7 +157,7 @@ export function Hero() {
   return (
     <section
       data-testid="hero"
-      className="relative flex flex-col overflow-hidden"
+      className="relative flex min-h-[calc(100svh-4rem)] flex-col overflow-hidden"
     >
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-[-300px] h-[560px] w-[860px] -translate-x-1/2 rounded-full bg-accent-primary/15 blur-[120px]" />
@@ -182,7 +165,7 @@ export function Hero() {
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-4 pb-12 pt-12 text-center sm:px-6 md:pt-14">
         <h1
-          className="landing-fade max-w-3xl text-balance font-display text-4xl font-semibold leading-[1.05] tracking-tight text-text-primary sm:text-5xl md:text-6xl"
+          className="landing-fade max-w-3xl text-balance font-display text-5xl font-semibold leading-[1.05] tracking-tight text-text-primary sm:text-6xl md:text-7xl"
           style={reveal('0ms')}
         >
           Your files,{' '}
@@ -192,7 +175,7 @@ export function Hero() {
         </h1>
 
         <p
-          className="landing-fade mt-4 max-w-xl text-balance text-base text-text-secondary"
+          className="landing-fade mt-5 max-w-xl text-balance text-base text-text-secondary"
           style={reveal('90ms')}
         >
           My Cloud Drive is a private home for your files — drag-and-drop
@@ -201,7 +184,7 @@ export function Hero() {
         </p>
 
         <div
-          className="landing-fade mt-7 flex flex-wrap items-center justify-center gap-3"
+          className="landing-fade mt-8 flex flex-wrap items-center justify-center gap-3"
           style={reveal('180ms')}
         >
           <Link
@@ -222,7 +205,7 @@ export function Hero() {
         </div>
 
         <p
-          className="landing-fade mt-5 font-mono text-xs text-text-secondary"
+          className="landing-fade mt-6 font-mono text-xs text-text-secondary"
           style={reveal('270ms')}
         >
           NO CREDIT CARD · NO BIG-TECH LOCK-IN · YOUR DATA, YOUR RULES
