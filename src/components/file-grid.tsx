@@ -110,7 +110,7 @@ function FileGridItem({
       ) : null}
 
       <div
-        className="absolute bottom-1 right-1 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+        className="absolute bottom-1 right-1 z-10 flex items-center gap-1 opacity-100 transition-opacity group-hover:opacity-100 md:opacity-0"
         onClick={(e) => e.stopPropagation()}
       >
         <Button

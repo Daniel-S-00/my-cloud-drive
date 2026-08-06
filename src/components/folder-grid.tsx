@@ -206,7 +206,7 @@ function FolderGridItem({
       ) : null}
 
       <div
-        className="absolute bottom-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+        className="absolute bottom-1 right-1 z-10 opacity-100 transition-opacity group-hover:opacity-100 md:opacity-0"
         onClick={(e) => e.stopPropagation()}
       >
         <Button
