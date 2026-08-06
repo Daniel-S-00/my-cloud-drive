@@ -49,7 +49,7 @@ function ActionButton({
 }: {
   onClick: () => void;
   disabled?: boolean;
-  variant: 'outline' | 'default' | 'ghost' | 'secondary' | 'destructive';
+  variant: 'outline' | 'default' | 'ghost' | 'secondary' | 'destructive' | 'destructiveOutline';
   children: React.ReactNode;
 }) {
   return (
@@ -118,7 +118,7 @@ export function TrashFileRow({ file }: { file: TrashFileRowData }) {
               Restore
             </ActionButton>
             <ActionButton
-              variant="destructive"
+              variant="destructiveOutline"
               onClick={() => openPermanentDeleteDialog(file.id)}
             >
               Delete forever
@@ -180,7 +180,7 @@ export function TrashFileRow({ file }: { file: TrashFileRowData }) {
                   Restore
                 </ActionButton>
                 <ActionButton
-                  variant="destructive"
+                  variant="destructiveOutline"
                   onClick={() => openPermanentDeleteDialog(file.id)}
                 >
                   Delete forever
