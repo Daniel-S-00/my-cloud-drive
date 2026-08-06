@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 
 type DialogContextValue = {
   open: boolean;
@@ -115,7 +116,12 @@ function AnimatedDialogContent({
 
   if (!shouldRender) return null;
 
-  return (
+  // Portaled to <body>: a dialog can be placed anywhere in the React
+  // tree (e.g. inside a table row for a delete confirm), but must never
+  // end up as a <tbody>/<td> child in the DOM — that's invalid HTML and
+  // breaks hydration. Only renders client-side (shouldRender starts
+  // false), so there is no SSR document access.
+  return createPortal(
     <>
       {/* Manual backdrop overlay with fade */}
       <div
@@ -151,7 +157,8 @@ function AnimatedDialogContent({
       >
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -167,6 +174,15 @@ const NativeDialogContent = React.forwardRef<HTMLDialogElement, DialogContentPro
     const { open, setOpen, titleId, descriptionId } =
       useDialogContext('NativeDialogContent');
     const innerRef = React.useRef<HTMLDialogElement | null>(null);
+    // Render nothing during SSR AND the first client (hydration) pass so
+    // server and client produce the same tree — otherwise React can't
+    // hydrate the portal at a position that was null on the server. After
+    // hydration the client snapshot flips to true and the portal mounts.
+    const mounted = React.useSyncExternalStore(
+      () => () => {},
+      () => true,
+      () => false,
+    );
 
     // Merge external ref with local ref
     const setRef = React.useCallback(
@@ -199,7 +215,15 @@ const NativeDialogContent = React.forwardRef<HTMLDialogElement, DialogContentPro
       return () => el.removeEventListener('close', handleClose);
     }, [setOpen, onClose]);
 
-    return (
+    // Portaled to <body>: a dialog must never end up as a <tbody>/<td>
+    // child (invalid HTML, breaks hydration) even when it's placed
+    // inside a table in the React tree. Mounted only after hydration so
+    // the tree position matches SSR (both empty), then portals.
+    if (!mounted) {
+      return null;
+    }
+
+    return createPortal(
       <dialog
         ref={setRef}
         aria-labelledby={titleId}
@@ -218,7 +242,8 @@ const NativeDialogContent = React.forwardRef<HTMLDialogElement, DialogContentPro
         {...props}
       >
         <div className="overflow-auto">{children}</div>
-      </dialog>
+      </dialog>,
+      document.body,
     );
   },
 );
