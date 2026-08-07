@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Check, Folder, Trash2 } from 'lucide-react';
+import { Check, Folder } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { moveFolder } from '@/app/actions/folders';
-import { Button } from '@/components/ui/button';
+import { FavoriteButton } from '@/components/favorite-button';
 import { ItemMenu } from '@/components/item-menu';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFolderDialogs } from '@/contexts/file-dialog-context';
@@ -30,6 +30,7 @@ export type FolderGridItemData = {
   name: string;
   filesCount: number;
   subfoldersCount: number;
+  favorite?: boolean;
 };
 
 type FolderGridItemProps = {
@@ -266,20 +267,15 @@ function FolderGridItem({
       </div>
 
       <div
-        className="absolute bottom-1 right-1 z-10 opacity-100 transition-opacity group-hover:opacity-100 md:opacity-0 pointer-coarse:hidden"
+        className="absolute bottom-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:hidden"
         onClick={(e) => e.stopPropagation()}
         data-no-drag
       >
-        <Button
-          type="button"
-          variant="destructiveOutline"
-          size="icon"
-          aria-label={`Delete ${folder.name}`}
-          title="Delete"
-          onClick={() => openDeleteDialog(folder)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <FavoriteButton
+          type="folder"
+          id={folder.id}
+          favorited={!!folder.favorite}
+        />
       </div>
 
       <div className="flex aspect-square w-full items-center justify-center rounded-t-lg bg-accent-primary/10">

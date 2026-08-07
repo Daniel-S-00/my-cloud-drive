@@ -29,6 +29,7 @@ export const folders = pgTable(
       .defaultNow()
       .notNull(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    favoriteAt: timestamp('favorite_at', { withTimezone: true }),
   },
   (t) => ({
     parentIdx: index('folders_parent_id_idx').on(t.parentId),

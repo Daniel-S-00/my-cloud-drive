@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { createFolder, deleteFolder, moveFolder } from '@/app/actions/folders';
 import { Button } from '@/components/ui/button';
+import { FavoriteButton } from '@/components/favorite-button';
 import { ItemMenu } from '@/components/item-menu';
 import {
   Dialog,
@@ -41,6 +42,7 @@ export type FolderRowData = {
   updatedAt: string;
   filesCount: number;
   subfoldersCount: number;
+  favorite?: boolean;
 };
 
 function FolderIcon({ className }: { className?: string }) {
@@ -327,6 +329,7 @@ export function FolderRow({
         style={{ animationDelay: `${index * 50}ms` }}
         className={[
           'desktop-row',
+          'group',
           'hidden md:table-row',
           spawnClass,
           rowClass || '',
@@ -381,6 +384,15 @@ export function FolderRow({
           data-no-drag
         >
           <div className="flex items-center justify-end gap-1">
+            {/* Drive-style hover actions (desktop only; hidden on touch). */}
+            <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <FavoriteButton
+                type="folder"
+                id={folder.id}
+                favorited={!!folder.favorite}
+                disabled={pending}
+              />
+            </div>
             <ItemMenu
               label={`Actions for ${folder.name}`}
               disabled={pending}
@@ -394,16 +406,7 @@ export function FolderRow({
                 <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
                 Moving…
               </span>
-            ) : (
-              <Button
-                type="button"
-                variant="destructiveOutline"
-                size="sm"
-                onClick={() => openDeleteDialog(folder)}
-              >
-                Delete
-              </Button>
-            )}
+            ) : null}
           </div>
         </TableCell>
       </TableRow>

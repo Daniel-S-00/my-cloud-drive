@@ -79,6 +79,7 @@ export async function FileList({ folderId }: FileListProps) {
           ? new Date(row.createdAt).toISOString()
           : '',
         uploadStatus: row.uploadStatus,
+        favorite: !!row.favoriteAt,
         thumbnailUrl,
         existingShare: await getExistingShareForFile(row.id),
       };

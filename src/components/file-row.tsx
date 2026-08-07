@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Check, Link2, Music, Play } from 'lucide-react';
+import { Check, Download, Link2, Music, Play, Share2 } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -9,9 +9,8 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { FavoriteButton } from '@/components/favorite-button';
 import { ItemMenu } from '@/components/item-menu';
-import { ShareButton } from '@/components/share-button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFileDialogs } from '@/contexts/file-dialog-context';
@@ -32,6 +31,7 @@ type FileRowData = {
   createdAt: string;
   uploadStatus: 'pending' | 'uploading' | 'complete' | 'failed';
   thumbnailUrl?: string | null | undefined;
+  favorite?: boolean;
   existingShare?: { id: string; shareUrl: string; expiresAt: string | null } | null;
 };
 
@@ -117,7 +117,6 @@ export function FileRow({
   });
   const isMultiSelected = isSelectedMulti(file.id);
 
-  const [isDownloading, setIsDownloading] = useState(false);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
 
   const isSelfDragged =
@@ -130,8 +129,12 @@ export function FileRow({
     toast.success(ok ? 'Name copied to clipboard' : 'Could not copy name');
   };
 
-  const handleMenuDownload = () => {
-    void onDownload();
+  const handleDownload = () => {
+    void downloadFile(file.id).catch((err) => {
+      toast.error('Download failed', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+    });
   };
 
   const handleMenuShare = () => {
@@ -147,19 +150,6 @@ export function FileRow({
       name: file.name,
       existing: file.existingShare,
     });
-  };
-
-  const onDownload = async () => {
-    setIsDownloading(true);
-    try {
-      await downloadFile(file.id);
-    } catch (err) {
-      toast.error('Download failed', {
-        description: err instanceof Error ? err.message : 'Unknown error',
-      });
-    } finally {
-      setIsDownloading(false);
-    }
   };
 
   const statusLabel = inFlight
@@ -210,6 +200,7 @@ export function FileRow({
         style={{ animationDelay: `${index * 50}ms` }}
         className={[
           'desktop-row',
+          'group',
           'hidden md:table-row',
           spawnClass,
           isSelfDragged ? 'opacity-50' : '',
@@ -309,46 +300,66 @@ export function FileRow({
           {formatDate(file.createdAt)}
         </TableCell>
         <TableCell
-          className="w-56 text-right"
+          className="w-44 text-right"
           onClick={(e) => e.stopPropagation()}
           data-no-drag
         >
-          <div className="flex flex-wrap items-center justify-end gap-1 md:flex-nowrap">
+          <div className="flex items-center justify-end gap-1">
+            {/* Drive-style hover actions (desktop only; hidden on touch). */}
+            <div
+              className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+              aria-hidden={false}
+            >
+              <FavoriteButton
+                type="file"
+                id={file.id}
+                favorited={!!file.favorite}
+                disabled={!canDelete}
+              />
+              {isComplete ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Download"
+                    title="Download"
+                    data-no-drag
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      handleDownload();
+                    }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+                  >
+                    <Download className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Share"
+                    title="Share"
+                    data-no-drag
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      handleMenuShare();
+                    }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+                  >
+                    <Share2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </>
+              ) : null}
+            </div>
             <ItemMenu
               label={`Actions for ${file.name}`}
               disabled={!canDelete}
               onMove={() => openMoveDialog([selectable])}
               onRename={() => openRenameDialog(selectable)}
               onCopyName={handleCopyName}
-              onDownload={isComplete ? handleMenuDownload : undefined}
+              onDownload={isComplete ? handleDownload : undefined}
               onShare={isComplete ? handleMenuShare : undefined}
               shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
               onDelete={() => openDeleteDialog(file.id)}
             />
-            <ShareButton
-              fileId={file.id}
-              fileName={file.name}
-              existing={file.existingShare}
-              enabled={isComplete}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onDownload}
-              disabled={!isComplete || isDownloading}
-            >
-              {isDownloading ? 'Preparing…' : 'Download'}
-            </Button>
-            <Button
-              type="button"
-              variant="destructiveOutline"
-              size="sm"
-              onClick={() => openDeleteDialog(file.id)}
-              disabled={!canDelete}
-            >
-              Delete
-            </Button>
           </div>
         </TableCell>
       </TableRow>
@@ -438,7 +449,7 @@ export function FileRow({
                   onMove={() => openMoveDialog([selectable])}
                   onRename={() => openRenameDialog(selectable)}
                   onCopyName={handleCopyName}
-                  onDownload={isComplete ? handleMenuDownload : undefined}
+                  onDownload={isComplete ? handleDownload : undefined}
                   onShare={isComplete ? handleMenuShare : undefined}
                   shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
                   onDelete={() => openDeleteDialog(file.id)}

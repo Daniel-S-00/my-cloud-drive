@@ -22,6 +22,7 @@ import { useViewMode } from '@/hooks/use-view-mode';
 export type FileListRow = FileDialogsFile & {
   createdAt: string;
   uploadStatus: 'pending' | 'uploading' | 'complete' | 'failed';
+  favorite?: boolean;
   existingShare?: { id: string; shareUrl: string; expiresAt: string | null } | null;
 };
 
@@ -162,6 +163,7 @@ function FileGridWrapper({
         mimeType: r.mimeType,
         thumbnailUrl: r.thumbnailUrl,
         uploadStatus: r.uploadStatus,
+        favorite: r.favorite,
         existingShare: r.existingShare,
       })),
     [rows],

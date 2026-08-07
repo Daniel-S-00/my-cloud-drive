@@ -19,6 +19,7 @@ type FolderWithCounts = {
   parentId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  favorite: boolean;
   filesCount: number;
   subfoldersCount: number;
 };
@@ -102,6 +103,7 @@ async function loadFoldersWithCounts(
     parentId: f.parentId,
     createdAt: f.createdAt,
     updatedAt: f.updatedAt,
+    favorite: f.favoriteAt !== null,
     ...(counts.get(f.id) ?? { filesCount: 0, subfoldersCount: 0 }),
   }));
 }
@@ -130,6 +132,7 @@ function FolderListBody({
     name: f.name,
     createdAt: f.createdAt.toISOString(),
     updatedAt: f.updatedAt.toISOString(),
+    favorite: f.favorite,
     filesCount: f.filesCount,
     subfoldersCount: f.subfoldersCount,
   }));

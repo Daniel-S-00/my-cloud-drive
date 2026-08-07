@@ -18,6 +18,12 @@ async function openMenuFor(page: Page, name: string) {
   return page.getByRole('menu');
 }
 
+async function deleteFolderViaMenu(page: Page, name: string) {
+  const menu = await openMenuFor(page, name);
+  await menu.getByRole('menuitem', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: /Delete folder/ }).click();
+}
+
 test.describe('per-item 3-dot menu', () => {
   test.skip(!hasTestUser, 'no E2E test user configured');
 
@@ -50,12 +56,8 @@ test.describe('per-item 3-dot menu', () => {
 
     await expect(page.getByRole('row', { name: `${name}-v2` })).toBeVisible();
 
-    // Cleanup: delete the temp folder (confirmation dialog).
-    await page
-      .locator('tr', { hasText: `${name}-v2` })
-      .getByRole('button', { name: 'Delete' })
-      .click();
-    await page.getByRole('button', { name: /Delete folder/ }).click();
+    // Cleanup: delete the temp folder via the menu.
+    await deleteFolderViaMenu(page, `${name}-v2`);
     await expect(page.getByText(`${name}-v2`)).toHaveCount(0);
   });
 
@@ -91,12 +93,8 @@ test.describe('per-item 3-dot menu', () => {
     await page.goto('/drive');
     await expect(page.getByRole('row', { name })).toBeVisible();
 
-    // Delete the temp folder.
-    await page
-      .locator('tr', { hasText: name })
-      .getByRole('button', { name: 'Delete' })
-      .click();
-    await page.getByRole('button', { name: /Delete folder/ }).click();
+    // Delete the temp folder via the menu.
+    await deleteFolderViaMenu(page, name);
     await expect(page.getByText(name)).toHaveCount(0);
   });
 
