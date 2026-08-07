@@ -270,9 +270,9 @@ function PreviewDialog({
             type="button"
             onClick={goPrev}
             aria-label={`Previous media (${mediaFiles[mediaIndex - 1]?.name ?? ''})`}
-            className="absolute left-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:flex"
+            className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:h-12 sm:w-12"
           >
-            <ChevronLeft className="h-6 w-6" />
+            <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
         ) : null}
         {canGoNext ? (
@@ -280,14 +280,16 @@ function PreviewDialog({
             type="button"
             onClick={goNext}
             aria-label={`Next media (${mediaFiles[mediaIndex + 1]?.name ?? ''})`}
-            className="absolute right-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:flex"
+            className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:h-12 sm:w-12"
           >
-            <ChevronRight className="h-6 w-6" />
+            <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
         ) : null}
       </div>
       <div className="flex flex-col-reverse items-center justify-between gap-2 border-t border-border-subtle p-3 md:flex-row md:p-4">
-        <span className="flex items-center gap-1 text-xs text-text-secondary/70">
+        {/* Keyboard shortcut hint is desktop-only — mobile uses the
+            prev/next buttons above. */}
+        <span className="hidden items-center gap-1 text-xs text-text-secondary/70 md:flex">
           <kbd className="rounded border border-border-subtle bg-bg-surface-hover px-1 font-mono text-[0.7rem]">
             ←
           </kbd>
