@@ -776,9 +776,9 @@ export async function renameFolder(
 
 export type GetFolderPickerItemsInput = {
   parentId: string | null;
-  // When moving a folder, exclude it and its whole subtree so the
+  // When moving folders, exclude them and their whole subtrees so the
   // picker can't offer a self/descendant drop (cycle prevention).
-  excludeFolderId?: string | null;
+  excludeFolderIds?: string[];
 };
 
 export type GetFolderPickerItemsOutput = {
@@ -787,19 +787,26 @@ export type GetFolderPickerItemsOutput = {
 
 /**
  * List the live subfolders of a given folder for the current user,
- * for the "Move to folder" picker. When `excludeFolderId` is set
- * (a folder being moved), the folder and every descendant are
- * filtered out.
+ * for the "Move to folder" picker. Any folder ids in
+ * `excludeFolderIds` (folders being moved) are filtered out along with
+ * their descendants.
  */
 export async function getFolderPickerItems(
   input: GetFolderPickerItemsInput,
 ): Promise<GetFolderPickerItemsOutput> {
-  const { parentId, excludeFolderId } = input;
+  const { parentId, excludeFolderIds = [] } = input;
   const { id: userId } = await getCurrentUser();
 
   let excludeIds: string[] = [];
-  if (excludeFolderId) {
-    excludeIds = await getDescendantFolderIds(db, excludeFolderId);
+  if (excludeFolderIds.length > 0) {
+    // Union of each excluded folder's subtree (each set already
+    // includes its own root).
+    const subtrees = await Promise.all(
+      excludeFolderIds.map((folderId) =>
+        getDescendantFolderIds(db, folderId),
+      ),
+    );
+    excludeIds = Array.from(new Set(subtrees.flat()));
   }
 
   const rows = await db

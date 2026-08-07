@@ -8,7 +8,6 @@ import {
 } from '@/components/file-dialogs';
 import { FileGrid, type FileGridFile } from '@/components/file-grid';
 import { FileRow } from '@/components/file-row';
-import { ShareDialog } from '@/components/share-dialog';
 import {
   Table,
   TableBody,
@@ -17,7 +16,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { FileDialogProvider, useFileDialogs } from '@/contexts/file-dialog-context';
-import { ShareDialogProvider } from '@/contexts/share-dialog-context';
 import { useSelection } from '@/contexts/selection-context';
 import { useViewMode } from '@/hooks/use-view-mode';
 
@@ -114,32 +112,29 @@ export function FileListClient({ rows }: { rows: FileListRow[] }) {
 
   return (
     <FileDialogProvider>
-      <ShareDialogProvider>
-        <div
-          key={viewMode}
-          className="animate-in fade-in zoom-in-95 duration-300"
-        >
-          {viewMode === 'list' ? (
-            <FileTableView
-              rows={rows}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              shouldScroll={shouldScroll}
-              animate={animate}
-            />
-          ) : (
-            <FileGridWrapper
-              rows={rows}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              shouldScroll={shouldScroll}
-              animate={animate}
-            />
-          )}
-        </div>
-        <FileDialogs files={dialogFiles} mediaFiles={mediaFiles} />
-        <ShareDialog />
-      </ShareDialogProvider>
+      <div
+        key={viewMode}
+        className="animate-in fade-in zoom-in-95 duration-300"
+      >
+        {viewMode === 'list' ? (
+          <FileTableView
+            rows={rows}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            shouldScroll={shouldScroll}
+            animate={animate}
+          />
+        ) : (
+          <FileGridWrapper
+            rows={rows}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            shouldScroll={shouldScroll}
+            animate={animate}
+          />
+        )}
+      </div>
+      <FileDialogs files={dialogFiles} mediaFiles={mediaFiles} />
     </FileDialogProvider>
   );
 }

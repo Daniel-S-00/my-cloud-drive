@@ -6,7 +6,7 @@ export async function loginAsTestUser(page: Page) {
   const password = process.env.E2E_TEST_PASSWORD!;
   await page.goto('/login');
   await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password|contraseña/i).fill(password);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: /sign in|iniciar|login/i }).click();
   // Tras login con callbackUrl por defecto se aterriza en "/drive" (el drive).
   await page.waitForURL('/drive');

@@ -19,12 +19,14 @@ export type ItemActionDialogKind = 'move' | 'rename' | null;
 
 export type ItemActionDialogState = {
   kind: ItemActionDialogKind;
-  target: ItemActionTarget | null;
+  // Rename always operates on a single target (targets[0]); Move
+  // supports batch (multi-select action bar).
+  targets: ItemActionTarget[];
 };
 
 export type ItemActionDialogContextValue = {
   state: ItemActionDialogState;
-  openMoveDialog: (target: ItemActionTarget) => void;
+  openMoveDialog: (targets: ItemActionTarget[]) => void;
   openRenameDialog: (target: ItemActionTarget) => void;
   closeDialog: () => void;
 };
@@ -45,7 +47,7 @@ export function useItemActionDialogs(): ItemActionDialogContextValue {
 
 const ITEM_ACTION_DIALOG_CLOSED: ItemActionDialogState = {
   kind: null,
-  target: null,
+  targets: [],
 };
 
 export function ItemActionDialogProvider({
@@ -57,12 +59,13 @@ export function ItemActionDialogProvider({
     ITEM_ACTION_DIALOG_CLOSED,
   );
 
-  const openMoveDialog = useCallback((target: ItemActionTarget) => {
-    setState({ kind: 'move', target });
+  const openMoveDialog = useCallback((targets: ItemActionTarget[]) => {
+    if (targets.length === 0) return;
+    setState({ kind: 'move', targets });
   }, []);
 
   const openRenameDialog = useCallback((target: ItemActionTarget) => {
-    setState({ kind: 'rename', target });
+    setState({ kind: 'rename', targets: [target] });
   }, []);
 
   const closeDialog = useCallback(() => {

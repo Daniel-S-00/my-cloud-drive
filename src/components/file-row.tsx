@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Link2, Music, Play } from 'lucide-react';
+import { Check, Link2, Music, Play } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -16,11 +16,13 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFileDialogs } from '@/contexts/file-dialog-context';
 import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useMultiSelect } from '@/contexts/multi-select-context';
 import { useShareDialogs } from '@/contexts/share-dialog-context';
 import { copyText } from '@/lib/clipboard';
 import { downloadFile } from '@/lib/download-file';
 import { isCoarsePointer } from '@/lib/pointer';
 import { useItemDrag } from '@/hooks/use-item-drag';
+import { useLongPress } from '@/hooks/use-long-press';
 
 type FileRowData = {
   id: string;
@@ -98,14 +100,22 @@ export function FileRow({
   const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
   const { openShareDialog } = useShareDialogs();
   const { draggedItem, isMoving } = useDragContext();
+  const { mode: selectionMode, isSelected: isSelectedMulti, enter, toggle } =
+    useMultiSelect();
 
-  // The row/card itself is the drag source (replaces the old drag
-  // handle). Exempt targets (the name, buttons, menu) keep text
-  // selection and normal clicks.
+  const selectable = { type: 'file', id: file.id, name: file.name } as const;
+
+  // The row/card itself is the drag source on desktop (HTML5). On
+  // mobile, a long-press enters multi-selection instead of dragging.
   const dragSource = useItemDrag({
-    item: { type: 'file', id: file.id, name: file.name },
+    item: selectable,
     disabled: isMoving || inFlight,
   });
+  const longPress = useLongPress({
+    onTrigger: () => enter(selectable),
+    disabled: isMoving || inFlight,
+  });
+  const isMultiSelected = isSelectedMulti(file.id);
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
@@ -159,6 +169,12 @@ export function FileRow({
       : file.uploadStatus;
 
   const handleRowClick = () => {
+    // While multi-select mode is active, a tap toggles the file in the
+    // selection instead of opening the preview.
+    if (selectionMode) {
+      toggle(selectable);
+      return;
+    }
     // On touch devices a single tap opens the preview directly — no
     // double-tap needed. Selection stays for non-previewable files
     // and desktop precision pointers.
@@ -187,6 +203,7 @@ export function FileRow({
       <TableRow
         ref={rowRef}
         {...dragSource.handlers}
+        {...longPress.handlers}
         draggable={dragSource.isDraggable}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
@@ -196,7 +213,7 @@ export function FileRow({
           'hidden md:table-row',
           spawnClass,
           isSelfDragged ? 'opacity-50' : '',
-          isSelected ? 'bg-accent-primary/10' : '',
+          isSelected || isMultiSelected ? 'bg-accent-primary/10' : '',
           'cursor-pointer',
         ]
           .filter(Boolean)
@@ -220,21 +237,39 @@ export function FileRow({
                     className={`object-cover transition-opacity duration-300 ${thumbnailLoaded ? 'opacity-100' : 'opacity-0'}`}
                   />
                 )}
+                {isMultiSelected ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 flex items-center justify-center bg-accent-primary/40"
+                  >
+                    <Check className="h-5 w-5 text-white" />
+                  </span>
+                ) : null}
               </div>
             ) : isVideo && isComplete ? (
               <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-accent-primary/15 text-accent-glow">
                   <Play className="h-5 w-5" aria-hidden />
+                  {isMultiSelected ? (
+                    <Check className="absolute h-5 w-5 text-white drop-shadow" />
+                  ) : null}
               </div>
             ) : isAudio && isComplete ? (
               <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-accent-primary/15 text-accent-glow">
                 <Music className="h-5 w-5" aria-hidden />
+                {isMultiSelected ? (
+                  <Check className="absolute h-5 w-5 text-white drop-shadow" />
+                ) : null}
               </div>
             ) : (
               <div
                 aria-hidden
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-bg-surface-hover text-xs font-medium text-text-secondary"
+                className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-bg-surface-hover text-xs font-medium text-text-secondary"
               >
-                {file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'}
+                {isMultiSelected ? (
+                  <Check className="h-5 w-5 text-accent-glow" />
+                ) : (
+                  file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'
+                )}
               </div>
             )}
             <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1">
@@ -282,16 +317,13 @@ export function FileRow({
             <ItemMenu
               label={`Actions for ${file.name}`}
               disabled={!canDelete}
-              onMove={() =>
-                openMoveDialog({ type: 'file', id: file.id, name: file.name })
-              }
-              onRename={() =>
-                openRenameDialog({ type: 'file', id: file.id, name: file.name })
-              }
+              onMove={() => openMoveDialog([selectable])}
+              onRename={() => openRenameDialog(selectable)}
               onCopyName={handleCopyName}
               onDownload={isComplete ? handleMenuDownload : undefined}
               onShare={isComplete ? handleMenuShare : undefined}
               shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
+              onDelete={() => openDeleteDialog(file.id)}
             />
             <ShareButton
               fileId={file.id}
@@ -323,8 +355,8 @@ export function FileRow({
 
       {/*
        * Mobile card (< md). Single full-width cell containing a
-       * vertical stack: thumbnail + name (top), then size · date
-       * · actions (bottom).
+       * vertical stack: thumbnail + name (top), then size · date ·
+       * status (bottom). All actions live in the 3-dot menu on mobile.
        */}
       <tr className={['mobile-card-row', 'md:hidden', spawnClass].filter(Boolean).join(' ')} style={{ animationDelay: `${index * 50}ms` }}>
         <td className="mobile-card-cell" colSpan={4}>
@@ -333,18 +365,19 @@ export function FileRow({
             onClick={handleRowClick}
             onDoubleClick={handleRowDoubleClick}
             {...dragSource.handlers}
+            {...longPress.handlers}
             draggable={dragSource.isDraggable}
             className={[
               'mobile-card',
               isSelfDragged ? 'opacity-50' : '',
-              isSelected ? 'bg-accent-primary/10' : '',
+              isSelected || isMultiSelected ? 'bg-accent-primary/10' : '',
               'cursor-pointer rounded-md p-2',
             ]
               .filter(Boolean)
               .join(' ')}
           >
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
+              <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
                 {isImage && isComplete ? (
                   <div className="relative h-full w-full">
                     {!thumbnailLoaded && (
@@ -375,6 +408,14 @@ export function FileRow({
                     {file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'}
                   </span>
                 )}
+                {isMultiSelected ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 flex items-center justify-center bg-accent-primary/40"
+                  >
+                    <Check className="h-5 w-5 text-white" />
+                  </span>
+                ) : null}
               </div>
               <div className="min-w-0 flex-1" data-no-drag>
                 <div
@@ -394,16 +435,13 @@ export function FileRow({
                 <ItemMenu
                   label={`Actions for ${file.name}`}
                   disabled={!canDelete}
-                  onMove={() =>
-                    openMoveDialog({ type: 'file', id: file.id, name: file.name })
-                  }
-                  onRename={() =>
-                    openRenameDialog({ type: 'file', id: file.id, name: file.name })
-                  }
+                  onMove={() => openMoveDialog([selectable])}
+                  onRename={() => openRenameDialog(selectable)}
                   onCopyName={handleCopyName}
                   onDownload={isComplete ? handleMenuDownload : undefined}
                   onShare={isComplete ? handleMenuShare : undefined}
                   shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
+                  onDelete={() => openDeleteDialog(file.id)}
                 />
               </div>
             </div>
@@ -439,36 +477,6 @@ export function FileRow({
                   </span>
                 </>
               ) : null}
-              <div
-                className="ml-auto flex flex-wrap items-center gap-2"
-                onClick={(e) => e.stopPropagation()}
-                data-no-drag
-              >
-                <ShareButton
-                  fileId={file.id}
-                  fileName={file.name}
-                  existing={file.existingShare}
-                  enabled={isComplete}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onDownload}
-                  disabled={!isComplete || isDownloading}
-                >
-                  {isDownloading ? 'Preparing…' : 'Download'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructiveOutline"
-                  size="sm"
-                  onClick={() => openDeleteDialog(file.id)}
-                  disabled={!canDelete}
-                >
-                  Delete
-                </Button>
-              </div>
             </div>
           </div>
         </td>

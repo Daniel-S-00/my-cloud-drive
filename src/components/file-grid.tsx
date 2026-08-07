@@ -1,17 +1,19 @@
 'use client';
 
 import Image from 'next/image';
-import { Music, Play, Trash2 } from 'lucide-react';
+import { Check, Music, Play, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { ItemMenu } from '@/components/item-menu';
 import { ShareButton } from '@/components/share-button';
 import { Button } from '@/components/ui/button';
-import { useFileDialogs } from '@/contexts/file-dialog-context';
 import { useDragContext } from '@/contexts/drag-context';
+import { useFileDialogs } from '@/contexts/file-dialog-context';
 import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useMultiSelect } from '@/contexts/multi-select-context';
 import { useShareDialogs } from '@/contexts/share-dialog-context';
 import { useItemDrag } from '@/hooks/use-item-drag';
+import { useLongPress } from '@/hooks/use-long-press';
 import { copyText } from '@/lib/clipboard';
 import { downloadFile } from '@/lib/download-file';
 import { isCoarsePointer } from '@/lib/pointer';
@@ -64,6 +66,8 @@ function FileGridItem({
   const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
   const { openShareDialog } = useShareDialogs();
   const { isMoving } = useDragContext();
+  const { mode: selectionMode, isSelected: isSelectedMulti, enter, toggle } =
+    useMultiSelect();
 
   const isImage = isImageMimeType(file.mimeType);
   const isVideo = isVideoMimeType(file.mimeType);
@@ -74,11 +78,19 @@ function FileGridItem({
   const isComplete = file.uploadStatus === 'complete';
   const canDelete = file.uploadStatus !== 'uploading';
 
-  // The card itself is the drag source (replaces the old drag handle).
+  const selectable = { type: 'file', id: file.id, name: file.name } as const;
+
+  // The card is the drag source on desktop (HTML5). On mobile, a
+  // long-press enters multi-selection instead of dragging.
   const dragSource = useItemDrag({
-    item: { type: 'file', id: file.id, name: file.name },
+    item: selectable,
     disabled: isMoving || inFlight,
   });
+  const longPress = useLongPress({
+    onTrigger: () => enter(selectable),
+    disabled: isMoving || inFlight,
+  });
+  const isMultiSelected = isSelectedMulti(file.id);
 
   const handleCopyName = async () => {
     const ok = await copyText(file.name);
@@ -123,13 +135,20 @@ function FileGridItem({
       ref={itemRef}
       style={{ animationDelay: `${index * 50}ms` }}
       {...dragSource.handlers}
+      {...longPress.handlers}
       draggable={dragSource.isDraggable}
       className={[
         'group relative flex cursor-pointer flex-col rounded-lg border border-border-subtle bg-bg-surface transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-accent-primary/10',
         spawnClass,
         isSelected ? 'ring-2 ring-accent-primary' : '',
+        isMultiSelected ? 'bg-accent-primary/10' : '',
       ].join(' ')}
       onClick={() => {
+        // While multi-select mode is active, a tap toggles selection.
+        if (selectionMode) {
+          toggle(selectable);
+          return;
+        }
         // Touch-first devices open on a single tap (no double-tap).
         if (isCoarsePointer()) {
           onOpen(file.id);
@@ -148,6 +167,15 @@ function FileGridItem({
         if (e.key === 'Enter') onSelect(file.id);
       }}
     >
+      {isMultiSelected ? (
+        <span
+          aria-hidden
+          className="absolute left-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-accent-primary text-white shadow"
+        >
+          <Check className="h-4 w-4" />
+        </span>
+      ) : null}
+
       <div
         className="absolute right-1 top-1 z-10"
         onClick={(e) => e.stopPropagation()}
@@ -156,21 +184,18 @@ function FileGridItem({
         <ItemMenu
           label={`Actions for ${file.name}`}
           disabled={!canDelete}
-          onMove={() =>
-            openMoveDialog({ type: 'file', id: file.id, name: file.name })
-          }
-          onRename={() =>
-            openRenameDialog({ type: 'file', id: file.id, name: file.name })
-          }
+          onMove={() => openMoveDialog([selectable])}
+          onRename={() => openRenameDialog(selectable)}
           onCopyName={handleCopyName}
           onDownload={isComplete ? handleMenuDownload : undefined}
           onShare={isComplete ? handleMenuShare : undefined}
           shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
+          onDelete={() => openDeleteDialog(file.id)}
         />
       </div>
 
       <div
-        className="absolute bottom-1 right-1 z-10 flex items-center gap-1 opacity-100 transition-opacity group-hover:opacity-100 md:opacity-0"
+        className="absolute bottom-1 right-1 z-10 flex items-center gap-1 opacity-100 transition-opacity group-hover:opacity-100 md:opacity-0 pointer-coarse:hidden"
         onClick={(e) => e.stopPropagation()}
         data-no-drag
       >

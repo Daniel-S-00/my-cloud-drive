@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Folder, Trash2 } from 'lucide-react';
+import { Check, Folder, Trash2 } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -17,7 +17,9 @@ import { ItemMenu } from '@/components/item-menu';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFolderDialogs } from '@/contexts/file-dialog-context';
 import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useMultiSelect } from '@/contexts/multi-select-context';
 import { useItemDrag } from '@/hooks/use-item-drag';
+import { useLongPress } from '@/hooks/use-long-press';
 import { copyText } from '@/lib/clipboard';
 import { isCoarsePointer } from '@/lib/pointer';
 
@@ -65,6 +67,8 @@ function FolderGridItem({
   const [, startTransition] = useTransition();
   const { openDeleteDialog } = useFolderDialogs();
   const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
+  const { mode: selectionMode, isSelected: isSelectedMulti, enter, toggle } =
+    useMultiSelect();
 
   const {
     dragOverFolderId,
@@ -74,10 +78,13 @@ function FolderGridItem({
     setMoving,
   } = useDragContext();
 
-  // The card itself is the drag source (replaces the old drag handle).
-  const dragSource = useItemDrag({
-    item: { type: 'folder', id: folder.id, name: folder.name },
-  });
+  const selectable = { type: 'folder', id: folder.id, name: folder.name } as const;
+
+  // The card is the drag source on desktop (HTML5). On mobile, a
+  // long-press enters multi-selection instead of dragging.
+  const dragSource = useItemDrag({ item: selectable });
+  const longPress = useLongPress({ onTrigger: () => enter(selectable) });
+  const isMultiSelected = isSelectedMulti(folder.id);
 
   const handleCopyName = async () => {
     const ok = await copyText(folder.name);
@@ -183,6 +190,7 @@ function FolderGridItem({
     'group relative flex cursor-pointer flex-col rounded-lg border border-border-subtle bg-bg-surface transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-accent-primary/10',
     spawnClass,
     isSelected ? 'ring-2 ring-accent-primary' : '',
+    isMultiSelected ? 'bg-accent-primary/10' : '',
     isHovered ? 'bg-accent-primary/15 ring-1 ring-inset ring-accent-glow' : '',
   ]
     .filter(Boolean)
@@ -202,8 +210,14 @@ function FolderGridItem({
       data-drop-folder-id={folder.id}
       data-drop-folder-name={folder.name}
       {...dragSource.handlers}
+      {...longPress.handlers}
       draggable={dragSource.isDraggable}
       onClick={() => {
+        // While multi-select mode is active, a tap toggles selection.
+        if (selectionMode) {
+          toggle(selectable);
+          return;
+        }
         // Touch-first devices open the folder on a single tap (no
         // double-tap needed). Selection stays for desktop precision
         // pointers (double-click opens there).
@@ -228,6 +242,15 @@ function FolderGridItem({
         if (e.key === 'Enter') onSelect(folder.id);
       }}
     >
+      {isMultiSelected ? (
+        <span
+          aria-hidden
+          className="absolute left-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-accent-primary text-white shadow"
+        >
+          <Check className="h-4 w-4" />
+        </span>
+      ) : null}
+
       <div
         className="absolute right-1 top-1 z-10"
         onClick={(e) => e.stopPropagation()}
@@ -235,18 +258,15 @@ function FolderGridItem({
       >
         <ItemMenu
           label={`Actions for ${folder.name}`}
-          onMove={() =>
-            openMoveDialog({ type: 'folder', id: folder.id, name: folder.name })
-          }
-          onRename={() =>
-            openRenameDialog({ type: 'folder', id: folder.id, name: folder.name })
-          }
+          onMove={() => openMoveDialog([selectable])}
+          onRename={() => openRenameDialog(selectable)}
           onCopyName={handleCopyName}
+          onDelete={() => openDeleteDialog(folder)}
         />
       </div>
 
       <div
-        className="absolute bottom-1 right-1 z-10 opacity-100 transition-opacity group-hover:opacity-100 md:opacity-0"
+        className="absolute bottom-1 right-1 z-10 opacity-100 transition-opacity group-hover:opacity-100 md:opacity-0 pointer-coarse:hidden"
         onClick={(e) => e.stopPropagation()}
         data-no-drag
       >

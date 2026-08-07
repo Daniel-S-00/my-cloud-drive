@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Folder } from 'lucide-react';
+import { Check, Folder } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { toast } from 'sonner';
@@ -24,9 +24,11 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFolderDialogs } from '@/contexts/file-dialog-context';
 import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useMultiSelect } from '@/contexts/multi-select-context';
 import { copyText } from '@/lib/clipboard';
 import { isCoarsePointer } from '@/lib/pointer';
 import { useItemDrag } from '@/hooks/use-item-drag';
+import { useLongPress } from '@/hooks/use-long-press';
 
 import { formatDateTime as formatDate } from '@/lib/format-date';
 
@@ -73,6 +75,8 @@ export function FolderRow({
   }, [isSelected, shouldScroll]);
   const { openDeleteDialog } = useFolderDialogs();
   const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
+  const { mode: selectionMode, isSelected: isSelectedMulti, enter, toggle } =
+    useMultiSelect();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const {
@@ -85,13 +89,19 @@ export function FolderRow({
     setMoving,
   } = useDragContext();
 
-  // The row/card itself is the drag source (replaces the old drag
-  // handle). Exempt targets (the name, buttons, menu) keep text
-  // selection and normal clicks.
+  const selectable = { type: 'folder', id: folder.id, name: folder.name } as const;
+
+  // The row/card is the drag source on desktop (HTML5). On mobile, a
+  // long-press enters multi-selection instead of dragging.
   const dragSource = useItemDrag({
-    item: { type: 'folder', id: folder.id, name: folder.name },
+    item: selectable,
     disabled: isMoving,
   });
+  const longPress = useLongPress({
+    onTrigger: () => enter(selectable),
+    disabled: pending || isMoving,
+  });
+  const isMultiSelected = isSelectedMulti(folder.id);
 
   const handleCopyName = async () => {
     const ok = await copyText(folder.name);
@@ -265,6 +275,12 @@ export function FolderRow({
     .join(' ');
 
   const handleRowClick = () => {
+    // While multi-select mode is active, a tap toggles the item in the
+    // selection instead of opening it.
+    if (selectionMode) {
+      toggle(selectable);
+      return;
+    }
     // On touch devices a single tap opens the folder directly — no
     // double-tap needed. Selection stays for desktop precision
     // pointers (double-click opens there).
@@ -298,6 +314,7 @@ export function FolderRow({
       <TableRow
         ref={desktopRef}
         {...dragSource.handlers}
+        {...longPress.handlers}
         draggable={dragSource.isDraggable}
         onDragOver={onDragOver}
         onDragEnter={onDragEnter}
@@ -308,7 +325,13 @@ export function FolderRow({
         data-drop-folder-id={folder.id}
         data-drop-folder-name={folder.name}
         style={{ animationDelay: `${index * 50}ms` }}
-        className={['desktop-row', 'hidden md:table-row', spawnClass, rowClass || '']
+        className={[
+          'desktop-row',
+          'hidden md:table-row',
+          spawnClass,
+          rowClass || '',
+          isMultiSelected ? 'bg-accent-primary/10' : '',
+        ]
           .filter(Boolean)
           .join(' ')}
       >
@@ -324,7 +347,11 @@ export function FolderRow({
               aria-hidden
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-accent-primary/15 text-accent-glow"
             >
-              <FolderIcon className="h-5 w-5" />
+              {isMultiSelected ? (
+                <Check className="h-5 w-5" />
+              ) : (
+                <FolderIcon className="h-5 w-5" />
+              )}
             </span>
             <span
               title={folder.name}
@@ -357,13 +384,10 @@ export function FolderRow({
             <ItemMenu
               label={`Actions for ${folder.name}`}
               disabled={pending}
-              onMove={() =>
-                openMoveDialog({ type: 'folder', id: folder.id, name: folder.name })
-              }
-              onRename={() =>
-                openRenameDialog({ type: 'folder', id: folder.id, name: folder.name })
-              }
+              onMove={() => openMoveDialog([selectable])}
+              onRename={() => openRenameDialog(selectable)}
               onCopyName={handleCopyName}
+              onDelete={() => openDeleteDialog(folder)}
             />
             {pending ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
@@ -405,10 +429,16 @@ export function FolderRow({
       >
         <td className="mobile-card-cell" colSpan={4}>
           <div
-            className="mobile-card"
+            className={[
+              'mobile-card',
+              isMultiSelected ? 'bg-accent-primary/10' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             onClick={handleRowClick}
             onDoubleClick={handleRowDoubleClick}
             {...dragSource.handlers}
+            {...longPress.handlers}
             draggable={dragSource.isDraggable}
           >
             <div className="flex items-start gap-3">
@@ -416,7 +446,11 @@ export function FolderRow({
                 aria-hidden
                 className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-accent-primary/15 text-accent-glow"
               >
-                <FolderIcon className="h-5 w-5" />
+                {isMultiSelected ? (
+                  <Check className="h-5 w-5" />
+                ) : (
+                  <FolderIcon className="h-5 w-5" />
+                )}
               </span>
               <div className="min-w-0 flex-1">
                 <Link
@@ -451,13 +485,10 @@ export function FolderRow({
                 <ItemMenu
                   label={`Actions for ${folder.name}`}
                   disabled={pending}
-                  onMove={() =>
-                    openMoveDialog({ type: 'folder', id: folder.id, name: folder.name })
-                  }
-                  onRename={() =>
-                    openRenameDialog({ type: 'folder', id: folder.id, name: folder.name })
-                  }
+                  onMove={() => openMoveDialog([selectable])}
+                  onRename={() => openRenameDialog(selectable)}
                   onCopyName={handleCopyName}
+                  onDelete={() => openDeleteDialog(folder)}
                 />
               </div>
             </div>
@@ -466,27 +497,12 @@ export function FolderRow({
               <span className="whitespace-nowrap">
                 {formatDate(folder.updatedAt || folder.createdAt)}
               </span>
-              <div
-                className="ml-auto flex flex-wrap items-center gap-2"
-                onClick={(e) => e.stopPropagation()}
-                data-no-drag
-              >
-                {pending ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
-                    Moving…
-                  </span>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="destructiveOutline"
-                    size="sm"
-                    onClick={() => openDeleteDialog(folder)}
-                  >
-                    Delete
-                  </Button>
-                )}
-              </div>
+              {pending ? (
+                <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
+                  Moving…
+                </span>
+              ) : null}
             </div>
           </div>
         </td>

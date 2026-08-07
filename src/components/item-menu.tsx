@@ -9,6 +9,7 @@ import {
   Link2,
   MoreVertical,
   Pencil,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -26,6 +27,7 @@ type ItemMenuProps = {
   onDownload?: () => void;
   onShare?: () => void;
   shareLabel?: string;
+  onDelete?: () => void;
 };
 
 function MenuItem({
@@ -73,6 +75,7 @@ export function ItemMenu({
   onDownload,
   onShare,
   shareLabel = 'Share…',
+  onDelete,
 }: ItemMenuProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
@@ -206,6 +209,13 @@ export function ItemMenu({
                   icon={Link2}
                   label={shareLabel}
                   onClick={() => run(onShare)}
+                />
+              ) : null}
+              {onDelete ? (
+                <MenuItem
+                  icon={Trash2}
+                  label="Delete"
+                  onClick={() => run(onDelete)}
                 />
               ) : null}
             </div>,

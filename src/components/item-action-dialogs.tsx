@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { ArrowUp, ChevronRight, Folder, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -30,8 +30,8 @@ import {
 export function ItemActionDialogs() {
   const { state, closeDialog } = useItemActionDialogs();
 
-  const open = state.target !== null;
-  const target = state.target;
+  const targets = state.targets;
+  const open = targets.length > 0;
 
   return (
     <Dialog
@@ -40,11 +40,19 @@ export function ItemActionDialogs() {
         if (!next) closeDialog();
       }}
     >
-      {open && target ? (
+      {open ? (
         state.kind === 'move' ? (
-          <MoveDialogBody key={`move-${target.id}`} target={target} onClose={closeDialog} />
+          <MoveDialogBody
+            key={`move-${targets.map((t) => t.id).join(',')}`}
+            targets={targets}
+            onClose={closeDialog}
+          />
         ) : (
-          <RenameDialogBody key={`rename-${target.id}`} target={target} onClose={closeDialog} />
+          <RenameDialogBody
+            key={`rename-${targets[0].id}`}
+            target={targets[0]}
+            onClose={closeDialog}
+          />
         )
       ) : null}
     </Dialog>
@@ -52,11 +60,14 @@ export function ItemActionDialogs() {
 }
 
 type DialogBodyProps = {
-  target: ItemActionTarget;
   onClose: () => void;
 };
 
-function MoveDialogBody({ target, onClose }: DialogBodyProps) {
+type MoveDialogBodyProps = DialogBodyProps & {
+  targets: ItemActionTarget[];
+};
+
+function MoveDialogBody({ targets, onClose }: MoveDialogBodyProps) {
   const router = useRouter();
   const [crumbs, setCrumbs] = useState<{ id: string | null; name: string }[]>([
     { id: null, name: 'My Drive' },
@@ -71,11 +82,19 @@ function MoveDialogBody({ target, onClose }: DialogBodyProps) {
   const currentId = crumbs[crumbs.length - 1].id;
   const currentName = crumbs[crumbs.length - 1].name;
 
+  // Folders being moved (and their subtrees) are hidden from the picker
+  // to prevent self/descendant drops.
+  const excludeFolderIds = useMemo(
+    () => targets.filter((t) => t.type === 'folder').map((t) => t.id),
+    [targets],
+  );
+
   useEffect(() => {
     let cancelled = false;
     getFolderPickerItems({
       parentId: currentId,
-      excludeFolderId: target.type === 'folder' ? target.id : null,
+      excludeFolderIds:
+        excludeFolderIds.length > 0 ? excludeFolderIds : undefined,
     })
       .then((result) => {
         if (!cancelled) setFolders(result.folders);
@@ -90,7 +109,7 @@ function MoveDialogBody({ target, onClose }: DialogBodyProps) {
     return () => {
       cancelled = true;
     };
-  }, [currentId, target.type, target.id]);
+  }, [currentId, excludeFolderIds]);
 
   const enterFolder = (id: string, name: string) => {
     setFolders(null);
@@ -104,41 +123,52 @@ function MoveDialogBody({ target, onClose }: DialogBodyProps) {
 
   const onMove = () => {
     startMove(async () => {
-      try {
-        if (target.type === 'file') {
-          const result = await moveFile({
-            fileId: target.id,
-            targetFolderId: currentId,
-          });
-          toast.success(
-            result.wasRenamed ? 'File moved (renamed)' : 'File moved',
-            {
-              description: `"${target.name}" → "${currentName}"${
-                result.wasRenamed ? ` (renamed to "${result.newName}")` : ''
-              }`,
-            },
-          );
-        } else {
-          const result = await moveFolder({
-            folderId: target.id,
-            targetParentId: currentId,
-          });
-          toast.success(
-            result.wasRenamed ? 'Folder moved (renamed)' : 'Folder moved',
-            {
-              description: `"${target.name}" → "${currentName}"${
-                result.wasRenamed ? ` (renamed to "${result.newName}")` : ''
-              }`,
-            },
-          );
+      let succeeded = 0;
+      let errorMessage: string | null = null;
+
+      for (const target of targets) {
+        try {
+          if (target.type === 'file') {
+            await moveFile({ fileId: target.id, targetFolderId: currentId });
+          } else {
+            await moveFolder({
+              folderId: target.id,
+              targetParentId: currentId,
+            });
+          }
+          succeeded += 1;
+        } catch (err) {
+          if (targets.length === 1) {
+            errorMessage =
+              err instanceof Error ? err.message : 'Unknown error';
+          }
         }
-        router.refresh();
-        onClose();
-      } catch (err) {
+      }
+
+      if (targets.length === 1) {
+        if (succeeded === 0) {
+          toast.error('Move failed', {
+            description: errorMessage ?? 'Unknown error',
+          });
+          return;
+        }
+      } else if (succeeded === 0) {
         toast.error('Move failed', {
-          description: err instanceof Error ? err.message : 'Unknown error',
+          description: 'None of the selected items could be moved',
+        });
+        return;
+      } else if (succeeded < targets.length) {
+        toast.error('Some items could not be moved', {
+          description: `${succeeded} of ${targets.length} moved`,
         });
       }
+
+      toast.success(
+        targets.length === 1 ? 'Item moved' : `${targets.length} items moved`,
+        { description: `to "${currentName}"` },
+      );
+      router.refresh();
+      onClose();
     });
   };
 
@@ -147,7 +177,12 @@ function MoveDialogBody({ target, onClose }: DialogBodyProps) {
       <DialogHeader>
         <DialogTitle>Move to folder</DialogTitle>
         <DialogDescription>
-          Move <span className="font-medium text-text-primary">{target.name}</span>{' '}
+          Move{' '}
+          <span className="font-medium text-text-primary">
+            {targets.length === 1
+              ? targets[0].name
+              : `${targets.length} items`}
+          </span>{' '}
           to a new location.
         </DialogDescription>
       </DialogHeader>
@@ -230,7 +265,12 @@ function MoveDialogBody({ target, onClose }: DialogBodyProps) {
   );
 }
 
-function RenameDialogBody({ target, onClose }: DialogBodyProps) {
+type RenameDialogBodyProps = {
+  target: ItemActionTarget;
+  onClose: () => void;
+};
+
+function RenameDialogBody({ target, onClose }: RenameDialogBodyProps) {
   const router = useRouter();
   const [name, setName] = useState(target.name);
   const [error, setError] = useState<string | null>(null);
