@@ -18,12 +18,18 @@ type NavItem = {
   badge?: number;
 };
 
-export function SidebarNav({ trashCount }: { trashCount: number }) {
+export function SidebarNav({
+  trashCount,
+  sharesCount,
+}: {
+  trashCount: number;
+  sharesCount: number;
+}) {
   const pathname = usePathname() ?? '/drive';
 
   const items: NavItem[] = [
     { href: '/drive', label: 'My Drive', icon: HardDrive },
-    { href: '/shares', label: 'Shares', icon: Share2 },
+    { href: '/shares', label: 'Shares', icon: Share2, badge: sharesCount },
     { href: '/trash', label: 'Trash', icon: Trash2, badge: trashCount },
   ];
 

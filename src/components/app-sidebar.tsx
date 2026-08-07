@@ -3,9 +3,11 @@ import { SidebarContent } from '@/components/sidebar-content';
 
 export function AppSidebar({
   trashCount,
+  sharesCount,
   usedBytes,
 }: {
   trashCount: number;
+  sharesCount: number;
   usedBytes: number;
 }) {
   return (
@@ -20,7 +22,11 @@ export function AppSidebar({
       </div>
 
       <div className="min-h-0 flex-1 p-3">
-        <SidebarContent trashCount={trashCount} usedBytes={usedBytes} />
+        <SidebarContent
+          trashCount={trashCount}
+          sharesCount={sharesCount}
+          usedBytes={usedBytes}
+        />
       </div>
     </aside>
   );

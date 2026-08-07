@@ -5,15 +5,21 @@ import { SearchBar } from '@/components/search-bar';
 
 export function AppHeader({
   trashCount,
+  sharesCount,
   usedBytes,
 }: {
   trashCount: number;
+  sharesCount: number;
   usedBytes: number;
 }) {
   return (
     <header className="z-30 shrink-0 border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md supports-[backdrop-filter]:bg-bg-surface/70">
       <div className="mx-auto flex h-14 w-full max-w-[1920px] items-center gap-4 px-4 sm:px-6">
-        <MobileNav trashCount={trashCount} usedBytes={usedBytes} />
+        <MobileNav
+          trashCount={trashCount}
+          sharesCount={sharesCount}
+          usedBytes={usedBytes}
+        />
         <div className="flex-1" />
         <div className="w-full max-w-xl">
           <SearchBar />

@@ -36,7 +36,7 @@ export function TrashBreadcrumbs({ path }: TrashBreadcrumbsProps) {
         return (
           <span key={crumb.id} className="flex items-center gap-1">
             <span aria-hidden className="text-border-subtle">
-              /
+              &gt;
             </span>
             {isLast ? (
               <span className="rounded px-1 font-medium text-text-primary">

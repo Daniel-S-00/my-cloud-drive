@@ -18,9 +18,11 @@ function formatBytes(bytes: number): string {
 
 export function SidebarContent({
   trashCount,
+  sharesCount,
   usedBytes,
 }: {
   trashCount: number;
+  sharesCount: number;
   usedBytes: number;
 }) {
   const usedPct = Math.min(
@@ -31,7 +33,7 @@ export function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <SidebarNav trashCount={trashCount} />
+        <SidebarNav trashCount={trashCount} sharesCount={sharesCount} />
       </div>
 
       <div className="mt-3 flex shrink-0 flex-col gap-3 border-t border-border-subtle pt-3">

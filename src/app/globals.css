@@ -46,6 +46,17 @@ body {
     color 200ms ease;
 }
 
+/* The app is a fixed h-dvh shell with inner scroll containers — the
+   document itself must never scroll sideways. `clip` (rather than
+   `hidden`) avoids turning the root into a scroll container, so
+   vertical viewport scrolling (landing page) and position:sticky are
+   unaffected. Defense-in-depth for wide content (e.g. sr-only spans
+   in min-width tables). */
+html,
+body {
+  overflow-x: clip;
+}
+
 /* Smooth in-page anchor navigation (landing #features / #security).
    Disabled for reduced-motion users. */
 html {

@@ -102,7 +102,7 @@ function FileGridItem({
     >
       {dragHandle ? (
         <div
-          className="absolute right-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute right-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
           onClick={(e) => e.stopPropagation()}
         >
           {dragHandle}

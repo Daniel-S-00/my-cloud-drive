@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFolderDialogs } from '@/contexts/file-dialog-context';
+import { isCoarsePointer } from '@/lib/pointer';
 
 import { formatDateTime as formatDate } from '@/lib/format-date';
 
@@ -247,6 +248,13 @@ export function FolderRow({
     .join(' ');
 
   const handleRowClick = () => {
+    // On touch devices a single tap opens the folder directly — no
+    // double-tap needed. Selection stays for desktop precision
+    // pointers (double-click opens there).
+    if (isCoarsePointer()) {
+      router.push(`/drive?folder=${folder.id}`);
+      return;
+    }
     onSelect?.(folder.id);
   };
 
@@ -276,6 +284,8 @@ export function FolderRow({
         onDrop={onDrop}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
+        data-drop-folder-id={folder.id}
+        data-drop-folder-name={folder.name}
         style={{ animationDelay: `${index * 50}ms` }}
         className={['desktop-row', 'hidden md:table-row', spawnClass, rowClass || '']
           .filter(Boolean)
@@ -354,6 +364,8 @@ export function FolderRow({
           .filter(Boolean)
           .join(' ')}
         style={{ animationDelay: `${index * 50}ms` }}
+        data-drop-folder-id={folder.id}
+        data-drop-folder-name={folder.name}
         onDragOver={onDragOver}
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}

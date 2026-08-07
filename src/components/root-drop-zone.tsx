@@ -161,6 +161,7 @@ export function RootDropZone() {
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      data-drop-root
       data-testid="root-drop-zone"
       className={[
         // `hidden` removes the node from layout without unmounting

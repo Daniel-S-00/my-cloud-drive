@@ -10,6 +10,7 @@ import { DragHandle } from '@/components/drag-handle';
 import { Button } from '@/components/ui/button';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFolderDialogs } from '@/contexts/file-dialog-context';
+import { isCoarsePointer } from '@/lib/pointer';
 
 const DRAG_MIME = 'text/plain';
 
@@ -180,7 +181,18 @@ function FolderGridItem({
       ref={itemRef}
       className={cardClass}
       style={{ animationDelay: `${index * 50}ms` }}
-      onClick={() => onSelect(folder.id)}
+      data-drop-folder-id={folder.id}
+      data-drop-folder-name={folder.name}
+      onClick={() => {
+        // Touch-first devices open the folder on a single tap (no
+        // double-tap needed). Selection stays for desktop precision
+        // pointers (double-click opens there).
+        if (isCoarsePointer()) {
+          router.push(`/drive?folder=${folder.id}`);
+          return;
+        }
+        onSelect(folder.id);
+      }}
       onDoubleClick={(e: ReactMouseEvent) => {
         // Stop the browser's double-click word selection.
         e.preventDefault();
@@ -198,7 +210,7 @@ function FolderGridItem({
     >
       {dragHandle ? (
         <div
-          className="absolute right-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute right-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
           onClick={(e) => e.stopPropagation()}
         >
           {dragHandle}

@@ -7,9 +7,11 @@ import { SidebarContent } from '@/components/sidebar-content';
 
 export function MobileNav({
   trashCount,
+  sharesCount,
   usedBytes,
 }: {
   trashCount: number;
+  sharesCount: number;
   usedBytes: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -67,7 +69,11 @@ export function MobileNav({
                 </button>
               </div>
               <div className="min-h-0 flex-1 p-3">
-                <SidebarContent trashCount={trashCount} usedBytes={usedBytes} />
+                <SidebarContent
+                  trashCount={trashCount}
+                  sharesCount={sharesCount}
+                  usedBytes={usedBytes}
+                />
               </div>
             </div>
           </div>,

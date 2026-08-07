@@ -163,6 +163,8 @@ export function BreadcrumbDropZone({
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      data-drop-folder-id={parentFolderId}
+      data-drop-folder-name={parentFolderName}
       className={hoverClass}
       title={`Drop here to move into "${parentFolderName}"`}
     >
