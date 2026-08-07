@@ -3,10 +3,17 @@
 import Image from 'next/image';
 import { Music, Play, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { DragHandle } from '@/components/drag-handle';
+import { toast } from 'sonner';
+import { ItemMenu } from '@/components/item-menu';
 import { ShareButton } from '@/components/share-button';
 import { Button } from '@/components/ui/button';
 import { useFileDialogs } from '@/contexts/file-dialog-context';
+import { useDragContext } from '@/contexts/drag-context';
+import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useShareDialogs } from '@/contexts/share-dialog-context';
+import { useItemDrag } from '@/hooks/use-item-drag';
+import { copyText } from '@/lib/clipboard';
+import { downloadFile } from '@/lib/download-file';
 import { isCoarsePointer } from '@/lib/pointer';
 
 export type FileGridFile = {
@@ -36,7 +43,6 @@ type FileGridItemProps = {
   isSelected: boolean;
   onSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  dragHandle?: ReactNode;
   renderStatus?: () => ReactNode;
   shouldScroll?: boolean;
   animate?: boolean;
@@ -48,7 +54,6 @@ function FileGridItem({
   isSelected,
   onSelect,
   onOpen,
-  dragHandle,
   renderStatus,
   shouldScroll,
   animate = true,
@@ -56,11 +61,52 @@ function FileGridItem({
   const itemRef = useRef<HTMLDivElement>(null);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
   const { openDeleteDialog } = useFileDialogs();
+  const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
+  const { openShareDialog } = useShareDialogs();
+  const { isMoving } = useDragContext();
 
   const isImage = isImageMimeType(file.mimeType);
   const isVideo = isVideoMimeType(file.mimeType);
   const isAudio = isAudioMimeType(file.mimeType);
   const hasThumbnail = Boolean(file.thumbnailUrl);
+  const inFlight =
+    file.uploadStatus === 'pending' || file.uploadStatus === 'uploading';
+  const isComplete = file.uploadStatus === 'complete';
+  const canDelete = file.uploadStatus !== 'uploading';
+
+  // The card itself is the drag source (replaces the old drag handle).
+  const dragSource = useItemDrag({
+    item: { type: 'file', id: file.id, name: file.name },
+    disabled: isMoving || inFlight,
+  });
+
+  const handleCopyName = async () => {
+    const ok = await copyText(file.name);
+    toast.success(ok ? 'Name copied to clipboard' : 'Could not copy name');
+  };
+
+  const handleMenuDownload = () => {
+    void downloadFile(file.id).catch((err) => {
+      toast.error('Download failed', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+    });
+  };
+
+  const handleMenuShare = () => {
+    const existing = file.existingShare;
+    if (existing) {
+      void copyText(existing.shareUrl).then((ok) => {
+        toast.success(ok ? 'Link copied to clipboard' : 'Could not copy link');
+      });
+      return;
+    }
+    openShareDialog({
+      id: file.id,
+      name: file.name,
+      existing: file.existingShare,
+    });
+  };
 
   useEffect(() => {
     if (isSelected && shouldScroll && itemRef.current) {
@@ -76,6 +122,8 @@ function FileGridItem({
     <div
       ref={itemRef}
       style={{ animationDelay: `${index * 50}ms` }}
+      {...dragSource.handlers}
+      draggable={dragSource.isDraggable}
       className={[
         'group relative flex cursor-pointer flex-col rounded-lg border border-border-subtle bg-bg-surface transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-accent-primary/10',
         spawnClass,
@@ -100,18 +148,31 @@ function FileGridItem({
         if (e.key === 'Enter') onSelect(file.id);
       }}
     >
-      {dragHandle ? (
-        <div
-          className="absolute right-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {dragHandle}
-        </div>
-      ) : null}
+      <div
+        className="absolute right-1 top-1 z-10"
+        onClick={(e) => e.stopPropagation()}
+        data-no-drag
+      >
+        <ItemMenu
+          label={`Actions for ${file.name}`}
+          disabled={!canDelete}
+          onMove={() =>
+            openMoveDialog({ type: 'file', id: file.id, name: file.name })
+          }
+          onRename={() =>
+            openRenameDialog({ type: 'file', id: file.id, name: file.name })
+          }
+          onCopyName={handleCopyName}
+          onDownload={isComplete ? handleMenuDownload : undefined}
+          onShare={isComplete ? handleMenuShare : undefined}
+          shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
+        />
+      </div>
 
       <div
         className="absolute bottom-1 right-1 z-10 flex items-center gap-1 opacity-100 transition-opacity group-hover:opacity-100 md:opacity-0"
         onClick={(e) => e.stopPropagation()}
+        data-no-drag
       >
         <Button
           type="button"
@@ -168,6 +229,7 @@ function FileGridItem({
       <div className="flex flex-col gap-1 p-3">
         <span
           title={file.name}
+          data-no-drag
           className="line-clamp-2 text-sm font-medium text-text-primary break-words"
         >
           {file.name}
@@ -183,7 +245,6 @@ type FileGridProps = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  isMoving?: boolean;
   shouldScroll?: boolean;
   animate?: boolean;
 };
@@ -193,7 +254,6 @@ export function FileGrid({
   selectedId,
   onSelect,
   onOpen,
-  isMoving = false,
   shouldScroll,
   animate = true,
 }: FileGridProps) {
@@ -201,57 +261,44 @@ export function FileGrid({
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      {files.map((file, index) => {
-        const inFlight =
-          file.uploadStatus === 'pending' || file.uploadStatus === 'uploading';
-
-        return (
-          <FileGridItem
-            key={file.id}
-            file={file}
-            index={index}
-            isSelected={selectedId === file.id}
-            onSelect={onSelect}
-            onOpen={onOpen}
-            shouldScroll={shouldScroll}
-            animate={animate}
-            dragHandle={
-              <DragHandle
-                item={{ type: 'file', id: file.id, name: file.name }}
-                disabled={inFlight || isMoving}
-                label={`Drag ${file.name}`}
-              />
-            }
-            renderStatus={() => {
-              if (file.uploadStatus === 'complete') return null;
-              const inFlight =
-                file.uploadStatus === 'pending' ||
-                file.uploadStatus === 'uploading';
-              return (
-                <span
-                  className={
-                    inFlight
-                      ? 'inline-flex items-center gap-1.5 text-xs text-text-secondary'
-                      : file.uploadStatus === 'failed'
-                        ? 'text-xs text-red-400'
-                        : 'text-xs text-text-secondary'
-                  }
-                >
-                  {inFlight ? (
-                    <>
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-glow" />
-                      {file.uploadStatus}
-                    </>
-                  ) : (
-                    file.uploadStatus
-                  )}
-                </span>
-              );
-            }}
-          />
-        );
-      })}
+      {files.map((file, index) => (
+        <FileGridItem
+          key={file.id}
+          file={file}
+          index={index}
+          isSelected={selectedId === file.id}
+          onSelect={onSelect}
+          onOpen={onOpen}
+          shouldScroll={shouldScroll}
+          animate={animate}
+          renderStatus={() => {
+            if (file.uploadStatus === 'complete') return null;
+            const inFlight =
+              file.uploadStatus === 'pending' ||
+              file.uploadStatus === 'uploading';
+            return (
+              <span
+                className={
+                  inFlight
+                    ? 'inline-flex items-center gap-1.5 text-xs text-text-secondary'
+                    : file.uploadStatus === 'failed'
+                      ? 'text-xs text-red-400'
+                      : 'text-xs text-text-secondary'
+                }
+              >
+                {inFlight ? (
+                  <>
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-glow" />
+                    {file.uploadStatus}
+                  </>
+                ) : (
+                  file.uploadStatus
+                )}
+              </span>
+            );
+          }}
+        />
+      ))}
     </div>
   );
 }
-

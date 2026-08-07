@@ -2,14 +2,23 @@
 
 import { useRouter } from 'next/navigation';
 import { Folder, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useTransition, type DragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useTransition,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { moveFolder } from '@/app/actions/folders';
-import { DragHandle } from '@/components/drag-handle';
 import { Button } from '@/components/ui/button';
+import { ItemMenu } from '@/components/item-menu';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFolderDialogs } from '@/contexts/file-dialog-context';
+import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useItemDrag } from '@/hooks/use-item-drag';
+import { copyText } from '@/lib/clipboard';
 import { isCoarsePointer } from '@/lib/pointer';
 
 const DRAG_MIME = 'text/plain';
@@ -26,7 +35,6 @@ type FolderGridItemProps = {
   index?: number;
   isSelected: boolean;
   onSelect: (id: string) => void;
-  dragHandle?: ReactNode;
   shouldScroll?: boolean;
   animate?: boolean;
 };
@@ -49,7 +57,6 @@ function FolderGridItem({
   index = 0,
   isSelected,
   onSelect,
-  dragHandle,
   shouldScroll,
   animate = true,
 }: FolderGridItemProps) {
@@ -57,6 +64,7 @@ function FolderGridItem({
   const itemRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
   const { openDeleteDialog } = useFolderDialogs();
+  const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
 
   const {
     dragOverFolderId,
@@ -65,6 +73,16 @@ function FolderGridItem({
     setDragOverFolder,
     setMoving,
   } = useDragContext();
+
+  // The card itself is the drag source (replaces the old drag handle).
+  const dragSource = useItemDrag({
+    item: { type: 'folder', id: folder.id, name: folder.name },
+  });
+
+  const handleCopyName = async () => {
+    const ok = await copyText(folder.name);
+    toast.success(ok ? 'Name copied to clipboard' : 'Could not copy name');
+  };
 
   const isHovered = dragOverFolderId === folder.id;
 
@@ -183,6 +201,8 @@ function FolderGridItem({
       style={{ animationDelay: `${index * 50}ms` }}
       data-drop-folder-id={folder.id}
       data-drop-folder-name={folder.name}
+      {...dragSource.handlers}
+      draggable={dragSource.isDraggable}
       onClick={() => {
         // Touch-first devices open the folder on a single tap (no
         // double-tap needed). Selection stays for desktop precision
@@ -208,18 +228,27 @@ function FolderGridItem({
         if (e.key === 'Enter') onSelect(folder.id);
       }}
     >
-      {dragHandle ? (
-        <div
-          className="absolute right-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {dragHandle}
-        </div>
-      ) : null}
+      <div
+        className="absolute right-1 top-1 z-10"
+        onClick={(e) => e.stopPropagation()}
+        data-no-drag
+      >
+        <ItemMenu
+          label={`Actions for ${folder.name}`}
+          onMove={() =>
+            openMoveDialog({ type: 'folder', id: folder.id, name: folder.name })
+          }
+          onRename={() =>
+            openRenameDialog({ type: 'folder', id: folder.id, name: folder.name })
+          }
+          onCopyName={handleCopyName}
+        />
+      </div>
 
       <div
         className="absolute bottom-1 right-1 z-10 opacity-100 transition-opacity group-hover:opacity-100 md:opacity-0"
         onClick={(e) => e.stopPropagation()}
+        data-no-drag
       >
         <Button
           type="button"
@@ -240,6 +269,7 @@ function FolderGridItem({
       <div className="flex flex-col gap-1 p-3">
         <span
           title={folder.name}
+          data-no-drag
           className="line-clamp-2 text-sm font-medium text-text-primary break-words"
         >
           {folder.name}
@@ -266,7 +296,6 @@ type FolderGridProps = {
   folders: FolderGridItemData[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  isMoving?: boolean;
   shouldScroll?: boolean;
   animate?: boolean;
 };
@@ -275,7 +304,6 @@ export function FolderGrid({
   folders,
   selectedId,
   onSelect,
-  isMoving = false,
   shouldScroll,
   animate = true,
 }: FolderGridProps) {
@@ -292,13 +320,6 @@ export function FolderGrid({
           onSelect={onSelect}
           shouldScroll={shouldScroll}
           animate={animate}
-          dragHandle={
-            <DragHandle
-              item={{ type: 'folder', id: folder.id, name: folder.name }}
-              disabled={isMoving}
-              label={`Drag ${folder.name}`}
-            />
-          }
         />
       ))}
     </div>

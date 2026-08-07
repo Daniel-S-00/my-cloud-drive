@@ -7,6 +7,8 @@ import { FileListEmpty } from '@/components/file-list-empty';
 import { DragProvider } from '@/contexts/drag-context';
 import { GlobalDropOverlay } from '@/components/global-drop-overlay';
 import { UploadFab } from '@/components/upload-fab';
+import { ItemActionDialogProvider } from '@/contexts/item-action-dialog-context';
+import { ItemActionDialogs } from '@/components/item-action-dialogs';
 
 type SearchParams = Promise<{
   folder?: string | string[];
@@ -35,20 +37,23 @@ export default async function HomePage({
 
   return (
     <DragProvider>
-      <div className="flex flex-col px-4 py-6 sm:px-6">
-        <FolderBrowser
-          folderId={folderId}
-          parentName={currentName}
-          initialSelectedId={highlightId}
-          breadcrumbs={<Breadcrumbs folderId={folderId} />}
-        >
-          <FolderList folderId={folderId} />
-          <FileListEmpty folderId={folderId} />
-          <FileList folderId={folderId} />
-        </FolderBrowser>
-      </div>
-      <UploadFab folderId={folderId} />
-      <GlobalDropOverlay folderId={folderId} currentFolderName={currentName} />
+      <ItemActionDialogProvider>
+        <div className="flex flex-col px-4 py-6 sm:px-6">
+          <FolderBrowser
+            folderId={folderId}
+            parentName={currentName}
+            initialSelectedId={highlightId}
+            breadcrumbs={<Breadcrumbs folderId={folderId} />}
+          >
+            <FolderList folderId={folderId} />
+            <FileListEmpty folderId={folderId} />
+            <FileList folderId={folderId} />
+          </FolderBrowser>
+        </div>
+        <UploadFab folderId={folderId} />
+        <GlobalDropOverlay folderId={folderId} currentFolderName={currentName} />
+        <ItemActionDialogs />
+      </ItemActionDialogProvider>
     </DragProvider>
   );
 }

@@ -9,14 +9,18 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { toast } from 'sonner';
-import { generateDownloadUrl } from '@/app/actions/files';
 import { Button } from '@/components/ui/button';
+import { ItemMenu } from '@/components/item-menu';
 import { ShareButton } from '@/components/share-button';
-import { DragHandle } from '@/components/drag-handle';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFileDialogs } from '@/contexts/file-dialog-context';
+import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useShareDialogs } from '@/contexts/share-dialog-context';
+import { copyText } from '@/lib/clipboard';
+import { downloadFile } from '@/lib/download-file';
 import { isCoarsePointer } from '@/lib/pointer';
+import { useItemDrag } from '@/hooks/use-item-drag';
 
 type FileRowData = {
   id: string;
@@ -91,7 +95,17 @@ export function FileRow({
   const canDelete = file.uploadStatus !== 'uploading';
 
   const { openPreviewDialog, openDeleteDialog } = useFileDialogs();
+  const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
+  const { openShareDialog } = useShareDialogs();
   const { draggedItem, isMoving } = useDragContext();
+
+  // The row/card itself is the drag source (replaces the old drag
+  // handle). Exempt targets (the name, buttons, menu) keep text
+  // selection and normal clicks.
+  const dragSource = useItemDrag({
+    item: { type: 'file', id: file.id, name: file.name },
+    disabled: isMoving || inFlight,
+  });
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
@@ -101,19 +115,34 @@ export function FileRow({
 
   const thumbnailUrl = file.thumbnailUrl;
 
+  const handleCopyName = async () => {
+    const ok = await copyText(file.name);
+    toast.success(ok ? 'Name copied to clipboard' : 'Could not copy name');
+  };
+
+  const handleMenuDownload = () => {
+    void onDownload();
+  };
+
+  const handleMenuShare = () => {
+    const existing = file.existingShare;
+    if (existing) {
+      void copyText(existing.shareUrl).then((ok) => {
+        toast.success(ok ? 'Link copied to clipboard' : 'Could not copy link');
+      });
+      return;
+    }
+    openShareDialog({
+      id: file.id,
+      name: file.name,
+      existing: file.existingShare,
+    });
+  };
+
   const onDownload = async () => {
     setIsDownloading(true);
     try {
-      const { presignedUrl, fileName } = await generateDownloadUrl({
-        fileId: file.id,
-      });
-      const link = document.createElement('a');
-      link.href = presignedUrl;
-      link.download = fileName;
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await downloadFile(file.id);
     } catch (err) {
       toast.error('Download failed', {
         description: err instanceof Error ? err.message : 'Unknown error',
@@ -157,6 +186,8 @@ export function FileRow({
     <>
       <TableRow
         ref={rowRef}
+        {...dragSource.handlers}
+        draggable={dragSource.isDraggable}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
         style={{ animationDelay: `${index * 50}ms` }}
@@ -171,18 +202,8 @@ export function FileRow({
           .filter(Boolean)
           .join(' ')}
       >
-        <TableCell
-          className="w-9 px-1 py-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <DragHandle
-            item={{ type: 'file', id: file.id, name: file.name }}
-            disabled={inFlight || isMoving}
-            label={`Drag ${file.name}`}
-          />
-        </TableCell>
         <TableCell className="min-w-[12rem] md:min-w-0">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3" data-no-drag>
             {isImage && isComplete ? (
               <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
                 {!thumbnailLoaded && (
@@ -253,10 +274,25 @@ export function FileRow({
           {formatDate(file.createdAt)}
         </TableCell>
         <TableCell
-          className="w-44 text-right"
+          className="w-56 text-right"
           onClick={(e) => e.stopPropagation()}
+          data-no-drag
         >
-          <div className="flex flex-wrap items-center justify-end gap-2 md:flex-nowrap">
+          <div className="flex flex-wrap items-center justify-end gap-1 md:flex-nowrap">
+            <ItemMenu
+              label={`Actions for ${file.name}`}
+              disabled={!canDelete}
+              onMove={() =>
+                openMoveDialog({ type: 'file', id: file.id, name: file.name })
+              }
+              onRename={() =>
+                openRenameDialog({ type: 'file', id: file.id, name: file.name })
+              }
+              onCopyName={handleCopyName}
+              onDownload={isComplete ? handleMenuDownload : undefined}
+              onShare={isComplete ? handleMenuShare : undefined}
+              shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
+            />
             <ShareButton
               fileId={file.id}
               fileName={file.name}
@@ -291,11 +327,13 @@ export function FileRow({
        * · actions (bottom).
        */}
       <tr className={['mobile-card-row', 'md:hidden', spawnClass].filter(Boolean).join(' ')} style={{ animationDelay: `${index * 50}ms` }}>
-        <td className="mobile-card-cell" colSpan={6}>
+        <td className="mobile-card-cell" colSpan={4}>
           <div
             ref={mobileRef}
             onClick={handleRowClick}
             onDoubleClick={handleRowDoubleClick}
+            {...dragSource.handlers}
+            draggable={dragSource.isDraggable}
             className={[
               'mobile-card',
               isSelfDragged ? 'opacity-50' : '',
@@ -338,7 +376,7 @@ export function FileRow({
                   </span>
                 )}
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1" data-no-drag>
                 <div
                   title={file.name}
                   className="truncate font-medium text-text-primary"
@@ -353,10 +391,19 @@ export function FileRow({
                 className="flex-shrink-0"
                 onClick={(e) => e.stopPropagation()}
               >
-                <DragHandle
-                  item={{ type: 'file', id: file.id, name: file.name }}
-                  disabled={inFlight || isMoving}
-                  label={`Drag ${file.name}`}
+                <ItemMenu
+                  label={`Actions for ${file.name}`}
+                  disabled={!canDelete}
+                  onMove={() =>
+                    openMoveDialog({ type: 'file', id: file.id, name: file.name })
+                  }
+                  onRename={() =>
+                    openRenameDialog({ type: 'file', id: file.id, name: file.name })
+                  }
+                  onCopyName={handleCopyName}
+                  onDownload={isComplete ? handleMenuDownload : undefined}
+                  onShare={isComplete ? handleMenuShare : undefined}
+                  shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
                 />
               </div>
             </div>
@@ -395,6 +442,7 @@ export function FileRow({
               <div
                 className="ml-auto flex flex-wrap items-center gap-2"
                 onClick={(e) => e.stopPropagation()}
+                data-no-drag
               >
                 <ShareButton
                   fileId={file.id}

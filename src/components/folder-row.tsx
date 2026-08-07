@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { createFolder, deleteFolder, moveFolder } from '@/app/actions/folders';
 import { Button } from '@/components/ui/button';
-import { DragHandle } from '@/components/drag-handle';
+import { ItemMenu } from '@/components/item-menu';
 import {
   Dialog,
   DialogBody,
@@ -23,7 +23,10 @@ import { Label } from '@/components/ui/label';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFolderDialogs } from '@/contexts/file-dialog-context';
+import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { copyText } from '@/lib/clipboard';
 import { isCoarsePointer } from '@/lib/pointer';
+import { useItemDrag } from '@/hooks/use-item-drag';
 
 import { formatDateTime as formatDate } from '@/lib/format-date';
 
@@ -69,6 +72,7 @@ export function FolderRow({
     }
   }, [isSelected, shouldScroll]);
   const { openDeleteDialog } = useFolderDialogs();
+  const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const {
@@ -80,6 +84,19 @@ export function FolderRow({
     setDragOverFolder,
     setMoving,
   } = useDragContext();
+
+  // The row/card itself is the drag source (replaces the old drag
+  // handle). Exempt targets (the name, buttons, menu) keep text
+  // selection and normal clicks.
+  const dragSource = useItemDrag({
+    item: { type: 'folder', id: folder.id, name: folder.name },
+    disabled: isMoving,
+  });
+
+  const handleCopyName = async () => {
+    const ok = await copyText(folder.name);
+    toast.success(ok ? 'Name copied to clipboard' : 'Could not copy name');
+  };
 
   const isSelfDragged =
     draggedItem?.type === 'folder' && draggedItem.id === folder.id;
@@ -272,12 +289,16 @@ export function FolderRow({
   return (
     <>
       {/*
-       * Desktop row (>= md). The row is a drop target but NOT a
-       * drag source — only the dedicated <DragHandle /> in the
-       * first cell initiates a drag.
+       * Desktop row (>= md). The row is BOTH a drop target (files /
+       * folders dropped onto it move into this folder) and the drag
+       * source (grabbing the row starts a move). The name is
+       * `data-no-drag`, so click-dragging over it selects text for
+       * copying instead of dragging.
        */}
       <TableRow
         ref={desktopRef}
+        {...dragSource.handlers}
+        draggable={dragSource.isDraggable}
         onDragOver={onDragOver}
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}
@@ -291,17 +312,11 @@ export function FolderRow({
           .filter(Boolean)
           .join(' ')}
       >
-        <TableCell className="w-9 px-1 py-1" onClick={(e) => e.stopPropagation()}>
-          <DragHandle
-            item={{ type: 'folder', id: folder.id, name: folder.name }}
-            disabled={isMoving}
-            label={`Drag ${folder.name}`}
-          />
-        </TableCell>
         <TableCell className="min-w-[12rem] md:min-w-0">
           <Link
             href={`/drive?folder=${folder.id}`}
             draggable={false}
+            data-no-drag
             onClick={(e) => e.preventDefault()}
             className="flex min-w-0 items-center gap-3 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
           >
@@ -333,22 +348,39 @@ export function FolderRow({
               }`
             : 'Empty'}
         </TableCell>
-        <TableCell className="w-44 text-right" onClick={(e) => e.stopPropagation()}>
-          {pending ? (
-            <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
-              Moving…
-            </span>
-          ) : (
-            <Button
-              type="button"
-              variant="destructiveOutline"
-              size="sm"
-              onClick={() => openDeleteDialog(folder)}
-            >
-              Delete
-            </Button>
-          )}
+        <TableCell
+          className="w-44 text-right"
+          onClick={(e) => e.stopPropagation()}
+          data-no-drag
+        >
+          <div className="flex items-center justify-end gap-1">
+            <ItemMenu
+              label={`Actions for ${folder.name}`}
+              disabled={pending}
+              onMove={() =>
+                openMoveDialog({ type: 'folder', id: folder.id, name: folder.name })
+              }
+              onRename={() =>
+                openRenameDialog({ type: 'folder', id: folder.id, name: folder.name })
+              }
+              onCopyName={handleCopyName}
+            />
+            {pending ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
+                Moving…
+              </span>
+            ) : (
+              <Button
+                type="button"
+                variant="destructiveOutline"
+                size="sm"
+                onClick={() => openDeleteDialog(folder)}
+              >
+                Delete
+              </Button>
+            )}
+          </div>
         </TableCell>
       </TableRow>
 
@@ -371,11 +403,13 @@ export function FolderRow({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
       >
-        <td className="mobile-card-cell" colSpan={5}>
+        <td className="mobile-card-cell" colSpan={4}>
           <div
             className="mobile-card"
             onClick={handleRowClick}
             onDoubleClick={handleRowDoubleClick}
+            {...dragSource.handlers}
+            draggable={dragSource.isDraggable}
           >
             <div className="flex items-start gap-3">
               <span
@@ -388,6 +422,7 @@ export function FolderRow({
                 <Link
                   href={`/drive?folder=${folder.id}`}
                   draggable={false}
+                  data-no-drag
                   onClick={(e) => e.preventDefault()}
                   className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
                 >
@@ -413,10 +448,16 @@ export function FolderRow({
                 </div>
               </div>
               <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                <DragHandle
-                  item={{ type: 'folder', id: folder.id, name: folder.name }}
-                  disabled={isMoving}
-                  label={`Drag ${folder.name}`}
+                <ItemMenu
+                  label={`Actions for ${folder.name}`}
+                  disabled={pending}
+                  onMove={() =>
+                    openMoveDialog({ type: 'folder', id: folder.id, name: folder.name })
+                  }
+                  onRename={() =>
+                    openRenameDialog({ type: 'folder', id: folder.id, name: folder.name })
+                  }
+                  onCopyName={handleCopyName}
                 />
               </div>
             </div>
@@ -425,7 +466,11 @@ export function FolderRow({
               <span className="whitespace-nowrap">
                 {formatDate(folder.updatedAt || folder.createdAt)}
               </span>
-              <div className="ml-auto flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="ml-auto flex flex-wrap items-center gap-2"
+                onClick={(e) => e.stopPropagation()}
+                data-no-drag
+              >
                 {pending ? (
                   <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
                     <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />

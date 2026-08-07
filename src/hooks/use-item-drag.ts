@@ -9,7 +9,6 @@ import {
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { GripVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
@@ -18,17 +17,18 @@ import { useDragContext, type DraggedItem } from '@/contexts/drag-context';
 
 const DRAG_MIME = 'text/plain';
 
-// Touch drag arms on a long-press so it never collides with
-// scrolling. These tune the activation window.
+// Touch drag arms on a long-press so it never collides with scrolling.
 const TOUCH_DRAG_DELAY_MS = 350;
 const TOUCH_CANCEL_DISTANCE_PX = 12;
 
-type DragHandleProps = {
-  item: DraggedItem;
-  disabled?: boolean;
-  label?: string;
-  className?: string;
-};
+// Elements carrying this attribute are exempt from being a drag source
+// (text selection and interactive controls): the item name, action
+// buttons, the 3-dot menu, etc.
+const DRAG_EXEMPT_SELECTOR = '[data-no-drag]';
+
+// Clicks within this window after a touch drag ends are swallowed so a
+// long-press-then-release can't trigger row selection / navigation.
+const CLICK_SUPPRESS_WINDOW_MS = 400;
 
 type DropTarget =
   | { kind: 'folder'; id: string; name: string }
@@ -49,27 +49,33 @@ function findDropTarget(clientX: number, clientY: number): DropTarget | null {
   return null;
 }
 
+function isExemptTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && Boolean(target.closest(DRAG_EXEMPT_SELECTOR));
+}
+
 /**
- * Drag handle for both mouse and touch.
+ * Makes a file/folder row or card a drag source, on both mouse and
+ * touch:
  *
- * Mouse uses the native HTML5 drag-and-drop API (the `draggable`
- * attribute + `dragstart`/`dragend` below) which the drop targets
- * consume via their `onDrop` handlers.
+ * - Mouse uses native HTML5 drag-and-drop. The consumer spreads the
+ *   returned handlers onto the row/card and sets `draggable`. The name
+ *   text carries `data-no-drag` so click-dragging over it selects text
+ *   (dragstart is cancelled for exempt targets) instead of starting a
+ *   move.
  *
- * Touch has no HTML5 DnD, so the handle re-implements the gesture
- * with Pointer Events: a long-press (350ms, no movement) arms the
- * drag, then a floating ghost follows the finger while `data-drop-*`
- * attributes on the folder rows / root drop zone decide the target,
- * and releasing over one performs the move. The handle carries
- * `touch-action: none` so a drag started on it never turns into
- * page scroll.
+ * - Touch has no HTML5 DnD, so a long-press (350ms without movement)
+ *   arms a drag, a floating ghost follows the finger, `data-drop-*`
+ *   attributes decide the target, and releasing over one performs the
+ *   move. Exempt targets (the name, buttons) never arm, so the native
+ *   long-press text selection / context menu still works there.
  */
-export function DragHandle({
+export function useItemDrag({
   item,
   disabled = false,
-  label = 'Drag to move',
-  className,
-}: DragHandleProps) {
+}: {
+  item: DraggedItem;
+  disabled?: boolean;
+}) {
   const router = useRouter();
   const {
     startDrag,
@@ -82,7 +88,6 @@ export function DragHandle({
     dragItemRef,
   } = useDragContext();
   const [, startTransition] = useTransition();
-  const [isDragging, setIsDragging] = useState(false);
   const [isTouchDragging, setIsTouchDragging] = useState(false);
 
   const isDisabled = disabled || isMoving;
@@ -100,15 +105,16 @@ export function DragHandle({
     active: false,
     lastTargetKey: null,
   });
-  // Handles for the window-level listeners attached while a touch
-  // drag is in flight. Stored so cleanup can remove them without
-  // creating a closure-order dependency between the handlers.
+  // Handles for the window-level listeners attached while a touch drag
+  // is in flight. Stored so cleanup can remove them without creating a
+  // closure-order dependency between the handlers.
   const activeListeners = useRef<{
     pointerMove: ((event: PointerEvent) => void) | null;
     pointerUp: ((event: PointerEvent) => void) | null;
     touchMove: ((event: TouchEvent) => void) | null;
   }>({ pointerMove: null, pointerUp: null, touchMove: null });
   const ghostRef = useRef<HTMLDivElement | null>(null);
+  const lastDragEndAt = useRef(0);
 
   const positionGhost = useCallback((clientX: number, clientY: number) => {
     const ghost = ghostRef.current;
@@ -162,9 +168,8 @@ export function DragHandle({
       const targetName = target.kind === 'folder' ? target.name : 'My Drive';
 
       // Self-drop guard: on touch a long-press-and-release over the
-      // source card is usually an aborted drag, so cancel silently
-      // instead of surfacing an error (descendant cycles are still
-      // rejected server-side).
+      // source itself is usually an aborted drag, so cancel silently
+      // (descendant cycles are still rejected server-side).
       if (dropped.type === 'folder' && targetFolderId === dropped.id) {
         endDrag();
         return;
@@ -182,9 +187,7 @@ export function DragHandle({
               result.wasRenamed ? 'File moved (renamed)' : 'File moved',
               {
                 description: `"${dropped.name}" → "${targetName}"${
-                  result.wasRenamed
-                    ? ` (renamed to "${result.newName}")`
-                    : ''
+                  result.wasRenamed ? ` (renamed to "${result.newName}")` : ''
                 }`,
               },
             );
@@ -197,9 +200,7 @@ export function DragHandle({
               result.wasRenamed ? 'Folder moved (renamed)' : 'Folder moved',
               {
                 description: `"${dropped.name}" → "${targetName}"${
-                  result.wasRenamed
-                    ? ` (renamed to "${result.newName}")`
-                    : ''
+                  result.wasRenamed ? ` (renamed to "${result.newName}")` : ''
                 }`,
               },
             );
@@ -243,17 +244,22 @@ export function DragHandle({
     listeners.touchMove = null;
   }, [hideGhost]);
 
-  const handleTouchMovePrevent = useCallback(
-    (event: TouchEvent) => {
-      // The handle's touch-action:none already stops scroll for
-      // gestures that start on it; this is a belt-and-suspenders
-      // guard while a touch drag is armed.
-      if (touchState.current.active) {
-        event.preventDefault();
-      }
-    },
-    [],
-  );
+  // Abort any pending long-press or in-flight touch drag without
+  // performing a drop. Used when the tab loses focus mid-gesture so a
+  // missed pointerup/pointercancel can't leave the touchmove blocker
+  // attached or drag state stale. Idempotent.
+  const abortTouchDrag = useCallback(() => {
+    cleanupTouchDrag();
+    endDrag();
+  }, [cleanupTouchDrag, endDrag]);
+
+  const handleTouchMovePrevent = useCallback((event: TouchEvent) => {
+    // While a touch drag is armed, eat the underlying touchmove so the
+    // gesture never turns into page scroll.
+    if (touchState.current.active) {
+      event.preventDefault();
+    }
+  }, []);
 
   const handleWindowPointerMove = useCallback(
     (event: PointerEvent) => {
@@ -286,6 +292,11 @@ export function DragHandle({
       const isCancel = event.type === 'pointercancel';
       cleanupTouchDrag();
       if (!wasActive) return;
+      if (event.type !== 'pointercancel') {
+        // A synthetic click follows touch pointerup; swallow it so a
+        // long-press release can't also navigate / select the row.
+        lastDragEndAt.current = Date.now();
+      }
       if (isCancel || !target) {
         endDrag();
         return;
@@ -295,11 +306,15 @@ export function DragHandle({
     [cleanupTouchDrag, endDrag, performDrop],
   );
 
-  const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (isDisabled) return;
     if (event.pointerType !== 'touch') return;
-    // Cancel the native long-press context menu / text selection.
-    event.preventDefault();
+    // Exempt targets (name text, buttons, menu) keep native long-press
+    // behavior (text selection / context menu) — never arm from them.
+    if (isExemptTarget(event.target)) return;
+    // NOTE: we deliberately do NOT preventDefault here so a quick tap
+    // still produces a click (row selection / navigation). Scrolling is
+    // blocked only once the long-press has actually armed.
 
     const state = touchState.current;
     state.startX = event.clientX;
@@ -323,9 +338,12 @@ export function DragHandle({
     });
   };
 
-  const onDragStart = (event: DragEvent<HTMLButtonElement>) => {
+  const onDragStart = (event: DragEvent<HTMLElement>) => {
     try {
-      if (isDisabled) {
+      if (isDisabled || isExemptTarget(event.target)) {
+        // Cancelling lets the browser fall back to default behavior —
+        // dragging over the name selects its text, dragging on a
+        // control does nothing.
         event.preventDefault();
         return;
       }
@@ -336,23 +354,52 @@ export function DragHandle({
       );
       event.dataTransfer.effectAllowed = 'move';
       startDrag(item);
-      window.setTimeout(() => setIsDragging(true), 0);
     } catch (err) {
-      console.error('DragHandle onDragStart error:', err);
+      console.error('useItemDrag onDragStart error:', err);
       endDrag();
-      setIsDragging(false);
     }
   };
 
-  const onDragEnd = () => {
-    setIsDragging(false);
+  const onDragEnd = useCallback(() => {
     endDrag();
-  };
+  }, [endDrag]);
+
+  // Mount-level guards: swallow the synthetic click right after a touch
+  // drag, and suppress the native context menu while one is armed.
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (Date.now() - lastDragEndAt.current < CLICK_SUPPRESS_WINDOW_MS) {
+        lastDragEndAt.current = 0;
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    const onContextMenu = (event: MouseEvent) => {
+      if (touchState.current.active) {
+        event.preventDefault();
+      }
+    };
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('contextmenu', onContextMenu, true);
+    // If the tab loses focus mid-gesture (phone locks, app switched
+    // away) no pointerup/pointercancel is guaranteed to fire. Abort
+    // the pending long-press / active drag so the window-level
+    // touchmove blocker and drag state can't linger and freeze input.
+    const onVisibilityChange = () => {
+      if (document.hidden) abortTouchDrag();
+    };
+    const onWindowBlur = () => abortTouchDrag();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('blur', onWindowBlur);
+    return () => {
+      document.removeEventListener('click', onClick, true);
+      document.removeEventListener('contextmenu', onContextMenu, true);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('blur', onWindowBlur);
+    };
+  }, [abortTouchDrag]);
 
   // Clean up window listeners if the component unmounts mid-drag.
-  // `cleanupTouchDrag` is idempotent (clears the pending timer, removes
-  // any attached listeners, hides the ghost), so calling it unconditionally
-  // is safe both during an active drag and on a plain unmount.
   useEffect(() => {
     return () => {
       cleanupTouchDrag();
@@ -361,32 +408,13 @@ export function DragHandle({
     };
   }, [cleanupTouchDrag, endDrag, hideGhost]);
 
-  const baseClass = [
-    'flex h-7 w-5 cursor-grab touch-none items-center justify-center rounded text-text-secondary transition-colors',
-    isDisabled
-      ? 'cursor-not-allowed opacity-40'
-      : 'hover:bg-bg-surface-hover hover:text-text-primary active:cursor-grabbing',
-    isDragging || isTouchDragging ? 'opacity-40' : '',
-    className ?? '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  return (
-    <button
-      type="button"
-      draggable={!isDisabled}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onPointerDown={onPointerDown}
-      onClick={(event) => event.preventDefault()}
-      disabled={isDisabled}
-      aria-label={label}
-      title={label}
-      className={baseClass}
-      data-testid="drag-handle"
-    >
-      <GripVertical className="h-4 w-4" aria-hidden />
-    </button>
-  );
+  return {
+    handlers: {
+      onDragStart,
+      onDragEnd,
+      onPointerDown,
+    },
+    isDraggable: !isDisabled,
+    isTouchDragging,
+  };
 }

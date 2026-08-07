@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/table';
 import { FileDialogProvider, useFileDialogs } from '@/contexts/file-dialog-context';
 import { ShareDialogProvider } from '@/contexts/share-dialog-context';
-import { useDragContext } from '@/contexts/drag-context';
 import { useSelection } from '@/contexts/selection-context';
 import { useViewMode } from '@/hooks/use-view-mode';
 
@@ -45,13 +44,6 @@ function FileTableView({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead
-            scope="col"
-            className="w-9 px-1"
-            aria-label="Drag handle"
-          >
-            <span className="sr-only">Drag handle</span>
-          </TableHead>
           <TableHead scope="col">Name</TableHead>
           <TableHead scope="col" className="w-32">
             Size
@@ -59,7 +51,7 @@ function FileTableView({
           <TableHead scope="col" className="w-40">
             Uploaded
           </TableHead>
-          <TableHead scope="col" className="w-44 text-right">
+          <TableHead scope="col" className="w-56 text-right">
             <span className="sr-only">Actions</span>
           </TableHead>
         </TableRow>
@@ -166,7 +158,6 @@ function FileGridWrapper({
   animate: boolean;
 }) {
   const { openPreviewDialog } = useFileDialogs();
-  const { isMoving } = useDragContext();
 
   const gridFiles = useMemo<FileGridFile[]>(
     () =>
@@ -191,7 +182,6 @@ function FileGridWrapper({
       selectedId={selectedId}
       onSelect={onSelect}
       onOpen={handleOpen}
-      isMoving={isMoving}
       shouldScroll={shouldScroll}
       animate={animate}
     />
