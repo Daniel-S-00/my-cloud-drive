@@ -48,7 +48,7 @@ const jobs: Array<{ file: string; element: ReturnType<typeof createElement> }> =
   {
     file: 'reset-password.html',
     element: createElement(ResetPasswordEmail, {
-      resetUrl: '{{ .RecoveryURL }}',
+      resetUrl: '{{ .ConfirmationURL }}',
       email: '{{ .Email }}',
     }),
   },

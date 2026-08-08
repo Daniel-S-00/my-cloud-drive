@@ -7,6 +7,8 @@ import {
 } from './layout';
 
 export type ResetPasswordEmailProps = {
+  // When rendered for the Supabase dashboard, pass '{{ .ConfirmationURL }}'
+  // — that's the variable Supabase exposes for the recovery/reset link.
   resetUrl: string;
   email: string;
 };
