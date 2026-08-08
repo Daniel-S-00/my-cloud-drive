@@ -5,6 +5,7 @@ import { Check, Folder } from 'lucide-react';
 import {
   useEffect,
   useRef,
+  useState,
   useTransition,
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
@@ -66,6 +67,14 @@ function FolderGridItem({
   const router = useRouter();
   const itemRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
+  // Grid cards render at every breakpoint, but drag must only exist on
+  // precision pointers. Gate on a mounted flag so SSR and the first
+  // client render agree (avoiding a hydration mismatch on `draggable`).
+  const [canDrag, setCanDrag] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setCanDrag(!isCoarsePointer()));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   const { openDeleteDialog } = useFolderDialogs();
   const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
   const { mode: selectionMode, isSelected: isSelectedMulti, enter, toggle } =
@@ -212,7 +221,7 @@ function FolderGridItem({
       data-drop-folder-name={folder.name}
       {...dragSource.handlers}
       {...longPress.handlers}
-      draggable={dragSource.isDraggable}
+      draggable={canDrag && dragSource.isDraggable}
       onClick={() => {
         // While multi-select mode is active, a tap toggles selection.
         if (selectionMode) {

@@ -375,9 +375,7 @@ export function FileRow({
             ref={mobileRef}
             onClick={handleRowClick}
             onDoubleClick={handleRowDoubleClick}
-            {...dragSource.handlers}
             {...longPress.handlers}
-            draggable={dragSource.isDraggable}
             className={[
               'mobile-card',
               isSelfDragged ? 'opacity-50' : '',

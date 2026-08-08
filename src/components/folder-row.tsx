@@ -440,9 +440,7 @@ export function FolderRow({
               .join(' ')}
             onClick={handleRowClick}
             onDoubleClick={handleRowDoubleClick}
-            {...dragSource.handlers}
             {...longPress.handlers}
-            draggable={dragSource.isDraggable}
           >
             <div className="flex items-start gap-3">
               <span

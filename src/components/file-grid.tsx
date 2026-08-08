@@ -62,6 +62,14 @@ function FileGridItem({
 }: FileGridItemProps) {
   const itemRef = useRef<HTMLDivElement>(null);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
+  // Grid cards render at every breakpoint, but drag must only exist on
+  // precision pointers. Gate on a mounted flag so SSR and the first
+  // client render agree (avoiding a hydration mismatch on `draggable`).
+  const [canDrag, setCanDrag] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setCanDrag(!isCoarsePointer()));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   const { openDeleteDialog } = useFileDialogs();
   const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
   const { openShareDialog } = useShareDialogs();
@@ -136,7 +144,7 @@ function FileGridItem({
       style={{ animationDelay: `${index * 50}ms` }}
       {...dragSource.handlers}
       {...longPress.handlers}
-      draggable={dragSource.isDraggable}
+      draggable={canDrag && dragSource.isDraggable}
       className={[
         'group relative flex cursor-pointer flex-col rounded-lg border border-border-subtle bg-bg-surface transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-accent-primary/10',
         spawnClass,
