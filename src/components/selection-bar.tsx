@@ -82,19 +82,21 @@ export function SelectionBar() {
           <button
             type="button"
             onClick={onMove}
+            title="Move to folder"
             className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-surface-hover"
           >
             <FolderInput className="h-4 w-4 text-text-secondary" aria-hidden />
-            Move
+            <span className="hidden whitespace-nowrap sm:inline">Move</span>
           </button>
           <button
             type="button"
             onClick={onDownload}
             disabled={fileItems.length === 0}
+            title="Download"
             className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-surface-hover disabled:opacity-40"
           >
             <Download className="h-4 w-4 text-text-secondary" aria-hidden />
-            Download
+            <span className="hidden whitespace-nowrap sm:inline">Download</span>
           </button>
           <button
             type="button"
@@ -108,7 +110,7 @@ export function SelectionBar() {
             className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-surface-hover disabled:opacity-40"
           >
             <Link2 className="h-4 w-4 text-text-secondary" aria-hidden />
-            Share
+            <span className="hidden whitespace-nowrap sm:inline">Share</span>
           </button>
         </div>
       </div>
