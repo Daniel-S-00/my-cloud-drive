@@ -266,20 +266,22 @@ function FolderGridItem({
         />
       </div>
 
-      <div
-        className="absolute bottom-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:hidden"
-        onClick={(e) => e.stopPropagation()}
-        data-no-drag
-      >
-        <FavoriteButton
-          type="folder"
-          id={folder.id}
-          favorited={!!folder.favorite}
-        />
-      </div>
-
-      <div className="flex aspect-square w-full items-center justify-center rounded-t-lg bg-accent-primary/10">
+      <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-t-lg bg-accent-primary/10">
         <FolderIcon className="h-16 w-16 text-accent-primary/50" />
+        {/* Hover action, overlaid on the icon area so it never collides
+            with a long folder name in the text block below. */}
+        <div
+          className="absolute bottom-2 right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:hidden"
+          onClick={(e) => e.stopPropagation()}
+          data-no-drag
+        >
+          <FavoriteButton
+            type="folder"
+            id={folder.id}
+            favorited={!!folder.favorite}
+            className="bg-bg-surface/80 shadow backdrop-blur-sm"
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1 p-3">

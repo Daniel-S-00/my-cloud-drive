@@ -194,52 +194,54 @@ function FileGridItem({
         />
       </div>
 
-      <div
-        className="absolute bottom-1 right-1 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:hidden"
-        onClick={(e) => e.stopPropagation()}
-        data-no-drag
-      >
-        <FavoriteButton
-          type="file"
-          id={file.id}
-          favorited={!!file.favorite}
-          disabled={!canDelete}
-        />
-        {isComplete ? (
-          <>
-            <button
-              type="button"
-              aria-label="Download"
-              title="Download"
-              data-no-drag
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleMenuDownload();
-              }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
-            >
-              <Download className="h-4 w-4" aria-hidden />
-            </button>
-            <button
-              type="button"
-              aria-label="Share"
-              title="Share"
-              data-no-drag
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleMenuShare();
-              }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
-            >
-              <Share2 className="h-4 w-4" aria-hidden />
-            </button>
-          </>
-        ) : null}
-      </div>
-
       <div className="relative aspect-square w-full overflow-hidden rounded-t-lg bg-bg-surface-hover">
+        {/* Drive-style hover actions, overlaid on the thumbnail so they
+            never collide with a long filename in the text block below. */}
+        <div
+          className="absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:hidden"
+          onClick={(e) => e.stopPropagation()}
+          data-no-drag
+        >
+          <FavoriteButton
+            type="file"
+            id={file.id}
+            favorited={!!file.favorite}
+            disabled={!canDelete}
+            className="bg-bg-surface/80 shadow backdrop-blur-sm"
+          />
+          {isComplete ? (
+            <>
+              <button
+                type="button"
+                aria-label="Download"
+                title="Download"
+                data-no-drag
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleMenuDownload();
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-bg-surface/80 text-text-secondary shadow backdrop-blur-sm transition-colors hover:bg-bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+              >
+                <Download className="h-4 w-4" aria-hidden />
+              </button>
+              <button
+                type="button"
+                aria-label="Share"
+                title="Share"
+                data-no-drag
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleMenuShare();
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-bg-surface/80 text-text-secondary shadow backdrop-blur-sm transition-colors hover:bg-bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+              >
+                <Share2 className="h-4 w-4" aria-hidden />
+              </button>
+            </>
+          ) : null}
+        </div>
         {isImage && hasThumbnail ? (
           <>
             {!thumbnailLoaded && (
