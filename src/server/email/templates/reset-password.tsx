@@ -1,10 +1,5 @@
 import { Text } from '@react-email/components';
-import {
-  EmailButton,
-  EmailLayout,
-  EmailLinkFallback,
-  EmailNote,
-} from './layout';
+import { EmailButton, EmailLayout, EmailNote } from './layout';
 
 export type ResetPasswordEmailProps = {
   // When rendered for the Supabase dashboard, pass '{{ .ConfirmationURL }}'
@@ -36,8 +31,6 @@ export function ResetPasswordEmail({
       </Text>
 
       <EmailButton href={resetUrl}>Reset password</EmailButton>
-
-      <EmailLinkFallback href={resetUrl} label="Reset my password" />
 
       <div style={{ height: '16px' }} />
 

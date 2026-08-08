@@ -1,10 +1,5 @@
 import { Text } from '@react-email/components';
-import {
-  EmailButton,
-  EmailLayout,
-  EmailLinkFallback,
-  EmailNote,
-} from './layout';
+import { EmailButton, EmailLayout, EmailNote } from './layout';
 
 export type ConfirmEmailProps = {
   confirmationUrl: string;
@@ -34,8 +29,6 @@ export function ConfirmEmail({
       </Text>
 
       <EmailButton href={confirmationUrl}>Confirm email</EmailButton>
-
-      <EmailLinkFallback href={confirmationUrl} label="Confirm my email" />
 
       <div style={{ height: '16px' }} />
 

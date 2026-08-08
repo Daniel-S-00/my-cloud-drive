@@ -166,29 +166,3 @@ export function EmailNote({ children }: { children: ReactNode }) {
     </Text>
   );
 }
-
-/** Single link fallback for clients that block buttons. */
-export function EmailLinkFallback({
-  href,
-  label,
-}: {
-  href: string;
-  label: string;
-}) {
-  return (
-    <Text
-      style={{
-        margin: '12px 0 0',
-        fontSize: '13px',
-        color: COLORS.textSecondary,
-        textAlign: 'center',
-        wordBreak: 'break-all',
-      }}
-    >
-      If the button doesn&apos;t work:{' '}
-      <a href={href} style={{ color: COLORS.accentGlow }}>
-        {label}
-      </a>
-    </Text>
-  );
-}

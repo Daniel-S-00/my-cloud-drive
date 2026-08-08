@@ -1,10 +1,5 @@
 import { Text } from '@react-email/components';
-import {
-  EmailButton,
-  EmailLayout,
-  EmailLinkFallback,
-  EmailNote,
-} from './layout';
+import { EmailButton, EmailLayout, EmailNote } from './layout';
 
 export type RecoverAccountEmailProps = {
   recoveryUrl: string;
@@ -37,8 +32,6 @@ export function RecoverAccountEmail({
       </Text>
 
       <EmailButton href={recoveryUrl}>Recover account</EmailButton>
-
-      <EmailLinkFallback href={recoveryUrl} label="Recover my account" />
 
       <div style={{ height: '16px' }} />
 
