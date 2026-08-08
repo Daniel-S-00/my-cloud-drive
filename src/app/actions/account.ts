@@ -4,12 +4,15 @@ import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { and, eq, isNotNull, isNull, lte, not, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { createElement } from 'react';
 import { revalidatePath } from 'next/cache';
 import { signOut } from '@/server/auth/config';
 import { getCurrentUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, folders, shares, users } from '@/server/db/schema';
+import { renderEmail } from '@/server/email/render';
 import { sendEmail } from '@/server/email/sender';
+import { RecoverAccountEmail } from '@/server/email/templates/recover-account';
 
 const GRACE_PERIOD_DAYS = 30;
 
@@ -43,15 +46,23 @@ async function buildRecoveryUrl(token: string): Promise<string> {
 }
 
 /** Send the recovery email. In dev this logs to the console. */
-async function sendRecoveryEmail(email: string, recoveryUrl: string) {
+async function sendRecoveryEmail(
+  email: string,
+  recoveryUrl: string,
+  gracePeriodDays = GRACE_PERIOD_DAYS,
+) {
+  const { html, text } = await renderEmail(
+    createElement(RecoverAccountEmail, {
+      recoveryUrl,
+      email,
+      gracePeriodDays,
+    }),
+  );
   await sendEmail({
     to: email,
     subject: 'Recover your My Cloud Drive account',
-    html: `<p>Hi,</p>
-<p>You recently requested to delete your My Cloud Drive account. If you changed your mind, click the button below within 30 days to restore it.</p>
-<p style="text-align:center"><a href="${recoveryUrl}" style="background:#6366f1;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block">Recover Account</a></p>
-<p>If you didn't request this, you can ignore this email.</p>
-<p>After 30 days, your data will be permanently deleted.</p>`,
+    html,
+    text,
   });
 }
 

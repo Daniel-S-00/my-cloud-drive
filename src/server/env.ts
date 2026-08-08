@@ -6,6 +6,8 @@ const REQUIRED_PRODUCTION_ENV = [
   'CRON_SECRET',
   'TWO_FA_ENCRYPTION_KEY',
   'NEXT_PUBLIC_APP_URL',
+  'RESEND_API_KEY',
+  'EMAIL_FROM',
 ] as const;
 
 let validated = false;
