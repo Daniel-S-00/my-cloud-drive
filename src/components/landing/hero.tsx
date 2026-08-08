@@ -62,7 +62,7 @@ function HeroVisual() {
       </div>
 
       <div
-        className="landing-float-drift absolute right-[2%] top-[20%] w-40 rounded-xl border border-border-subtle bg-bg-surface/80 p-3 text-left shadow-xl backdrop-blur-md sm:right-[8%] sm:top-[18%] sm:w-48"
+        className="landing-float-drift absolute right-[2%] top-[20%] w-40 rounded-xl border border-border-subtle bg-bg-surface/80 p-3 text-left shadow-xl backdrop-blur-md sm:right-[8%] sm:top-[18%] sm:w-48 hidden sm:block"
         style={{ animationDuration: '8s' }}
       >
         <div className="flex items-center gap-2.5">
@@ -81,7 +81,7 @@ function HeroVisual() {
       </div>
 
       <div
-        className="landing-float-drift absolute bottom-[12%] left-[5%] flex items-center gap-2 rounded-xl border border-border-subtle bg-bg-surface/80 py-2 pl-2.5 pr-3.5 shadow-xl backdrop-blur-md sm:left-[14%]"
+        className="landing-float-drift absolute bottom-[12%] left-[5%] hidden items-center gap-2 rounded-xl border border-border-subtle bg-bg-surface/80 py-2 pl-2.5 pr-3.5 shadow-xl backdrop-blur-md sm:left-[14%] sm:flex"
         style={{ animationDuration: '7.5s' }}
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-primary/15 text-accent-glow">
@@ -121,7 +121,7 @@ function HeroVisual() {
 
       {/* Badges */}
       <div
-        className="landing-float absolute right-[16%] top-[4%] flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-surface/80 px-3 py-1.5 shadow-lg backdrop-blur-md sm:right-[22%] sm:top-[6%]"
+        className="landing-float absolute right-[16%] top-[4%] hidden items-center gap-1.5 rounded-full border border-border-subtle bg-bg-surface/80 px-3 py-1.5 shadow-lg backdrop-blur-md sm:right-[22%] sm:top-[6%] sm:flex"
         style={{ animationDuration: '8.5s' }}
       >
         <ShieldCheck className="h-3.5 w-3.5 text-accent-glow" />
@@ -131,7 +131,7 @@ function HeroVisual() {
       </div>
 
       <div
-        className="landing-float-drift absolute left-[16%] bottom-[2%] flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-surface/80 px-3 py-1.5 shadow-lg backdrop-blur-md sm:left-[24%] sm:bottom-[4%]"
+        className="landing-float-drift absolute bottom-[2%] left-[16%] hidden items-center gap-1.5 rounded-full border border-border-subtle bg-bg-surface/80 px-3 py-1.5 shadow-lg backdrop-blur-md sm:bottom-[1%] sm:left-[2%] sm:flex"
         style={{ animationDuration: '9.5s' }}
       >
         <Lock className="h-3.5 w-3.5 text-accent-glow" />
@@ -141,7 +141,7 @@ function HeroVisual() {
       </div>
 
       <div
-        className="landing-float absolute left-1/2 bottom-[14%] flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 shadow-lg backdrop-blur-md"
+        className="landing-float absolute right-[3%] top-[4%] flex max-[359px]:hidden items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 shadow-lg backdrop-blur-md sm:bottom-[14%] sm:left-1/2 sm:right-auto sm:top-auto sm:-translate-x-1/2"
         style={{ animationDuration: '7s' }}
       >
         <Check className="h-3.5 w-3.5 text-emerald-400" />
