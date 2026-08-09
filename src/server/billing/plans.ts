@@ -35,3 +35,22 @@ export function getPlanStorageBytes(plan: PlanName): number {
   if (plan === 'free') return FREE_STORAGE_BYTES;
   return PLANS[plan].storageBytes;
 }
+
+/**
+ * Whether the user still holds a paid plan. A subscription counts as
+ * paid while it is active OR while the current billing period they paid
+ * for is still running (soft landing: immediate cancellation keeps the
+ * quota until the period they already paid for ends, then downgrades).
+ */
+export function isPaidPlan(
+  status: string | null | undefined,
+  plan: string | null | undefined,
+  currentPeriodEnd: Date | null | undefined,
+): boolean {
+  if (!plan || plan === 'free') return false;
+  if (status === 'active') return true;
+  if (currentPeriodEnd && currentPeriodEnd.getTime() > Date.now()) {
+    return true;
+  }
+  return false;
+}

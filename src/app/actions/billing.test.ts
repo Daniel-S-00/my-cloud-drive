@@ -176,6 +176,23 @@ describe('getSubscriptionStatus', () => {
     const result = await getSubscriptionStatus();
     expect(result?.isActive).toBe(false);
   });
+
+  it('keeps a canceled plan active during the paid soft-landing period', async () => {
+    hoisted.selectQueue.push([
+      {
+        plan: 'plus',
+        status: 'canceled',
+        storageQuotaBytes: 100 * 1024 ** 3,
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+        cancelAtPeriodEnd: null,
+        stripeSubscriptionId: 'sub_123',
+      },
+    ]);
+    const result = await getSubscriptionStatus();
+    // The user canceled immediately but already paid for the current
+    // period — the plan badge/quote stays until that period ends.
+    expect(result?.isActive).toBe(true);
+  });
 });
 
 describe('cancelSubscription', () => {

@@ -151,14 +151,16 @@ export default function SettingsPage() {
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-green-500/20 px-2.5 py-0.5 text-xs font-medium text-green-400">
-                  {subscription.plan} · active
+                  {subscription.plan}
                 </span>
                 <span className="text-sm text-text-secondary">
-                  {subscription.cancelAtPeriodEnd
-                    ? 'Cancels at the end of the billing period'
-                    : subscription.currentPeriodEnd
-                      ? `Renews ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
-                      : ''}
+                  {subscription.status === 'canceled'
+                    ? `Retained until ${subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'the end of your billing period'}`
+                    : subscription.cancelAtPeriodEnd
+                      ? 'Cancels at the end of the billing period'
+                      : subscription.currentPeriodEnd
+                        ? `Renews ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
+                        : ''}
                 </span>
               </div>
               {cancelError && (
@@ -166,7 +168,8 @@ export default function SettingsPage() {
                   {cancelError}
                 </p>
               )}
-              {!subscription.cancelAtPeriodEnd && (
+              {subscription.status !== 'canceled' &&
+                !subscription.cancelAtPeriodEnd && (
                 <Button
                   variant="outline"
                   onClick={onCancel}

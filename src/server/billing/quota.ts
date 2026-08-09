@@ -5,6 +5,7 @@ import { db } from '@/server/db/client';
 import { files, subscriptions } from '@/server/db/schema';
 import {
   getPlanStorageBytes,
+  isPaidPlan,
   type PlanName,
 } from '@/server/billing/plans';
 
@@ -19,24 +20,7 @@ export type StorageQuota = {
   isPaid: boolean;
 };
 
-/**
- * Whether the user still holds a paid plan. A subscription counts as
- * paid while it is active OR while the current billing period they paid
- * for is still running (soft landing: immediate cancellation keeps the
- * quota until the period they already paid for ends, then downgrades).
- */
-export function isPaidPlan(
-  status: string | null | undefined,
-  plan: string | null | undefined,
-  currentPeriodEnd: Date | null | undefined,
-): boolean {
-  if (!plan || plan === 'free') return false;
-  if (status === 'active') return true;
-  if (currentPeriodEnd && currentPeriodEnd.getTime() > Date.now()) {
-    return true;
-  }
-  return false;
-}
+export { isPaidPlan };
 
 /**
  * The user's current storage usage and their quota (from the active

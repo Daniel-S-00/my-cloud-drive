@@ -3,6 +3,7 @@
 import Stripe from 'stripe';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/server/auth/session';
+import { isPaidPlan } from '@/server/billing/plans';
 import { db } from '@/server/db/client';
 import { subscriptions } from '@/server/db/schema';
 
@@ -72,7 +73,11 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatusResult 
     currentPeriodEnd: sub.currentPeriodEnd,
     cancelAtPeriodEnd: Boolean(sub.cancelAtPeriodEnd),
     stripeSubscriptionId: sub.stripeSubscriptionId,
-    isActive: sub.status === 'active' && sub.plan !== 'free',
+    // Same soft-landing rule as the sidebar/upload guard: the user is
+    // "paid" while the plan is active OR while the current period they
+    // paid for is still running (so an immediate cancel keeps the plan
+    // badge until the period ends, matching the sidebar).
+    isActive: isPaidPlan(sub.status, sub.plan, sub.currentPeriodEnd),
   };
 }
 
