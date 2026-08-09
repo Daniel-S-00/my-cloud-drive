@@ -93,9 +93,11 @@ export async function cancelSubscription(): Promise<CancelSubscriptionResult> {
         and(
           eq(subscriptions.userId, user.id),
           eq(subscriptions.plan, 'plus'),
+          eq(subscriptions.status, 'active'),
           isNull(subscriptions.cancelAtPeriodEnd),
         ),
       )
+      .orderBy(sql`${subscriptions.createdAt} desc`)
       .limit(1);
 
     if (!sub?.stripeSubscriptionId) {

@@ -5,19 +5,23 @@ const hoisted = vi.hoisted(() => {
   const createMock = vi.fn();
   const updateMock = vi.fn();
   const selectQueue: unknown[][] = [];
+  const whereCalls: unknown[][] = [];
   const db = {
     select: vi.fn().mockImplementation(() => ({
       from: vi.fn().mockReturnValue({
-        where: vi.fn().mockImplementation(() => ({
-          orderBy: vi.fn().mockImplementation(() => ({
+        where: vi.fn().mockImplementation((...args: unknown[]) => {
+          whereCalls.push(args);
+          return {
+            orderBy: vi.fn().mockImplementation(() => ({
+              limit: vi.fn().mockImplementation(() =>
+                Promise.resolve(selectQueue.shift() ?? []),
+              ),
+            })),
             limit: vi.fn().mockImplementation(() =>
               Promise.resolve(selectQueue.shift() ?? []),
             ),
-          })),
-          limit: vi.fn().mockImplementation(() =>
-            Promise.resolve(selectQueue.shift() ?? []),
-          ),
-        })),
+          };
+        }),
       }),
     })),
     insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue([]) }),
@@ -30,6 +34,7 @@ const hoisted = vi.hoisted(() => {
     createMock,
     updateMock,
     selectQueue,
+    whereCalls,
     db,
     getCurrentUser: vi.fn(),
   };
@@ -66,6 +71,7 @@ const currentUser = { id: 'u1', email: 'user@example.com', name: null, image: nu
 beforeEach(() => {
   vi.clearAllMocks();
   hoisted.selectQueue.length = 0;
+  hoisted.whereCalls.length = 0;
   vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_placeholder');
   vi.stubEnv('STRIPE_PLUS_PRICE_ID', 'price_plus_test');
   vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.example.com');
@@ -175,7 +181,12 @@ describe('getSubscriptionStatus', () => {
 describe('cancelSubscription', () => {
   it('cancels an active plus subscription at period end', async () => {
     hoisted.selectQueue.push([
-      { stripeSubscriptionId: 'sub_123', plan: 'plus', cancelAtPeriodEnd: null },
+      {
+        stripeSubscriptionId: 'sub_123',
+        plan: 'plus',
+        status: 'active',
+        cancelAtPeriodEnd: null,
+      },
     ]);
     hoisted.updateMock.mockResolvedValue({ cancel_at_period_end: true });
 
@@ -189,17 +200,45 @@ describe('cancelSubscription', () => {
     );
   });
 
-  it('errors when there is no active subscription', async () => {
+  it('only targets active subscriptions (never a stale canceled row)', async () => {
+    // Simulate the DB returning no rows because the WHERE filter excludes
+    // the stale canceled subscription.
     hoisted.selectQueue.push([]);
     const result = await cancelSubscription();
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/No active subscription/);
     expect(hoisted.updateMock).not.toHaveBeenCalled();
+
+    // The query must filter on status = 'active' so a canceled row is
+    // never selected for Stripe cancellation (the regression: it was
+    // picking the old canceled sub and Stripe rejected the update). The
+    // where predicate is a drizzle `and([...])` whose parts serialize
+    // with the column + value.
+    // The query must filter on status = 'active' so a canceled row is
+    // never selected for Stripe cancellation (the regression: it was
+    // picking the old canceled sub and Stripe rejected the update). The
+    // where predicate is a drizzle `and([...])` whose parts carry the
+    // column's name and the compared value; stringify with a replacer
+    // that skips circular table refs.
+    const cancelWhere = hoisted.whereCalls
+      .at(-1)?.[0] as unknown[];
+    const serialized = JSON.stringify(cancelWhere, (_k, v) => {
+      if (v && typeof v === 'object' && 'table' in v && 'name' in v) {
+        return `col:${(v as { name?: string }).name}`;
+      }
+      return v;
+    });
+    expect(serialized).toContain('active');
   });
 
   it('errors when the Stripe call fails', async () => {
     hoisted.selectQueue.push([
-      { stripeSubscriptionId: 'sub_123', plan: 'plus', cancelAtPeriodEnd: null },
+      {
+        stripeSubscriptionId: 'sub_123',
+        plan: 'plus',
+        status: 'active',
+        cancelAtPeriodEnd: null,
+      },
     ]);
     hoisted.updateMock.mockRejectedValue(new Error('boom'));
     const result = await cancelSubscription();
