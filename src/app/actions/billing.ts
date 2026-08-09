@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/server/auth/session';
 import { isPaidPlan } from '@/server/billing/plans';
 import { db } from '@/server/db/client';
 import { subscriptions } from '@/server/db/schema';
+import { getRequestOrigin } from '@/lib/request-origin';
 
 export type CreateCheckoutResult = {
   ok: boolean;
@@ -141,6 +142,10 @@ export async function createPlusCheckoutSession(): Promise<CreateCheckoutResult>
 
     const user = await getCurrentUser();
 
+    // Redirect the user back to the origin they requested from (preview
+    // vs production), so checkout success/cancel never jump domains.
+    const origin = await getRequestOrigin();
+
     const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -154,8 +159,8 @@ export async function createPlusCheckoutSession(): Promise<CreateCheckoutResult>
       subscription_data: { metadata: { userId: user.id } },
       client_reference_id: user.id,
       ...(user.email ? { customer_email: user.email } : {}),
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/drive?upgrade=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/drive`,
+      success_url: `${origin ?? ''}/drive?upgrade=success`,
+      cancel_url: `${origin ?? ''}/drive`,
     });
 
     if (!session.url) {

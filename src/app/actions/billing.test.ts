@@ -37,6 +37,7 @@ const hoisted = vi.hoisted(() => {
     whereCalls,
     db,
     getCurrentUser: vi.fn(),
+    getRequestOrigin: vi.fn(),
   };
 });
 
@@ -44,6 +45,9 @@ vi.mock('@/server/auth/session', () => ({
   getCurrentUser: hoisted.getCurrentUser,
 }));
 vi.mock('@/server/db/client', () => ({ db: hoisted.db }));
+vi.mock('@/lib/request-origin', () => ({
+  getRequestOrigin: hoisted.getRequestOrigin,
+}));
 
 // Mock the Stripe SDK's checkout.sessions.create while keeping the real
 // constructor so the class type still resolves. Must be a `function` (not
@@ -76,6 +80,7 @@ beforeEach(() => {
   vi.stubEnv('STRIPE_PLUS_PRICE_ID', 'price_plus_test');
   vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.example.com');
   hoisted.getCurrentUser.mockResolvedValue(currentUser);
+  hoisted.getRequestOrigin.mockResolvedValue('https://app.example.com');
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -97,6 +102,20 @@ describe('createPlusCheckoutSession', () => {
         customer_email: 'user@example.com',
         success_url: 'https://app.example.com/drive?upgrade=success',
         cancel_url: 'https://app.example.com/drive',
+      }),
+    );
+  });
+
+  it('builds success/cancel URLs from the request origin (preview-safe)', async () => {
+    hoisted.getRequestOrigin.mockResolvedValue('https://my-pr-42.vercel.app');
+    sessionCreateMock.mockResolvedValue({ url: 'https://checkout.stripe.com/c/pay/x' });
+
+    await createPlusCheckoutSession();
+
+    expect(sessionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success_url: 'https://my-pr-42.vercel.app/drive?upgrade=success',
+        cancel_url: 'https://my-pr-42.vercel.app/drive',
       }),
     );
   });
