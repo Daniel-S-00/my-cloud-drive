@@ -6,11 +6,13 @@ export function AppSidebar({
   sharesCount,
   usedBytes,
   storageQuotaBytes,
+  isSubscribed,
 }: {
   trashCount: number;
   sharesCount: number;
   usedBytes: number;
   storageQuotaBytes: number;
+  isSubscribed: boolean;
 }) {
   return (
     <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-border-subtle bg-bg-surface/30 md:flex">
@@ -29,6 +31,7 @@ export function AppSidebar({
           sharesCount={sharesCount}
           usedBytes={usedBytes}
           storageQuotaBytes={storageQuotaBytes}
+          isSubscribed={isSubscribed}
         />
       </div>
     </aside>

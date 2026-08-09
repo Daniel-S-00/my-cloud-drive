@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, Shield, ShieldCheck } from 'lucide-react';
+import { CreditCard, LogOut, Shield, ShieldCheck } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { DeleteAccountDialog } from '@/components/delete-account-dialog';
@@ -8,6 +8,11 @@ import { TwoFactorDisableDialog } from '@/components/two-factor-disable-dialog';
 import { TwoFactorSetupDialog } from '@/components/two-factor-setup-dialog';
 import { TwoFactorRegenerateDialog } from '@/components/two-factor-regenerate-dialog';
 import { get2FAStatus } from '@/app/actions/two-factor';
+import {
+  cancelSubscription,
+  getSubscriptionStatus,
+  type SubscriptionStatusResult,
+} from '@/app/actions/billing';
 import { Button } from '@/components/ui/button';
 import {
   CardContent,
@@ -24,6 +29,11 @@ export default function SettingsPage() {
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
   const [backupCodeCount, setBackupCodeCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [subscription, setSubscription] =
+    useState<SubscriptionStatusResult | null>(null);
+  const [billingLoaded, setBillingLoaded] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     get2FAStatus().then((s) => {
@@ -32,6 +42,32 @@ export default function SettingsPage() {
       setLoaded(true);
     });
   }, [setup2FAOpen, disable2FAOpen, regenerateOpen]);
+
+  useEffect(() => {
+    getSubscriptionStatus().then((s) => {
+      setSubscription(s);
+      setBillingLoaded(true);
+    });
+  }, []);
+
+  const onCancel = async () => {
+    setCancelError(null);
+    setCanceling(true);
+    try {
+      const result = await cancelSubscription();
+      if (result.ok) {
+        setSubscription((prev) =>
+          prev ? { ...prev, cancelAtPeriodEnd: true } : prev,
+        );
+      } else {
+        setCancelError(result.error ?? 'Could not cancel. Please try again.');
+      }
+    } catch {
+      setCancelError('Something went wrong. Please try again.');
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6">
@@ -93,6 +129,57 @@ export default function SettingsPage() {
                 Enable 2FA
               </Button>
             </div>
+          )}
+        </CardContent>
+      </div>
+
+      {/* Subscription */}
+      <div className="mb-6 rounded-xl border border-border-subtle bg-bg-surface text-text-primary shadow">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-accent-glow" />
+            Subscription
+          </CardTitle>
+          <CardDescription className="text-text-secondary">
+            Manage your storage plan.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!billingLoaded ? (
+            <p className="text-sm text-text-secondary">Loading...</p>
+          ) : subscription && subscription.isActive ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-green-500/20 px-2.5 py-0.5 text-xs font-medium text-green-400">
+                  {subscription.plan} · active
+                </span>
+                <span className="text-sm text-text-secondary">
+                  {subscription.cancelAtPeriodEnd
+                    ? 'Cancels at the end of the billing period'
+                    : subscription.currentPeriodEnd
+                      ? `Renews ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
+                      : ''}
+                </span>
+              </div>
+              {cancelError && (
+                <p className="text-sm text-red-400" role="alert">
+                  {cancelError}
+                </p>
+              )}
+              {!subscription.cancelAtPeriodEnd && (
+                <Button
+                  variant="outline"
+                  onClick={onCancel}
+                  disabled={canceling}
+                >
+                  {canceling ? 'Canceling…' : 'Cancel subscription'}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-text-secondary">
+              You&apos;re on the free plan.
+            </p>
           )}
         </CardContent>
       </div>

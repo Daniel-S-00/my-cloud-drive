@@ -17,6 +17,7 @@ async function getSidebarData() {
       sharesCount: 0,
       usedBytes: 0,
       storageQuotaBytes: getPlanStorageBytes('free'),
+      isSubscribed: false,
     };
   }
 
@@ -45,7 +46,9 @@ async function getSidebarData() {
     .where(and(eq(files.ownerId, user.id), isNull(files.deletedAt)));
 
   // The user's storage quota: an active paid subscription provides its
-  // plan's quota; otherwise fall back to the free tier.
+  // plan's quota; otherwise fall back to the free tier. Take the latest
+  // row regardless of cancellation state — a user who canceled at period
+  // end still holds the plan until the period ends.
   const [sub] = await db
     .select({
       plan: subscriptions.plan,
@@ -53,18 +56,15 @@ async function getSidebarData() {
       storageQuotaBytes: subscriptions.storageQuotaBytes,
     })
     .from(subscriptions)
-    .where(
-      and(
-        eq(subscriptions.userId, user.id),
-        isNull(subscriptions.cancelAtPeriodEnd),
-      ),
-    )
+    .where(eq(subscriptions.userId, user.id))
     .orderBy(sql`${subscriptions.createdAt} desc`)
     .limit(1);
 
+  const isSubscribed = sub?.status === 'active' && sub.plan !== 'free';
+
   const storageQuotaBytes =
     sub?.storageQuotaBytes ??
-    (sub?.status === 'active' && sub.plan !== 'free'
+    (isSubscribed
       ? getPlanStorageBytes(sub.plan as PlanName)
       : getPlanStorageBytes('free'));
 
@@ -73,6 +73,7 @@ async function getSidebarData() {
     sharesCount: sharesRow?.count ?? 0,
     usedBytes: Number(storageRow?.total ?? 0),
     storageQuotaBytes,
+    isSubscribed,
   };
 }
 
@@ -81,7 +82,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { trashCount, sharesCount, usedBytes, storageQuotaBytes } =
+  const { trashCount, sharesCount, usedBytes, storageQuotaBytes, isSubscribed } =
     await getSidebarData();
 
   return (
@@ -91,6 +92,7 @@ export default async function AppLayout({
         sharesCount={sharesCount}
         usedBytes={usedBytes}
         storageQuotaBytes={storageQuotaBytes}
+        isSubscribed={isSubscribed}
       />
       <div className="flex min-h-0 flex-1">
         <AppSidebar
@@ -98,6 +100,7 @@ export default async function AppLayout({
           sharesCount={sharesCount}
           usedBytes={usedBytes}
           storageQuotaBytes={storageQuotaBytes}
+          isSubscribed={isSubscribed}
         />
         <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
       </div>

@@ -10,11 +10,13 @@ export function MobileNav({
   sharesCount,
   usedBytes,
   storageQuotaBytes,
+  isSubscribed,
 }: {
   trashCount: number;
   sharesCount: number;
   usedBytes: number;
   storageQuotaBytes: number;
+  isSubscribed: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -76,6 +78,7 @@ export function MobileNav({
                   sharesCount={sharesCount}
                   usedBytes={usedBytes}
                   storageQuotaBytes={storageQuotaBytes}
+                  isSubscribed={isSubscribed}
                 />
               </div>
             </div>

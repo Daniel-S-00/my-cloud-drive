@@ -3,8 +3,34 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const hoisted = vi.hoisted(() => {
   const createMock = vi.fn();
+  const updateMock = vi.fn();
+  const selectQueue: unknown[][] = [];
+  const db = {
+    select: vi.fn().mockImplementation(() => ({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockImplementation(() => ({
+          orderBy: vi.fn().mockImplementation(() => ({
+            limit: vi.fn().mockImplementation(() =>
+              Promise.resolve(selectQueue.shift() ?? []),
+            ),
+          })),
+          limit: vi.fn().mockImplementation(() =>
+            Promise.resolve(selectQueue.shift() ?? []),
+          ),
+        })),
+      }),
+    })),
+    insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue([]) }),
+    update: vi.fn().mockImplementation(() => ({
+      set: vi.fn().mockResolvedValue({}),
+    })),
+    delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }),
+  };
   return {
     createMock,
+    updateMock,
+    selectQueue,
+    db,
     getCurrentUser: vi.fn(),
   };
 });
@@ -12,6 +38,7 @@ const hoisted = vi.hoisted(() => {
 vi.mock('@/server/auth/session', () => ({
   getCurrentUser: hoisted.getCurrentUser,
 }));
+vi.mock('@/server/db/client', () => ({ db: hoisted.db }));
 
 // Mock the Stripe SDK's checkout.sessions.create while keeping the real
 // constructor so the class type still resolves. Must be a `function` (not
@@ -22,17 +49,23 @@ vi.mock('stripe', () => {
     default: vi.fn().mockImplementation(function () {
       return {
         checkout: { sessions: { create: sessionCreateMock } },
+        subscriptions: { update: hoisted.updateMock },
       };
     }),
   };
 });
 
-import { createPlusCheckoutSession } from './billing';
+import {
+  cancelSubscription,
+  createPlusCheckoutSession,
+  getSubscriptionStatus,
+} from './billing';
 
 const currentUser = { id: 'u1', email: 'user@example.com', name: null, image: null };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  hoisted.selectQueue.length = 0;
   vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_placeholder');
   vi.stubEnv('STRIPE_PLUS_PRICE_ID', 'price_plus_test');
   vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.example.com');
@@ -97,5 +130,80 @@ describe('createPlusCheckoutSession', () => {
     const result = await createPlusCheckoutSession();
     expect(result.ok).toBe(false);
     expect(sessionCreateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('getSubscriptionStatus', () => {
+  it('returns null when the user has no subscription', async () => {
+    hoisted.selectQueue.push([]);
+    const result = await getSubscriptionStatus();
+    expect(result).toBeNull();
+  });
+
+  it('flags an active paid plan as subscribed', async () => {
+    hoisted.selectQueue.push([
+      {
+        plan: 'plus',
+        status: 'active',
+        storageQuotaBytes: 100 * 1024 ** 3,
+        currentPeriodEnd: new Date(),
+        cancelAtPeriodEnd: null,
+        stripeSubscriptionId: 'sub_123',
+      },
+    ]);
+    const result = await getSubscriptionStatus();
+    expect(result?.isActive).toBe(true);
+    expect(result?.plan).toBe('plus');
+  });
+
+  it('does not flag a canceled or free plan as active', async () => {
+    hoisted.selectQueue.push([
+      {
+        plan: 'free',
+        status: 'canceled',
+        storageQuotaBytes: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: null,
+        stripeSubscriptionId: null,
+      },
+    ]);
+    const result = await getSubscriptionStatus();
+    expect(result?.isActive).toBe(false);
+  });
+});
+
+describe('cancelSubscription', () => {
+  it('cancels an active plus subscription at period end', async () => {
+    hoisted.selectQueue.push([
+      { stripeSubscriptionId: 'sub_123', plan: 'plus', cancelAtPeriodEnd: null },
+    ]);
+    hoisted.updateMock.mockResolvedValue({ cancel_at_period_end: true });
+
+    const result = await cancelSubscription();
+
+    expect(result.ok).toBe(true);
+    expect(result.cancelAtPeriodEnd).toBe(true);
+    expect(hoisted.updateMock).toHaveBeenCalledWith(
+      'sub_123',
+      { cancel_at_period_end: true },
+    );
+  });
+
+  it('errors when there is no active subscription', async () => {
+    hoisted.selectQueue.push([]);
+    const result = await cancelSubscription();
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/No active subscription/);
+    expect(hoisted.updateMock).not.toHaveBeenCalled();
+  });
+
+  it('errors when the Stripe call fails', async () => {
+    hoisted.selectQueue.push([
+      { stripeSubscriptionId: 'sub_123', plan: 'plus', cancelAtPeriodEnd: null },
+    ]);
+    hoisted.updateMock.mockRejectedValue(new Error('boom'));
+    const result = await cancelSubscription();
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/Something went wrong/);
   });
 });
