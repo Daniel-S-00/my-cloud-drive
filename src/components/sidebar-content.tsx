@@ -1,6 +1,8 @@
 'use client';
 
 import { Crown } from 'lucide-react';
+import { useState } from 'react';
+import { createPlusCheckoutSession } from '@/app/actions/billing';
 import { SidebarNav } from '@/components/sidebar-nav';
 
 // Display-only "free tier" for the storage meter — the app has no
@@ -29,6 +31,19 @@ export function SidebarContent({
     100,
     Math.round((usedBytes / DISPLAY_TIER_BYTES) * 100),
   );
+  const [upgrading, setUpgrading] = useState(false);
+
+  const onUpgrade = async () => {
+    setUpgrading(true);
+    try {
+      const result = await createPlusCheckoutSession();
+      if (result.ok && result.url) {
+        window.location.href = result.url;
+      }
+    } finally {
+      setUpgrading(false);
+    }
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -39,10 +54,12 @@ export function SidebarContent({
       <div className="mt-3 flex shrink-0 flex-col gap-3 border-t border-border-subtle pt-3">
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-accent-primary/40 bg-accent-primary/15 px-3 py-2 text-sm font-medium text-accent-glow transition-colors hover:bg-accent-primary/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+          onClick={onUpgrade}
+          disabled={upgrading}
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-accent-primary/40 bg-accent-primary/15 px-3 py-2 text-sm font-medium text-accent-glow transition-colors hover:bg-accent-primary/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow disabled:opacity-60"
         >
           <Crown className="h-4 w-4" />
-          Upgrade to Pro
+          {upgrading ? 'Redirecting…' : 'Upgrade to Pro'}
         </button>
 
         <div className="rounded-lg border border-border-subtle bg-bg-surface/60 p-3">
