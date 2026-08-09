@@ -37,9 +37,13 @@ export async function createPlusCheckoutSession(): Promise<CreateCheckoutResult>
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      // userId travels server-side only (metadata + client_reference_id);
-      // email pre-fills the checkout form.
+      // userId travels server-side only. It must be on the SUBSCRIPTION
+      // (via subscription_data.metadata), not just the session — Stripe
+      // does not copy session metadata onto the created subscription, and
+      // subscription events carry the subscription's metadata. The
+      // webhook maps sub -> user with it.
       metadata: { userId: user.id },
+      subscription_data: { metadata: { userId: user.id } },
       client_reference_id: user.id,
       ...(user.email ? { customer_email: user.email } : {}),
       success_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/drive?upgrade=success`,

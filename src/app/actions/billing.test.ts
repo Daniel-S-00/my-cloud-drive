@@ -53,6 +53,7 @@ describe('createPlusCheckoutSession', () => {
         mode: 'subscription',
         line_items: [{ price: 'price_plus_test', quantity: 1 }],
         metadata: { userId: 'u1' },
+        subscription_data: { metadata: { userId: 'u1' } },
         client_reference_id: 'u1',
         customer_email: 'user@example.com',
         success_url: 'https://app.example.com/drive?upgrade=success',
