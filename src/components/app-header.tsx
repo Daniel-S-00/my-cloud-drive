@@ -9,12 +9,16 @@ export function AppHeader({
   usedBytes,
   storageQuotaBytes,
   isSubscribed,
+  overQuota,
+  plan,
 }: {
   trashCount: number;
   sharesCount: number;
   usedBytes: number;
   storageQuotaBytes: number;
   isSubscribed: boolean;
+  overQuota: boolean;
+  plan: string;
 }) {
   return (
     <header className="z-30 shrink-0 border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md supports-[backdrop-filter]:bg-bg-surface/70">
@@ -25,6 +29,8 @@ export function AppHeader({
           usedBytes={usedBytes}
           storageQuotaBytes={storageQuotaBytes}
           isSubscribed={isSubscribed}
+          overQuota={overQuota}
+          plan={plan}
         />
         <div className="flex-1" />
         <div className="w-full max-w-xl">

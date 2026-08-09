@@ -11,12 +11,16 @@ export function MobileNav({
   usedBytes,
   storageQuotaBytes,
   isSubscribed,
+  overQuota,
+  plan,
 }: {
   trashCount: number;
   sharesCount: number;
   usedBytes: number;
   storageQuotaBytes: number;
   isSubscribed: boolean;
+  overQuota: boolean;
+  plan: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -79,6 +83,8 @@ export function MobileNav({
                   usedBytes={usedBytes}
                   storageQuotaBytes={storageQuotaBytes}
                   isSubscribed={isSubscribed}
+                  overQuota={overQuota}
+                  plan={plan}
                 />
               </div>
             </div>

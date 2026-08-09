@@ -3,11 +3,8 @@ import { AppHeader } from '@/components/app-header';
 import { AppSidebar } from '@/components/app-sidebar';
 import { getOptionalUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
-import { files, shares, subscriptions } from '@/server/db/schema';
-import {
-  getPlanStorageBytes,
-  type PlanName,
-} from '@/server/billing/plans';
+import { files, shares } from '@/server/db/schema';
+import { getStorageQuota } from '@/server/billing/quota';
 
 async function getSidebarData() {
   const user = await getOptionalUser();
@@ -16,8 +13,10 @@ async function getSidebarData() {
       trashCount: 0,
       sharesCount: 0,
       usedBytes: 0,
-      storageQuotaBytes: getPlanStorageBytes('free'),
+      storageQuotaBytes: 0,
       isSubscribed: false,
+      overQuota: false,
+      plan: 'free',
     };
   }
 
@@ -40,38 +39,18 @@ async function getSidebarData() {
       ),
     );
 
-  const [storageRow] = await db
-    .select({ total: sql<number>`coalesce(sum(${files.sizeBytes}), 0)::bigint` })
-    .from(files)
-    .where(and(eq(files.ownerId, user.id), isNull(files.deletedAt)));
-
-  // The user's storage quota derives from their plan via plans.ts (the
-  // single source of truth). An active paid plan gets its quota;
-  // otherwise fall back to the free tier. Take the latest row regardless
-  // of cancellation state — a user who canceled at period end still
-  // holds the plan until the period ends.
-  const [sub] = await db
-    .select({
-      plan: subscriptions.plan,
-      status: subscriptions.status,
-    })
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, user.id))
-    .orderBy(sql`${subscriptions.createdAt} desc`)
-    .limit(1);
-
-  const isSubscribed = sub?.status === 'active' && sub.plan !== 'free';
-
-  const storageQuotaBytes = isSubscribed
-    ? getPlanStorageBytes(sub.plan as PlanName)
-    : getPlanStorageBytes('free');
+  // Single source of truth for usage + quota (includes the soft-landing
+  // rule: paid quota holds until the current period ends).
+  const quota = await getStorageQuota();
 
   return {
     trashCount: trashRow?.count ?? 0,
     sharesCount: sharesRow?.count ?? 0,
-    usedBytes: Number(storageRow?.total ?? 0),
-    storageQuotaBytes,
-    isSubscribed,
+    usedBytes: quota?.usedBytes ?? 0,
+    storageQuotaBytes: quota?.quotaBytes ?? 0,
+    isSubscribed: quota?.isPaid ?? false,
+    overQuota: quota?.overQuota ?? false,
+    plan: quota?.plan ?? 'free',
   };
 }
 
@@ -80,8 +59,15 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { trashCount, sharesCount, usedBytes, storageQuotaBytes, isSubscribed } =
-    await getSidebarData();
+  const {
+    trashCount,
+    sharesCount,
+    usedBytes,
+    storageQuotaBytes,
+    isSubscribed,
+    overQuota,
+    plan,
+  } = await getSidebarData();
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg-base text-text-primary">
@@ -91,6 +77,8 @@ export default async function AppLayout({
         usedBytes={usedBytes}
         storageQuotaBytes={storageQuotaBytes}
         isSubscribed={isSubscribed}
+        overQuota={overQuota}
+        plan={plan}
       />
       <div className="flex min-h-0 flex-1">
         <AppSidebar
@@ -99,6 +87,8 @@ export default async function AppLayout({
           usedBytes={usedBytes}
           storageQuotaBytes={storageQuotaBytes}
           isSubscribed={isSubscribed}
+          overQuota={overQuota}
+          plan={plan}
         />
         <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
       </div>

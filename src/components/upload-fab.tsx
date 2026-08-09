@@ -3,11 +3,11 @@
 import { useRef, type ChangeEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { useUpload } from '@/hooks/use-upload';
+import { useUpload } from '@/contexts/upload-context';
 
 export function UploadFab({ folderId }: { folderId: string | null }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { upload, isUploading } = useUpload({ folderId });
+  const { upload, isUploading } = useUpload();
 
   const handleClick = () => {
     inputRef.current?.click();
@@ -23,7 +23,7 @@ export function UploadFab({ folderId }: { folderId: string | null }) {
     }
 
     for (const file of fileArray) {
-      await upload(file);
+      await upload(file, folderId);
     }
   };
 
