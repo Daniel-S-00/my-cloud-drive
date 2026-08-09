@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getOptionalUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, subscriptions } from '@/server/db/schema';
@@ -31,12 +31,17 @@ export async function getStorageQuota(): Promise<StorageQuota | null> {
   const user = await getOptionalUser();
   if (!user) return null;
 
+  // Usage counts ALL files, including soft-deleted ones in trash: the
+  // bytes still physically occupy R2 until emptyTrash purges them, so
+  // they must count against the quota. (Without this, delete → restore
+  // → delete cycles give unlimited storage by dropping usage while the
+  // R2 object is still billed.)
   const [storageRow] = await db
     .select({
       total: sql<number>`coalesce(sum(${files.sizeBytes}), 0)::bigint`,
     })
     .from(files)
-    .where(and(eq(files.ownerId, user.id), isNull(files.deletedAt)));
+    .where(eq(files.ownerId, user.id));
 
   const [sub] = await db
     .select({

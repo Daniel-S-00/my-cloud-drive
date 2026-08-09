@@ -3,11 +3,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const hoisted = vi.hoisted(() => {
   const selectQueue: unknown[][] = [];
+  const whereCalls: unknown[][] = [];
   const shiftResult = () => Promise.resolve(selectQueue.shift() ?? []);
   const db = {
     select: vi.fn().mockImplementation(() => ({
       from: vi.fn().mockReturnValue({
-        where: vi.fn().mockImplementation(() => {
+        where: vi.fn().mockImplementation((...args: unknown[]) => {
+          whereCalls.push(args);
           const whereNode = {
             orderBy: vi.fn().mockImplementation(() => ({
               limit: vi.fn().mockImplementation(shiftResult),
@@ -19,7 +21,7 @@ const hoisted = vi.hoisted(() => {
       }),
     })),
   };
-  return { db, selectQueue, getOptionalUser: vi.fn() };
+  return { db, selectQueue, whereCalls, getOptionalUser: vi.fn() };
 });
 
 vi.mock('@/server/db/client', () => ({ db: hoisted.db }));
@@ -39,6 +41,7 @@ const past = () => new Date(Date.now() - 60_000);
 beforeEach(() => {
   vi.clearAllMocks();
   hoisted.selectQueue.length = 0;
+  hoisted.whereCalls.length = 0;
   hoisted.getOptionalUser.mockResolvedValue(user);
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -105,5 +108,28 @@ describe('getStorageQuota', () => {
     hoisted.getOptionalUser.mockResolvedValue(null);
     const q = await getStorageQuota();
     expect(q).toBeNull();
+  });
+
+  it('counts soft-deleted (trash) files toward usage — no delete/restore loop', async () => {
+    // The usage query must NOT filter by deleted_at: trashed bytes still
+    // occupy R2, so they must count against the quota (otherwise delete →
+    // restore → delete gives unlimited storage).
+    hoisted.selectQueue.push([{ total: 80 }]); // usage includes trashed
+    hoisted.selectQueue.push([
+      { plan: 'plus', status: 'active', currentPeriodEnd: null },
+    ]);
+    const q = await getStorageQuota();
+    expect(q?.usedBytes).toBe(80);
+
+    // First where call is the usage sum; serialize (skipping circular
+    // table refs) and confirm it does not mention "deleted_at".
+    const usageWhere = hoisted.whereCalls[0]?.[0] as unknown[];
+    const serialized = JSON.stringify(usageWhere, (_k, v) => {
+      if (v && typeof v === 'object' && 'table' in v && 'name' in v) {
+        return `col:${(v as { name?: string }).name}`;
+      }
+      return v;
+    });
+    expect(serialized).not.toContain('deleted_at');
   });
 });
