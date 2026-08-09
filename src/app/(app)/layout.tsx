@@ -45,15 +45,15 @@ async function getSidebarData() {
     .from(files)
     .where(and(eq(files.ownerId, user.id), isNull(files.deletedAt)));
 
-  // The user's storage quota: an active paid subscription provides its
-  // plan's quota; otherwise fall back to the free tier. Take the latest
-  // row regardless of cancellation state — a user who canceled at period
-  // end still holds the plan until the period ends.
+  // The user's storage quota derives from their plan via plans.ts (the
+  // single source of truth). An active paid plan gets its quota;
+  // otherwise fall back to the free tier. Take the latest row regardless
+  // of cancellation state — a user who canceled at period end still
+  // holds the plan until the period ends.
   const [sub] = await db
     .select({
       plan: subscriptions.plan,
       status: subscriptions.status,
-      storageQuotaBytes: subscriptions.storageQuotaBytes,
     })
     .from(subscriptions)
     .where(eq(subscriptions.userId, user.id))
@@ -62,11 +62,9 @@ async function getSidebarData() {
 
   const isSubscribed = sub?.status === 'active' && sub.plan !== 'free';
 
-  const storageQuotaBytes =
-    sub?.storageQuotaBytes ??
-    (isSubscribed
-      ? getPlanStorageBytes(sub.plan as PlanName)
-      : getPlanStorageBytes('free'));
+  const storageQuotaBytes = isSubscribed
+    ? getPlanStorageBytes(sub.plan as PlanName)
+    : getPlanStorageBytes('free');
 
   return {
     trashCount: trashRow?.count ?? 0,

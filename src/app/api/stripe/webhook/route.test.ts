@@ -56,6 +56,7 @@ vi.mock('stripe', async (importOriginal) => {
 });
 
 import { POST } from './route';
+import { PLANS } from '@/server/billing/plans';
 
 const TEST_WEBHOOK_SECRET = 'whsec_test_secret';
 const currentPeriodEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 3600;
@@ -154,7 +155,11 @@ describe('stripe webhook', () => {
     expect(inserted.userId).toBe('u1');
     expect(inserted.plan).toBe('plus');
     expect(inserted.status).toBe('active');
-    expect(inserted.storageQuotaBytes).toBe(100 * 1024 * 1024 * 1024);
+    // Matches PLANS.plus.storageBytes — which is 100 MB under the
+    // temporary test quota.
+    expect(inserted.storageQuotaBytes).toBe(
+      PLANS.plus.storageBytes,
+    );
   });
 
   it('falls back to email lookup when metadata is missing', async () => {

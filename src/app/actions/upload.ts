@@ -7,6 +7,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { generateUniqueFileName } from '@/lib/file-utils';
 import { getCurrentUser } from '@/server/auth/session';
+import { getStorageQuota } from '@/server/billing/quota';
 import { db } from '@/server/db/client';
 import { files, folders, users } from '@/server/db/schema';
 import { r2, R2_BUCKET } from '@/server/storage/r2';
@@ -14,6 +15,7 @@ import { r2, R2_BUCKET } from '@/server/storage/r2';
 export type GenerateUploadUrlInput = {
   folderId: string | null;
   fileName: string;
+  sizeBytes: number;
 };
 
 export type GenerateUploadUrlOutput = {
@@ -46,6 +48,15 @@ export type ConfirmUploadOutput = {
 const PRESIGN_EXPIRES_SECONDS = 15 * 60;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 * 1024; // 10 GiB
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 function extractExtension(fileName: string): string {
   const lastDot = fileName.lastIndexOf('.');
   if (lastDot <= 0 || lastDot === fileName.length - 1) {
@@ -58,13 +69,29 @@ function extractExtension(fileName: string): string {
 export async function generateUploadUrl(
   input: GenerateUploadUrlInput,
 ): Promise<GenerateUploadUrlOutput> {
-  const { folderId, fileName } = input;
+  const { folderId, fileName, sizeBytes } = input;
 
   if (!fileName) {
     throw new Error('fileName is required');
   }
+  if (!Number.isFinite(sizeBytes) || sizeBytes < 0) {
+    throw new Error('Invalid file size');
+  }
 
   const { id: userId, email: userEmail } = await getCurrentUser();
+
+  // Enforce the plan quota before issuing a presigned URL: block the
+  // upload if it would push the user over their storage allowance.
+  const quota = await getStorageQuota();
+  if (quota && quota.usedBytes + sizeBytes > quota.quotaBytes) {
+    const exceed =
+      quota.usedBytes + sizeBytes - quota.quotaBytes;
+    throw new Error(
+      `Not enough storage: this upload needs ${formatBytes(sizeBytes)} and you only have ${formatBytes(
+        Math.max(0, quota.quotaBytes - quota.usedBytes),
+      )} left (would exceed by ${formatBytes(exceed)}). Upgrade your plan or free up space.`,
+    );
+  }
 
   if (folderId !== null) {
     const folder = await db

@@ -64,6 +64,7 @@ export function useUpload({ folderId }: UseUploadInput): UseUploadReturn {
           await generateUploadUrl({
             folderId,
             fileName: file.name,
+            sizeBytes: file.size,
           });
         pendingFileId = fileId;
         pendingStorageKey = storageKey;

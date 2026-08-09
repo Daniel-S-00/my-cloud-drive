@@ -1,9 +1,14 @@
-// Billing plan definitions. Storage quotas are the real values backing
-// the storage meter (they replace the hardcoded 5 GB display tier once
-// a user is on a paid plan).
+// Billing plan definitions. Storage quotas back both the storage meter
+// and the upload guard. Quotas are derived from the plan NAME (not the
+// storage_quota_bytes column) so a single change here applies everywhere.
 export type PlanName = 'free' | 'plus' | 'pro' | 'max';
 
-export const FREE_STORAGE_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
+// ── TEMPORARY TEST QUOTAS ─────────────────────────────────────────────
+// Small quotas for local testing so enforcement can be exercised without
+// uploading real data. RESTORE THE REAL VALUES below before merging.
+//   free → 5 * 1024 * 1024 * 1024 (5 GB)
+//   plus → 100 * 1024 * 1024 * 1024 (100 GB)
+export const FREE_STORAGE_BYTES = 50 * 1024 * 1024; // 50 MB (test)
 
 export const PLANS: Record<
   Exclude<PlanName, 'free'>,
@@ -11,7 +16,7 @@ export const PLANS: Record<
 > = {
   plus: {
     name: 'plus',
-    storageBytes: 100 * 1024 * 1024 * 1024, // 100 GB
+    storageBytes: 100 * 1024 * 1024, // 100 MB (test)
     envKey: 'STRIPE_PLUS_PRICE_ID',
   },
   pro: {
