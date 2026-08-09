@@ -5,10 +5,12 @@ export function AppSidebar({
   trashCount,
   sharesCount,
   usedBytes,
+  storageQuotaBytes,
 }: {
   trashCount: number;
   sharesCount: number;
   usedBytes: number;
+  storageQuotaBytes: number;
 }) {
   return (
     <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-border-subtle bg-bg-surface/30 md:flex">
@@ -26,6 +28,7 @@ export function AppSidebar({
           trashCount={trashCount}
           sharesCount={sharesCount}
           usedBytes={usedBytes}
+          storageQuotaBytes={storageQuotaBytes}
         />
       </div>
     </aside>

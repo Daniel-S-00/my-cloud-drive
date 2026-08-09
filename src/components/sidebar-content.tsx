@@ -5,10 +5,6 @@ import { useState } from 'react';
 import { createPlusCheckoutSession } from '@/app/actions/billing';
 import { SidebarNav } from '@/components/sidebar-nav';
 
-// Display-only "free tier" for the storage meter — the app has no
-// enforced quota, this just gives the progress bar a denominator.
-const DISPLAY_TIER_BYTES = 5 * 1024 * 1024 * 1024;
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -22,14 +18,16 @@ export function SidebarContent({
   trashCount,
   sharesCount,
   usedBytes,
+  storageQuotaBytes,
 }: {
   trashCount: number;
   sharesCount: number;
   usedBytes: number;
+  storageQuotaBytes: number;
 }) {
   const usedPct = Math.min(
     100,
-    Math.round((usedBytes / DISPLAY_TIER_BYTES) * 100),
+    Math.round((usedBytes / storageQuotaBytes) * 100),
   );
   const [upgrading, setUpgrading] = useState(false);
 
@@ -78,7 +76,7 @@ export function SidebarContent({
             />
           </div>
           <p className="mt-2 text-xs text-text-secondary">
-            {formatBytes(usedBytes)} of {formatBytes(DISPLAY_TIER_BYTES)} used
+            {formatBytes(usedBytes)} of {formatBytes(storageQuotaBytes)} used
           </p>
         </div>
       </div>

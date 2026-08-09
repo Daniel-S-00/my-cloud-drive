@@ -7,10 +7,12 @@ export function AppHeader({
   trashCount,
   sharesCount,
   usedBytes,
+  storageQuotaBytes,
 }: {
   trashCount: number;
   sharesCount: number;
   usedBytes: number;
+  storageQuotaBytes: number;
 }) {
   return (
     <header className="z-30 shrink-0 border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md supports-[backdrop-filter]:bg-bg-surface/70">
@@ -19,6 +21,7 @@ export function AppHeader({
           trashCount={trashCount}
           sharesCount={sharesCount}
           usedBytes={usedBytes}
+          storageQuotaBytes={storageQuotaBytes}
         />
         <div className="flex-1" />
         <div className="w-full max-w-xl">
