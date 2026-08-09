@@ -41,6 +41,7 @@ export const files = pgTable(
       .defaultNow()
       .notNull(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    favoriteAt: timestamp('favorite_at', { withTimezone: true }),
   },
   (t) => ({
     folderIdx: index('files_folder_id_idx').on(t.folderId),

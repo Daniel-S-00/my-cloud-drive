@@ -1,14 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { Folder } from 'lucide-react';
+import { Check, Folder } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { createFolder, deleteFolder, moveFolder } from '@/app/actions/folders';
 import { Button } from '@/components/ui/button';
-import { DragHandle } from '@/components/drag-handle';
+import { FavoriteButton } from '@/components/favorite-button';
+import { ItemMenu } from '@/components/item-menu';
 import {
   Dialog,
   DialogBody,
@@ -23,6 +24,12 @@ import { Label } from '@/components/ui/label';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFolderDialogs } from '@/contexts/file-dialog-context';
+import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useMultiSelect } from '@/contexts/multi-select-context';
+import { copyText } from '@/lib/clipboard';
+import { isCoarsePointer } from '@/lib/pointer';
+import { useItemDrag } from '@/hooks/use-item-drag';
+import { useLongPress } from '@/hooks/use-long-press';
 
 import { formatDateTime as formatDate } from '@/lib/format-date';
 
@@ -35,6 +42,7 @@ export type FolderRowData = {
   updatedAt: string;
   filesCount: number;
   subfoldersCount: number;
+  favorite?: boolean;
 };
 
 function FolderIcon({ className }: { className?: string }) {
@@ -68,6 +76,9 @@ export function FolderRow({
     }
   }, [isSelected, shouldScroll]);
   const { openDeleteDialog } = useFolderDialogs();
+  const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
+  const { mode: selectionMode, isSelected: isSelectedMulti, enter, toggle } =
+    useMultiSelect();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const {
@@ -79,6 +90,25 @@ export function FolderRow({
     setDragOverFolder,
     setMoving,
   } = useDragContext();
+
+  const selectable = { type: 'folder', id: folder.id, name: folder.name } as const;
+
+  // The row/card is the drag source on desktop (HTML5). On mobile, a
+  // long-press enters multi-selection instead of dragging.
+  const dragSource = useItemDrag({
+    item: selectable,
+    disabled: isMoving,
+  });
+  const longPress = useLongPress({
+    onTrigger: () => enter(selectable),
+    disabled: pending || isMoving,
+  });
+  const isMultiSelected = isSelectedMulti(folder.id);
+
+  const handleCopyName = async () => {
+    const ok = await copyText(folder.name);
+    toast.success(ok ? 'Name copied to clipboard' : 'Could not copy name');
+  };
 
   const isSelfDragged =
     draggedItem?.type === 'folder' && draggedItem.id === folder.id;
@@ -247,6 +277,19 @@ export function FolderRow({
     .join(' ');
 
   const handleRowClick = () => {
+    // While multi-select mode is active, a tap toggles the item in the
+    // selection instead of opening it.
+    if (selectionMode) {
+      toggle(selectable);
+      return;
+    }
+    // On touch devices a single tap opens the folder directly — no
+    // double-tap needed. Selection stays for desktop precision
+    // pointers (double-click opens there).
+    if (isCoarsePointer()) {
+      router.push(`/drive?folder=${folder.id}`);
+      return;
+    }
     onSelect?.(folder.id);
   };
 
@@ -264,34 +307,42 @@ export function FolderRow({
   return (
     <>
       {/*
-       * Desktop row (>= md). The row is a drop target but NOT a
-       * drag source — only the dedicated <DragHandle /> in the
-       * first cell initiates a drag.
+       * Desktop row (>= md). The row is BOTH a drop target (files /
+       * folders dropped onto it move into this folder) and the drag
+       * source (grabbing the row starts a move). The name is
+       * `data-no-drag`, so click-dragging over it selects text for
+       * copying instead of dragging.
        */}
       <TableRow
         ref={desktopRef}
+        {...dragSource.handlers}
+        {...longPress.handlers}
+        draggable={dragSource.isDraggable}
         onDragOver={onDragOver}
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
+        data-drop-folder-id={folder.id}
+        data-drop-folder-name={folder.name}
         style={{ animationDelay: `${index * 50}ms` }}
-        className={['desktop-row', 'hidden md:table-row', spawnClass, rowClass || '']
+        className={[
+          'desktop-row',
+          'group',
+          'hidden md:table-row',
+          spawnClass,
+          rowClass || '',
+          isMultiSelected ? 'bg-accent-primary/10' : '',
+        ]
           .filter(Boolean)
           .join(' ')}
       >
-        <TableCell className="w-9 px-1 py-1" onClick={(e) => e.stopPropagation()}>
-          <DragHandle
-            item={{ type: 'folder', id: folder.id, name: folder.name }}
-            disabled={isMoving}
-            label={`Drag ${folder.name}`}
-          />
-        </TableCell>
         <TableCell className="min-w-[12rem] md:min-w-0">
           <Link
             href={`/drive?folder=${folder.id}`}
             draggable={false}
+            data-no-drag
             onClick={(e) => e.preventDefault()}
             className="flex min-w-0 items-center gap-3 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
           >
@@ -299,7 +350,11 @@ export function FolderRow({
               aria-hidden
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-accent-primary/15 text-accent-glow"
             >
-              <FolderIcon className="h-5 w-5" />
+              {isMultiSelected ? (
+                <Check className="h-5 w-5" />
+              ) : (
+                <FolderIcon className="h-5 w-5" />
+              )}
             </span>
             <span
               title={folder.name}
@@ -323,22 +378,36 @@ export function FolderRow({
               }`
             : 'Empty'}
         </TableCell>
-        <TableCell className="w-44 text-right" onClick={(e) => e.stopPropagation()}>
-          {pending ? (
-            <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
-              Moving…
-            </span>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => openDeleteDialog(folder)}
-            >
-              Delete
-            </Button>
-          )}
+        <TableCell
+          className="w-44 text-right"
+          onClick={(e) => e.stopPropagation()}
+          data-no-drag
+        >
+          <div className="flex items-center justify-end gap-1">
+            {/* Drive-style hover actions (desktop only; hidden on touch). */}
+            <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <FavoriteButton
+                type="folder"
+                id={folder.id}
+                favorited={!!folder.favorite}
+                disabled={pending}
+              />
+            </div>
+            <ItemMenu
+              label={`Actions for ${folder.name}`}
+              disabled={pending}
+              onMove={() => openMoveDialog([selectable])}
+              onRename={() => openRenameDialog(selectable)}
+              onCopyName={handleCopyName}
+              onDelete={() => openDeleteDialog(folder)}
+            />
+            {pending ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
+                Moving…
+              </span>
+            ) : null}
+          </div>
         </TableCell>
       </TableRow>
 
@@ -354,28 +423,41 @@ export function FolderRow({
           .filter(Boolean)
           .join(' ')}
         style={{ animationDelay: `${index * 50}ms` }}
+        data-drop-folder-id={folder.id}
+        data-drop-folder-name={folder.name}
         onDragOver={onDragOver}
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
       >
-        <td className="mobile-card-cell" colSpan={5}>
+        <td className="mobile-card-cell" colSpan={4}>
           <div
-            className="mobile-card"
+            className={[
+              'mobile-card',
+              isMultiSelected ? 'bg-accent-primary/10' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             onClick={handleRowClick}
             onDoubleClick={handleRowDoubleClick}
+            {...longPress.handlers}
           >
             <div className="flex items-start gap-3">
               <span
                 aria-hidden
                 className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-accent-primary/15 text-accent-glow"
               >
-                <FolderIcon className="h-5 w-5" />
+                {isMultiSelected ? (
+                  <Check className="h-5 w-5" />
+                ) : (
+                  <FolderIcon className="h-5 w-5" />
+                )}
               </span>
               <div className="min-w-0 flex-1">
                 <Link
                   href={`/drive?folder=${folder.id}`}
                   draggable={false}
+                  data-no-drag
                   onClick={(e) => e.preventDefault()}
                   className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
                 >
@@ -401,10 +483,13 @@ export function FolderRow({
                 </div>
               </div>
               <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                <DragHandle
-                  item={{ type: 'folder', id: folder.id, name: folder.name }}
-                  disabled={isMoving}
-                  label={`Drag ${folder.name}`}
+                <ItemMenu
+                  label={`Actions for ${folder.name}`}
+                  disabled={pending}
+                  onMove={() => openMoveDialog([selectable])}
+                  onRename={() => openRenameDialog(selectable)}
+                  onCopyName={handleCopyName}
+                  onDelete={() => openDeleteDialog(folder)}
                 />
               </div>
             </div>
@@ -413,23 +498,12 @@ export function FolderRow({
               <span className="whitespace-nowrap">
                 {formatDate(folder.updatedAt || folder.createdAt)}
               </span>
-              <div className="ml-auto flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                {pending ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
-                    Moving…
-                  </span>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openDeleteDialog(folder)}
-                  >
-                    Delete
-                  </Button>
-                )}
-              </div>
+              {pending ? (
+                <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
+                  Moving…
+                </span>
+              ) : null}
             </div>
           </div>
         </td>

@@ -1,13 +1,28 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Folder } from 'lucide-react';
-import { useEffect, useRef, useTransition, type DragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { Check, Folder } from 'lucide-react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { toast } from 'sonner';
 import { moveFile } from '@/app/actions/files';
 import { moveFolder } from '@/app/actions/folders';
-import { DragHandle } from '@/components/drag-handle';
+import { FavoriteButton } from '@/components/favorite-button';
+import { ItemMenu } from '@/components/item-menu';
 import { useDragContext } from '@/contexts/drag-context';
+import { useFolderDialogs } from '@/contexts/file-dialog-context';
+import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useMultiSelect } from '@/contexts/multi-select-context';
+import { useItemDrag } from '@/hooks/use-item-drag';
+import { useLongPress } from '@/hooks/use-long-press';
+import { copyText } from '@/lib/clipboard';
+import { isCoarsePointer } from '@/lib/pointer';
 
 const DRAG_MIME = 'text/plain';
 
@@ -16,6 +31,7 @@ export type FolderGridItemData = {
   name: string;
   filesCount: number;
   subfoldersCount: number;
+  favorite?: boolean;
 };
 
 type FolderGridItemProps = {
@@ -23,7 +39,6 @@ type FolderGridItemProps = {
   index?: number;
   isSelected: boolean;
   onSelect: (id: string) => void;
-  dragHandle?: ReactNode;
   shouldScroll?: boolean;
   animate?: boolean;
 };
@@ -46,13 +61,24 @@ function FolderGridItem({
   index = 0,
   isSelected,
   onSelect,
-  dragHandle,
   shouldScroll,
   animate = true,
 }: FolderGridItemProps) {
   const router = useRouter();
   const itemRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
+  // Grid cards render at every breakpoint, but drag must only exist on
+  // precision pointers. Gate on a mounted flag so SSR and the first
+  // client render agree (avoiding a hydration mismatch on `draggable`).
+  const [canDrag, setCanDrag] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setCanDrag(!isCoarsePointer()));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  const { openDeleteDialog } = useFolderDialogs();
+  const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
+  const { mode: selectionMode, isSelected: isSelectedMulti, enter, toggle } =
+    useMultiSelect();
 
   const {
     dragOverFolderId,
@@ -61,6 +87,19 @@ function FolderGridItem({
     setDragOverFolder,
     setMoving,
   } = useDragContext();
+
+  const selectable = { type: 'folder', id: folder.id, name: folder.name } as const;
+
+  // The card is the drag source on desktop (HTML5). On mobile, a
+  // long-press enters multi-selection instead of dragging.
+  const dragSource = useItemDrag({ item: selectable });
+  const longPress = useLongPress({ onTrigger: () => enter(selectable) });
+  const isMultiSelected = isSelectedMulti(folder.id);
+
+  const handleCopyName = async () => {
+    const ok = await copyText(folder.name);
+    toast.success(ok ? 'Name copied to clipboard' : 'Could not copy name');
+  };
 
   const isHovered = dragOverFolderId === folder.id;
 
@@ -161,6 +200,7 @@ function FolderGridItem({
     'group relative flex cursor-pointer flex-col rounded-lg border border-border-subtle bg-bg-surface transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-accent-primary/10',
     spawnClass,
     isSelected ? 'ring-2 ring-accent-primary' : '',
+    isMultiSelected ? 'bg-accent-primary/10' : '',
     isHovered ? 'bg-accent-primary/15 ring-1 ring-inset ring-accent-glow' : '',
   ]
     .filter(Boolean)
@@ -177,7 +217,26 @@ function FolderGridItem({
       ref={itemRef}
       className={cardClass}
       style={{ animationDelay: `${index * 50}ms` }}
-      onClick={() => onSelect(folder.id)}
+      data-drop-folder-id={folder.id}
+      data-drop-folder-name={folder.name}
+      {...dragSource.handlers}
+      {...longPress.handlers}
+      draggable={canDrag && dragSource.isDraggable}
+      onClick={() => {
+        // While multi-select mode is active, a tap toggles selection.
+        if (selectionMode) {
+          toggle(selectable);
+          return;
+        }
+        // Touch-first devices open the folder on a single tap (no
+        // double-tap needed). Selection stays for desktop precision
+        // pointers (double-click opens there).
+        if (isCoarsePointer()) {
+          router.push(`/drive?folder=${folder.id}`);
+          return;
+        }
+        onSelect(folder.id);
+      }}
       onDoubleClick={(e: ReactMouseEvent) => {
         // Stop the browser's double-click word selection.
         e.preventDefault();
@@ -193,22 +252,51 @@ function FolderGridItem({
         if (e.key === 'Enter') onSelect(folder.id);
       }}
     >
-      {dragHandle ? (
-        <div
-          className="absolute right-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100"
-          onClick={(e) => e.stopPropagation()}
+      {isMultiSelected ? (
+        <span
+          aria-hidden
+          className="absolute left-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-accent-primary text-white shadow"
         >
-          {dragHandle}
-        </div>
+          <Check className="h-4 w-4" />
+        </span>
       ) : null}
 
-      <div className="flex aspect-square w-full items-center justify-center rounded-t-lg bg-accent-primary/10">
+      <div
+        className="absolute right-1 top-1 z-10"
+        onClick={(e) => e.stopPropagation()}
+        data-no-drag
+      >
+        <ItemMenu
+          label={`Actions for ${folder.name}`}
+          onMove={() => openMoveDialog([selectable])}
+          onRename={() => openRenameDialog(selectable)}
+          onCopyName={handleCopyName}
+          onDelete={() => openDeleteDialog(folder)}
+        />
+      </div>
+
+      <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-t-lg bg-accent-primary/10">
         <FolderIcon className="h-16 w-16 text-accent-primary/50" />
+        {/* Hover action, overlaid on the icon area so it never collides
+            with a long folder name in the text block below. */}
+        <div
+          className="absolute bottom-2 right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:hidden"
+          onClick={(e) => e.stopPropagation()}
+          data-no-drag
+        >
+          <FavoriteButton
+            type="folder"
+            id={folder.id}
+            favorited={!!folder.favorite}
+            className="bg-bg-surface/80 shadow backdrop-blur-sm"
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1 p-3">
         <span
           title={folder.name}
+          data-no-drag
           className="line-clamp-2 text-sm font-medium text-text-primary break-words"
         >
           {folder.name}
@@ -235,7 +323,6 @@ type FolderGridProps = {
   folders: FolderGridItemData[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  isMoving?: boolean;
   shouldScroll?: boolean;
   animate?: boolean;
 };
@@ -244,7 +331,6 @@ export function FolderGrid({
   folders,
   selectedId,
   onSelect,
-  isMoving = false,
   shouldScroll,
   animate = true,
 }: FolderGridProps) {
@@ -261,13 +347,6 @@ export function FolderGrid({
           onSelect={onSelect}
           shouldScroll={shouldScroll}
           animate={animate}
-          dragHandle={
-            <DragHandle
-              item={{ type: 'folder', id: folder.id, name: folder.name }}
-              disabled={isMoving}
-              label={`Drag ${folder.name}`}
-            />
-          }
         />
       ))}
     </div>

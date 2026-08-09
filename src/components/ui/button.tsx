@@ -6,7 +6,8 @@ type ButtonVariant =
   | 'outline'
   | 'ghost'
   | 'secondary'
-  | 'destructive';
+  | 'destructive'
+  | 'destructiveOutline';
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
 
 const baseClasses =
@@ -25,6 +26,8 @@ const variantClasses: Record<ButtonVariant, string> = {
     'bg-bg-surface-hover text-text-primary shadow-sm hover:bg-bg-surface',
   destructive:
     'bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-700',
+  destructiveOutline:
+    'border border-border-subtle bg-bg-surface text-red-400 shadow-sm hover:border-red-600 hover:bg-red-600 hover:text-white focus-visible:ring-red-700',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

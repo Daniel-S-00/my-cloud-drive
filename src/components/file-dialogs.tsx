@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronLeft, ChevronRight, LoaderCircle, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileQuestion, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   deleteFile,
@@ -63,19 +63,26 @@ function isAudioMimeType(mimeType: string): boolean {
 }
 
 /**
- * A simple spinning loader shown while the presigned URL for a
- * preview is being fetched (initial open or after next/prev
- * navigation).
+ * Fallback body for files that have no preview URL — either a type
+ * the viewer can't render (HTML, PDF, zip, ...) or media that isn't
+ * ready yet. The modal footer already carries the Download button.
  */
-function PreviewSpinner() {
+function CannotPreview({ file }: PreviewBodyProps) {
   return (
     <div
       role="status"
-      aria-live="polite"
-      className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 text-sm text-text-secondary"
+      className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 p-6 text-center"
     >
-      <LoaderCircle className="h-8 w-8 animate-spin text-accent-glow" aria-hidden />
-      <span>Loading preview…</span>
+      <FileQuestion className="h-10 w-10 text-text-secondary/60" aria-hidden />
+      <p className="text-sm font-medium text-text-primary">
+        This file type can&apos;t be previewed.
+      </p>
+      <p className="max-w-sm break-words text-xs text-text-secondary">
+        {file.name}
+      </p>
+      <p className="text-xs text-text-secondary">
+        Use the Download button below to get the file.
+      </p>
     </div>
   );
 }
@@ -85,15 +92,15 @@ type PreviewBodyProps = {
 };
 
 function PreviewBody({ file }: PreviewBodyProps) {
-  // The preview URL is now signed SERVER-SIDE and passed in via the
-  // `thumbnailUrl` prop (a cached, long-lived 24h URL). We no longer
-  // fetch it in a useEffect on mount — that re-signed on every open
-  // and every prev/next navigation, producing a different URL string
-  // each time and defeating the browser cache.
+  // The preview URL is signed SERVER-SIDE and passed in via the
+  // `thumbnailUrl` prop (a cached, long-lived 24h URL), so it's
+  // available synchronously. When it's absent the file simply has
+  // nothing to preview — show the fallback instead of a spinner that
+  // could never resolve.
   const url = file.thumbnailUrl ?? null;
 
   if (!url) {
-    return <PreviewSpinner />;
+    return <CannotPreview file={file} />;
   }
 
   if (isAudioMimeType(file.mimeType)) {
@@ -263,9 +270,9 @@ function PreviewDialog({
             type="button"
             onClick={goPrev}
             aria-label={`Previous media (${mediaFiles[mediaIndex - 1]?.name ?? ''})`}
-            className="absolute left-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:flex"
+            className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:h-12 sm:w-12"
           >
-            <ChevronLeft className="h-6 w-6" />
+            <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
         ) : null}
         {canGoNext ? (
@@ -273,14 +280,16 @@ function PreviewDialog({
             type="button"
             onClick={goNext}
             aria-label={`Next media (${mediaFiles[mediaIndex + 1]?.name ?? ''})`}
-            className="absolute right-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:flex"
+            className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border-subtle bg-bg-surface/60 text-text-primary shadow-md backdrop-blur-md transition-colors hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow sm:h-12 sm:w-12"
           >
-            <ChevronRight className="h-6 w-6" />
+            <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
         ) : null}
       </div>
       <div className="flex flex-col-reverse items-center justify-between gap-2 border-t border-border-subtle p-3 md:flex-row md:p-4">
-        <span className="flex items-center gap-1 text-xs text-text-secondary/70">
+        {/* Keyboard shortcut hint is desktop-only — mobile uses the
+            prev/next buttons above. */}
+        <span className="hidden items-center gap-1 text-xs text-text-secondary/70 md:flex">
           <kbd className="rounded border border-border-subtle bg-bg-surface-hover px-1 font-mono text-[0.7rem]">
             ←
           </kbd>

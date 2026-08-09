@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Play, Music } from 'lucide-react';
+import { Check, Download, Link2, Music, Play, Share2 } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -9,14 +9,19 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { toast } from 'sonner';
-import { generateDownloadUrl } from '@/app/actions/files';
-import { Button } from '@/components/ui/button';
-import { ShareButton } from '@/components/share-button';
-import { DragHandle } from '@/components/drag-handle';
+import { FavoriteButton } from '@/components/favorite-button';
+import { ItemMenu } from '@/components/item-menu';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useDragContext } from '@/contexts/drag-context';
 import { useFileDialogs } from '@/contexts/file-dialog-context';
+import { useItemActionDialogs } from '@/contexts/item-action-dialog-context';
+import { useMultiSelect } from '@/contexts/multi-select-context';
+import { useShareDialogs } from '@/contexts/share-dialog-context';
+import { copyText } from '@/lib/clipboard';
+import { downloadFile } from '@/lib/download-file';
 import { isCoarsePointer } from '@/lib/pointer';
+import { useItemDrag } from '@/hooks/use-item-drag';
+import { useLongPress } from '@/hooks/use-long-press';
 
 type FileRowData = {
   id: string;
@@ -26,6 +31,7 @@ type FileRowData = {
   createdAt: string;
   uploadStatus: 'pending' | 'uploading' | 'complete' | 'failed';
   thumbnailUrl?: string | null | undefined;
+  favorite?: boolean;
   existingShare?: { id: string; shareUrl: string; expiresAt: string | null } | null;
 };
 
@@ -91,9 +97,26 @@ export function FileRow({
   const canDelete = file.uploadStatus !== 'uploading';
 
   const { openPreviewDialog, openDeleteDialog } = useFileDialogs();
+  const { openMoveDialog, openRenameDialog } = useItemActionDialogs();
+  const { openShareDialog } = useShareDialogs();
   const { draggedItem, isMoving } = useDragContext();
+  const { mode: selectionMode, isSelected: isSelectedMulti, enter, toggle } =
+    useMultiSelect();
 
-  const [isDownloading, setIsDownloading] = useState(false);
+  const selectable = { type: 'file', id: file.id, name: file.name } as const;
+
+  // The row/card itself is the drag source on desktop (HTML5). On
+  // mobile, a long-press enters multi-selection instead of dragging.
+  const dragSource = useItemDrag({
+    item: selectable,
+    disabled: isMoving || inFlight,
+  });
+  const longPress = useLongPress({
+    onTrigger: () => enter(selectable),
+    disabled: isMoving || inFlight,
+  });
+  const isMultiSelected = isSelectedMulti(file.id);
+
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
 
   const isSelfDragged =
@@ -101,26 +124,32 @@ export function FileRow({
 
   const thumbnailUrl = file.thumbnailUrl;
 
-  const onDownload = async () => {
-    setIsDownloading(true);
-    try {
-      const { presignedUrl, fileName } = await generateDownloadUrl({
-        fileId: file.id,
-      });
-      const link = document.createElement('a');
-      link.href = presignedUrl;
-      link.download = fileName;
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
+  const handleCopyName = async () => {
+    const ok = await copyText(file.name);
+    toast.success(ok ? 'Name copied to clipboard' : 'Could not copy name');
+  };
+
+  const handleDownload = () => {
+    void downloadFile(file.id).catch((err) => {
       toast.error('Download failed', {
         description: err instanceof Error ? err.message : 'Unknown error',
       });
-    } finally {
-      setIsDownloading(false);
+    });
+  };
+
+  const handleMenuShare = () => {
+    const existing = file.existingShare;
+    if (existing) {
+      void copyText(existing.shareUrl).then((ok) => {
+        toast.success(ok ? 'Link copied to clipboard' : 'Could not copy link');
+      });
+      return;
     }
+    openShareDialog({
+      id: file.id,
+      name: file.name,
+      existing: file.existingShare,
+    });
   };
 
   const statusLabel = inFlight
@@ -130,6 +159,12 @@ export function FileRow({
       : file.uploadStatus;
 
   const handleRowClick = () => {
+    // While multi-select mode is active, a tap toggles the file in the
+    // selection instead of opening the preview.
+    if (selectionMode) {
+      toggle(selectable);
+      return;
+    }
     // On touch devices a single tap opens the preview directly — no
     // double-tap needed. Selection stays for non-previewable files
     // and desktop precision pointers.
@@ -157,32 +192,26 @@ export function FileRow({
     <>
       <TableRow
         ref={rowRef}
+        {...dragSource.handlers}
+        {...longPress.handlers}
+        draggable={dragSource.isDraggable}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
         style={{ animationDelay: `${index * 50}ms` }}
         className={[
           'desktop-row',
+          'group',
           'hidden md:table-row',
           spawnClass,
           isSelfDragged ? 'opacity-50' : '',
-          isSelected ? 'bg-accent-primary/10' : '',
+          isSelected || isMultiSelected ? 'bg-accent-primary/10' : '',
           'cursor-pointer',
         ]
           .filter(Boolean)
           .join(' ')}
       >
-        <TableCell
-          className="w-9 px-1 py-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <DragHandle
-            item={{ type: 'file', id: file.id, name: file.name }}
-            disabled={inFlight || isMoving}
-            label={`Drag ${file.name}`}
-          />
-        </TableCell>
         <TableCell className="min-w-[12rem] md:min-w-0">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3" data-no-drag>
             {isImage && isComplete ? (
               <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
                 {!thumbnailLoaded && (
@@ -199,28 +228,68 @@ export function FileRow({
                     className={`object-cover transition-opacity duration-300 ${thumbnailLoaded ? 'opacity-100' : 'opacity-0'}`}
                   />
                 )}
+                {isMultiSelected ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 flex items-center justify-center bg-accent-primary/40"
+                  >
+                    <Check className="h-5 w-5 text-white" />
+                  </span>
+                ) : null}
               </div>
             ) : isVideo && isComplete ? (
               <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-accent-primary/15 text-accent-glow">
                   <Play className="h-5 w-5" aria-hidden />
+                  {isMultiSelected ? (
+                    <Check className="absolute h-5 w-5 text-white drop-shadow" />
+                  ) : null}
               </div>
             ) : isAudio && isComplete ? (
               <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-accent-primary/15 text-accent-glow">
                 <Music className="h-5 w-5" aria-hidden />
+                {isMultiSelected ? (
+                  <Check className="absolute h-5 w-5 text-white drop-shadow" />
+                ) : null}
               </div>
             ) : (
               <div
                 aria-hidden
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-bg-surface-hover text-xs font-medium text-text-secondary"
+                className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-border-subtle bg-bg-surface-hover text-xs font-medium text-text-secondary"
               >
-                {file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'}
+                {isMultiSelected ? (
+                  <Check className="h-5 w-5 text-accent-glow" />
+                ) : (
+                  file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'
+                )}
               </div>
             )}
-            <span
-              title={file.name}
-              className="min-w-0 flex-1 break-words font-medium text-text-primary"
-            >
-              {file.name}
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span
+                title={file.name}
+                className="min-w-0 break-words font-medium text-text-primary"
+              >
+                {file.name}
+              </span>
+              {file.existingShare ? (
+                <span
+                  title="Shared"
+                  role="img"
+                  aria-label="Shared"
+                  className="inline-flex shrink-0 items-center text-text-secondary"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                </span>
+              ) : null}
+              {inFlight ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-bg-surface-hover px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-glow" />
+                  {file.uploadStatus}
+                </span>
+              ) : file.uploadStatus === 'failed' ? (
+                <span className="inline-flex shrink-0 items-center rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+                  {file.uploadStatus}
+                </span>
+              ) : null}
             </span>
           </div>
         </TableCell>
@@ -230,73 +299,94 @@ export function FileRow({
         <TableCell className="w-40 text-text-secondary">
           {formatDate(file.createdAt)}
         </TableCell>
-        <TableCell className="w-32">
-          {inFlight ? (
-            <span className="inline-flex items-center gap-2 text-text-secondary">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent-glow" />
-              {file.uploadStatus}
-            </span>
-          ) : file.uploadStatus === 'complete' ? (
-            <span className="text-accent-glow">complete</span>
-          ) : (
-            <span className="text-red-400">{file.uploadStatus}</span>
-          )}
-        </TableCell>
         <TableCell
           className="w-44 text-right"
           onClick={(e) => e.stopPropagation()}
+          data-no-drag
         >
-          <div className="flex flex-wrap items-center justify-end gap-2 md:flex-nowrap">
-            <ShareButton
-              fileId={file.id}
-              fileName={file.name}
-              existing={file.existingShare}
-              enabled={isComplete}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onDownload}
-              disabled={!isComplete || isDownloading}
+          <div className="flex items-center justify-end gap-1">
+            {/* Drive-style hover actions (desktop only; hidden on touch). */}
+            <div
+              className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+              aria-hidden={false}
             >
-              {isDownloading ? 'Preparing…' : 'Download'}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => openDeleteDialog(file.id)}
+              <FavoriteButton
+                type="file"
+                id={file.id}
+                favorited={!!file.favorite}
+                disabled={!canDelete}
+              />
+              {isComplete ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Download"
+                    title="Download"
+                    data-no-drag
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      handleDownload();
+                    }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+                  >
+                    <Download className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Share"
+                    title="Share"
+                    data-no-drag
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      handleMenuShare();
+                    }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+                  >
+                    <Share2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </>
+              ) : null}
+            </div>
+            <ItemMenu
+              label={`Actions for ${file.name}`}
               disabled={!canDelete}
-            >
-              Delete
-            </Button>
+              onMove={() => openMoveDialog([selectable])}
+              onRename={() => openRenameDialog(selectable)}
+              onCopyName={handleCopyName}
+              onDownload={isComplete ? handleDownload : undefined}
+              onShare={isComplete ? handleMenuShare : undefined}
+              shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
+              onDelete={() => openDeleteDialog(file.id)}
+            />
           </div>
         </TableCell>
       </TableRow>
 
       {/*
        * Mobile card (< md). Single full-width cell containing a
-       * vertical stack: thumbnail + name (top), then size · date
-       * · actions (bottom).
+       * vertical stack: thumbnail + name (top), then size · date ·
+       * status (bottom). All actions live in the 3-dot menu on mobile.
        */}
       <tr className={['mobile-card-row', 'md:hidden', spawnClass].filter(Boolean).join(' ')} style={{ animationDelay: `${index * 50}ms` }}>
-        <td className="mobile-card-cell" colSpan={6}>
+        <td className="mobile-card-cell" colSpan={4}>
           <div
             ref={mobileRef}
             onClick={handleRowClick}
             onDoubleClick={handleRowDoubleClick}
+            {...longPress.handlers}
             className={[
               'mobile-card',
               isSelfDragged ? 'opacity-50' : '',
-              isSelected ? 'bg-accent-primary/10' : '',
+              isSelected || isMultiSelected ? 'bg-accent-primary/10' : '',
               'cursor-pointer rounded-md p-2',
             ]
               .filter(Boolean)
               .join(' ')}
           >
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
+              <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-border-subtle bg-bg-surface-hover">
                 {isImage && isComplete ? (
                   <div className="relative h-full w-full">
                     {!thumbnailLoaded && (
@@ -327,8 +417,16 @@ export function FileRow({
                     {file.name.split('.').pop()?.slice(0, 3).toUpperCase() || '—'}
                   </span>
                 )}
+                {isMultiSelected ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 flex items-center justify-center bg-accent-primary/40"
+                  >
+                    <Check className="h-5 w-5 text-white" />
+                  </span>
+                ) : null}
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1" data-no-drag>
                 <div
                   title={file.name}
                   className="truncate font-medium text-text-primary"
@@ -343,10 +441,16 @@ export function FileRow({
                 className="flex-shrink-0"
                 onClick={(e) => e.stopPropagation()}
               >
-                <DragHandle
-                  item={{ type: 'file', id: file.id, name: file.name }}
-                  disabled={inFlight || isMoving}
-                  label={`Drag ${file.name}`}
+                <ItemMenu
+                  label={`Actions for ${file.name}`}
+                  disabled={!canDelete}
+                  onMove={() => openMoveDialog([selectable])}
+                  onRename={() => openRenameDialog(selectable)}
+                  onCopyName={handleCopyName}
+                  onDownload={isComplete ? handleDownload : undefined}
+                  onShare={isComplete ? handleMenuShare : undefined}
+                  shareLabel={file.existingShare ? 'Copy link' : 'Share…'}
+                  onDelete={() => openDeleteDialog(file.id)}
                 />
               </div>
             </div>
@@ -382,35 +486,6 @@ export function FileRow({
                   </span>
                 </>
               ) : null}
-              <div
-                className="ml-auto flex flex-wrap items-center gap-2"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ShareButton
-                  fileId={file.id}
-                  fileName={file.name}
-                  existing={file.existingShare}
-                  enabled={isComplete}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onDownload}
-                  disabled={!isComplete || isDownloading}
-                >
-                  {isDownloading ? 'Preparing…' : 'Download'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openDeleteDialog(file.id)}
-                  disabled={!canDelete}
-                >
-                  Delete
-                </Button>
-              </div>
             </div>
           </div>
         </td>

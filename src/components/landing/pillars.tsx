@@ -3,8 +3,8 @@ import { Lock, RotateCcw, Share2, ShieldCheck, type LucideIcon } from 'lucide-re
 const pillars: { icon: LucideIcon; title: string; desc: string }[] = [
   {
     icon: Lock,
-    title: 'Private by design',
-    desc: 'Your files live in storage you own — no third-party peeking.',
+    title: 'Private to you',
+    desc: 'No other user can see your files — only the people you share with.',
   },
   {
     icon: ShieldCheck,
@@ -25,7 +25,7 @@ const pillars: { icon: LucideIcon; title: string; desc: string }[] = [
 
 export function Pillars() {
   return (
-    <section className="border-y border-border-subtle/70 bg-bg-surface/30">
+    <section data-testid="pillars" className="border-y border-border-subtle/70 bg-bg-surface/30">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-px overflow-hidden px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
         {pillars.map(({ icon: Icon, title, desc }) => (
           <div key={title} className="flex flex-col gap-2.5 p-5">

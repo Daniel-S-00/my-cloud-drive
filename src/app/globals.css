@@ -14,7 +14,7 @@
  * working in Tailwind v4.
  */
 @theme {
-  --color-bg-base: rgb(4 8 20);
+  --color-bg-base: rgb(4 8 16);
   --color-bg-surface: rgb(12 20 42);
   --color-bg-surface-hover: rgb(20 34 66);
   --color-border-subtle: rgb(29 44 82);
@@ -44,6 +44,17 @@ body {
   transition:
     background-color 200ms ease,
     color 200ms ease;
+}
+
+/* The app is a fixed h-dvh shell with inner scroll containers — the
+   document itself must never scroll sideways. `clip` (rather than
+   `hidden`) avoids turning the root into a scroll container, so
+   vertical viewport scrolling (landing page) and position:sticky are
+   unaffected. Defense-in-depth for wide content (e.g. sr-only spans
+   in min-width tables). */
+html,
+body {
+  overflow-x: clip;
 }
 
 /* Smooth in-page anchor navigation (landing #features / #security).
@@ -195,9 +206,9 @@ dialog::backdrop {
 /* Procedural monochrome grain (soft-light) from the personal-page
  * project. Renders once, costs nothing per frame. */
 .landing-grain {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.4' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
   mix-blend-mode: soft-light;
-  opacity: 0.08;
+  opacity: 0.05;
 }
 
 .landing-float {
@@ -214,6 +225,15 @@ dialog::backdrop {
 
 .landing-pulse {
   animation: landing-pulse 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+/* While the window is being resized, pause all animations so the
+   browser isn't re-compositing animated layers on top of the resize
+   reflow (the main GPU spike on this page). Added by ResizePause. */
+html.resizing *,
+html.resizing *::before,
+html.resizing *::after {
+  animation: none !important;
 }
 
 @keyframes landing-fade-up {

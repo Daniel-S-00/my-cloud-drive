@@ -151,7 +151,7 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
           <div className="flex flex-wrap items-center justify-end gap-2 md:flex-nowrap">
             <Button
               type="button"
-              variant="primary"
+              variant="outline"
               size="sm"
               onClick={() => setDialog('restore')}
             >
@@ -159,7 +159,7 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
             </Button>
             <Button
               type="button"
-              variant="destructive"
+              variant="destructiveOutline"
               size="sm"
               onClick={() => setDialog('permanent-delete')}
             >
@@ -222,7 +222,7 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
-                  variant="primary"
+                  variant="outline"
                   size="sm"
                   onClick={() => setDialog('restore')}
                 >
@@ -230,7 +230,7 @@ export function TrashFolderRow({ folder }: { folder: TrashFolderRowData }) {
                 </Button>
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="destructiveOutline"
                   size="sm"
                   onClick={() => setDialog('permanent-delete')}
                 >

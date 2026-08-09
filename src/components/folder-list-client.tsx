@@ -9,7 +9,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useDragContext } from '@/contexts/drag-context';
 import { useSelection } from '@/contexts/selection-context';
 import { useViewMode } from '@/hooks/use-view-mode';
 import { useEffect, useRef, useState } from 'react';
@@ -21,8 +20,6 @@ type FolderListClientProps = {
 export function FolderListClient({ folders }: FolderListClientProps) {
   const { viewMode } = useViewMode();
   const { selectedId, onSelect, shouldScroll } = useSelection();
-  const { isMoving } = useDragContext();
-
   // Only play the staggered spawn entrance on the very first mount.
   // After the first commit we flip `animate` off so later navigations
   // swap rows without replaying the per-item animation.
@@ -52,13 +49,6 @@ export function FolderListClient({ folders }: FolderListClientProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead
-                  scope="col"
-                  className="w-9 px-1"
-                  aria-label="Drag handle"
-                >
-                  <span className="sr-only">Drag handle</span>
-                </TableHead>
                 <TableHead scope="col">Name</TableHead>
                 <TableHead scope="col" className="w-44">
                   Modified
@@ -92,7 +82,6 @@ export function FolderListClient({ folders }: FolderListClientProps) {
             folders={folders}
             selectedId={selectedId}
             onSelect={onSelect}
-            isMoving={isMoving}
             shouldScroll={shouldScroll}
             animate={animate}
           />

@@ -1,6 +1,7 @@
 'use client';
 
-import { Shield, ShieldCheck } from 'lucide-react';
+import { LogOut, Shield, ShieldCheck } from 'lucide-react';
+import { signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { DeleteAccountDialog } from '@/components/delete-account-dialog';
 import { TwoFactorDisableDialog } from '@/components/two-factor-disable-dialog';
@@ -33,7 +34,7 @@ export default function SettingsPage() {
   }, [setup2FAOpen, disable2FAOpen, regenerateOpen]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-8">
+    <div className="mx-auto w-full max-w-2xl px-4 py-6">
       <h1 className="font-display mb-6 text-2xl font-bold text-text-primary">
         Settings
       </h1>
@@ -93,6 +94,28 @@ export default function SettingsPage() {
               </Button>
             </div>
           )}
+        </CardContent>
+      </div>
+
+      {/* Session */}
+      <div className="mb-6 rounded-xl border border-border-subtle bg-bg-surface text-text-primary shadow">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LogOut className="h-5 w-5 text-accent-glow" />
+            Session
+          </CardTitle>
+          <CardDescription className="text-text-secondary">
+            Sign out of this device and return to the sign-in page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            onClick={() => signOut({ callbackUrl: '/login' })}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign out
+          </Button>
         </CardContent>
       </div>
 

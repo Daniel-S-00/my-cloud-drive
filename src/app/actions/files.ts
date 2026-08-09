@@ -2,7 +2,7 @@
 
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { generateUniqueFileName } from '@/lib/file-utils';
 import { getAncestorFolderIds } from '@/lib/trash-retention';
@@ -595,4 +595,103 @@ export async function moveFile(
     newName,
     wasRenamed,
   };
+}
+
+export type RenameFileInput = {
+  fileId: string;
+  name: string;
+};
+
+export type RenameFileOutput = {
+  fileId: string;
+  name: string;
+};
+
+const FILE_NAME_MAX = 255;
+
+function trimAndValidateFileName(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    throw new Error('File name cannot be empty');
+  }
+  if (trimmed.length > FILE_NAME_MAX) {
+    throw new Error(`File name cannot exceed ${FILE_NAME_MAX} characters`);
+  }
+  if (trimmed.includes('/') || trimmed.includes('\\') || trimmed.includes('\0')) {
+    throw new Error('File name cannot contain /, \\, or null characters');
+  }
+  return trimmed;
+}
+
+/**
+ * Rename a live file owned by the current user. The new name must not
+ * collide (case-insensitively) with another live file in the same
+ * folder — duplicates are rejected with a clear message instead of
+ * auto-renaming, since the user explicitly chose the name.
+ */
+export async function renameFile(
+  input: RenameFileInput,
+): Promise<RenameFileOutput> {
+  const { fileId, name } = input;
+
+  if (!fileId) {
+    throw new Error('fileId is required');
+  }
+
+  const { id: userId } = await getCurrentUser();
+  const trimmed = trimAndValidateFileName(name);
+
+  const [file] = await db
+    .select({ id: files.id, folderId: files.folderId, name: files.name })
+    .from(files)
+    .where(
+      and(
+        eq(files.id, fileId),
+        eq(files.ownerId, userId),
+        isNull(files.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  if (!file) {
+    throw new Error('File not found, not owned by the current user, or in trash');
+  }
+
+  if (file.name === trimmed) {
+    return { fileId: file.id, name: trimmed };
+  }
+
+  // Reject a case-insensitive collision in the same folder (matches
+  // the files_unique_name_per_folder partial index), excluding self.
+  const [duplicate] = await db
+    .select({ id: files.id })
+    .from(files)
+    .where(
+      and(
+        eq(files.ownerId, userId),
+        file.folderId === null
+          ? isNull(files.folderId)
+          : eq(files.folderId, file.folderId),
+        sql`lower(${files.name}) = lower(${trimmed})`,
+        isNull(files.deletedAt),
+        ne(files.id, file.id),
+      ),
+    )
+    .limit(1);
+
+  if (duplicate) {
+    throw new Error('A file with this name already exists in this folder');
+  }
+
+  await db
+    .update(files)
+    .set({ name: trimmed, updatedAt: new Date() })
+    .where(eq(files.id, fileId));
+
+  revalidatePath('/drive');
+  if (file.folderId) {
+    revalidatePath(`/drive?folder=${file.folderId}`);
+  }
+
+  return { fileId: file.id, name: trimmed };
 }

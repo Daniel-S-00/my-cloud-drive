@@ -1,6 +1,6 @@
 'use server';
 
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, ne, notInArray, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { generateUniqueFolderName } from '@/lib/file-utils';
 import {
@@ -672,4 +672,157 @@ export async function moveFolder(
     newName,
     wasRenamed,
   };
+}
+
+export type RenameFolderInput = {
+  folderId: string;
+  name: string;
+};
+
+export type RenameFolderOutput = {
+  folderId: string;
+  name: string;
+};
+
+const FOLDER_NAME_MAX = 255;
+
+function trimAndValidateFolderName(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    throw new Error('Folder name cannot be empty');
+  }
+  if (trimmed.length > FOLDER_NAME_MAX) {
+    throw new Error(
+      `Folder name cannot exceed ${FOLDER_NAME_MAX} characters`,
+    );
+  }
+  if (trimmed.includes('/') || trimmed.includes('\\') || trimmed.includes('\0')) {
+    throw new Error('Folder name cannot contain /, \\, or null characters');
+  }
+  return trimmed;
+}
+
+/**
+ * Rename a live folder owned by the current user. Rejects a
+ * case-insensitive collision with a sibling folder (matches the
+ * folders_unique_name_per_parent partial index), excluding itself.
+ */
+export async function renameFolder(
+  input: RenameFolderInput,
+): Promise<RenameFolderOutput> {
+  const { folderId, name } = input;
+
+  if (!folderId) {
+    throw new Error('folderId is required');
+  }
+
+  const { id: userId } = await getCurrentUser();
+  const trimmed = trimAndValidateFolderName(name);
+
+  const [folder] = await db
+    .select({ id: folders.id, parentId: folders.parentId, name: folders.name })
+    .from(folders)
+    .where(
+      and(
+        eq(folders.id, folderId),
+        eq(folders.ownerId, userId),
+        isNull(folders.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  if (!folder) {
+    throw new Error(
+      'Folder not found, not owned by the current user, or in trash',
+    );
+  }
+
+  if (folder.name === trimmed) {
+    return { folderId: folder.id, name: trimmed };
+  }
+
+  const [duplicate] = await db
+    .select({ id: folders.id })
+    .from(folders)
+    .where(
+      and(
+        eq(folders.ownerId, userId),
+        folder.parentId === null
+          ? isNull(folders.parentId)
+          : eq(folders.parentId, folder.parentId),
+        sql`lower(${folders.name}) = lower(${trimmed})`,
+        isNull(folders.deletedAt),
+        ne(folders.id, folder.id),
+      ),
+    )
+    .limit(1);
+
+  if (duplicate) {
+    throw new Error('A folder with this name already exists in this location');
+  }
+
+  await db
+    .update(folders)
+    .set({ name: trimmed, updatedAt: new Date() })
+    .where(eq(folders.id, folderId));
+
+  revalidatePath('/drive');
+  if (folder.parentId) {
+    revalidatePath(`/drive?folder=${folder.parentId}`);
+  }
+
+  return { folderId: folder.id, name: trimmed };
+}
+
+export type GetFolderPickerItemsInput = {
+  parentId: string | null;
+  // When moving folders, exclude them and their whole subtrees so the
+  // picker can't offer a self/descendant drop (cycle prevention).
+  excludeFolderIds?: string[];
+};
+
+export type GetFolderPickerItemsOutput = {
+  folders: { id: string; name: string }[];
+};
+
+/**
+ * List the live subfolders of a given folder for the current user,
+ * for the "Move to folder" picker. Any folder ids in
+ * `excludeFolderIds` (folders being moved) are filtered out along with
+ * their descendants.
+ */
+export async function getFolderPickerItems(
+  input: GetFolderPickerItemsInput,
+): Promise<GetFolderPickerItemsOutput> {
+  const { parentId, excludeFolderIds = [] } = input;
+  const { id: userId } = await getCurrentUser();
+
+  let excludeIds: string[] = [];
+  if (excludeFolderIds.length > 0) {
+    // Union of each excluded folder's subtree (each set already
+    // includes its own root).
+    const subtrees = await Promise.all(
+      excludeFolderIds.map((folderId) =>
+        getDescendantFolderIds(db, folderId),
+      ),
+    );
+    excludeIds = Array.from(new Set(subtrees.flat()));
+  }
+
+  const rows = await db
+    .select({ id: folders.id, name: folders.name })
+    .from(folders)
+    .where(
+      and(
+        eq(folders.ownerId, userId),
+        parentId === null
+          ? isNull(folders.parentId)
+          : eq(folders.parentId, parentId),
+        isNull(folders.deletedAt),
+        excludeIds.length > 0 ? notInArray(folders.id, excludeIds) : undefined,
+      ),
+    )
+    .orderBy(asc(sql`lower(${folders.name})`), asc(folders.createdAt));
+
+  return { folders: rows };
 }

@@ -7,7 +7,12 @@ dotenv.config({ path: '.env.local' });
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: false,
+  // Serial by default: every spec logs in via a Next server action, and
+  // concurrent logins against the Supabase pooler intermittently stall
+  // (the sign-in POST never resolves). One worker keeps the suite
+  // deterministic; it's small enough that the cost is negligible.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',

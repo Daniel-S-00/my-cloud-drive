@@ -21,8 +21,12 @@ function EmptyState() {
 export function SharesList({ shares }: { shares: GetUserSharesOutput[] }) {
   if (shares.length === 0) return <EmptyState />;
   return (
-    <div className="overflow-hidden rounded-lg border border-border-subtle">
-      <table className="w-full text-sm">
+    // `relative` makes this the containing block for the sr-only
+    // "Actions" span, so it's clipped by the overflow-x-auto instead
+    // of leaking to the document and causing a page-level horizontal
+    // scroll on mobile (same pattern as the Table component wrapper).
+    <div className="relative overflow-x-auto rounded-lg border border-border-subtle">
+      <table className="w-full min-w-[44rem] text-sm">
         <thead className="border-b border-border-subtle bg-bg-surface text-text-secondary">
           <tr>
             <th scope="col" className="px-4 py-2 text-left font-medium">File</th>

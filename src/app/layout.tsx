@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope, Syne } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthSessionProvider } from "@/components/auth-session-provider";
-import { Nav } from "@/components/nav";
 import "./globals.css";
 
 const syne = Syne({
@@ -42,7 +41,6 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-bg-base text-text-primary">
         <AuthSessionProvider>
-          <Nav />
           <main className="flex-1 bg-bg-base text-text-primary">{children}</main>
           <Toaster
             theme="dark"

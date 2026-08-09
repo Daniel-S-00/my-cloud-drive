@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArrowUp } from 'lucide-react';
 import { getFolderBreadcrumbs } from '@/app/actions/folders';
 import { BreadcrumbDropZone } from '@/components/breadcrumb-drop-zone';
 
@@ -30,11 +31,30 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
   const parentCrumb =
     chain.length >= 2 ? chain[chain.length - 2] : null;
 
+  // Destination of the "up one level" button: the parent folder, or
+  // the drive root when the current folder sits directly under it.
+  const parentHref =
+    folderId === null
+      ? null
+      : parentCrumb
+        ? `/drive?folder=${parentCrumb.id}`
+        : '/drive';
+
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex items-center gap-1 text-sm text-text-secondary"
+      className="flex min-w-0 flex-wrap items-center gap-1 text-sm text-text-secondary md:text-[1.75rem]"
     >
+      {parentHref ? (
+        <Link
+          href={parentHref}
+          aria-label="Go to parent folder"
+          title="Go to parent folder"
+          className="mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-md border border-border-subtle bg-bg-surface text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+        >
+          <ArrowUp className="h-4 w-4" aria-hidden />
+        </Link>
+      ) : null}
       <Link
         href="/drive"
         className="rounded px-1 text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary"
@@ -47,7 +67,7 @@ export async function Breadcrumbs({ folderId }: BreadcrumbsProps) {
         return (
           <span key={crumb.id} className="flex items-center gap-1">
             <span aria-hidden className="text-border-subtle">
-              /
+              &gt;
             </span>
             {isLast ? (
               <span className="rounded px-1 font-medium text-text-primary">

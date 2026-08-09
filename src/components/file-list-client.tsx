@@ -8,7 +8,6 @@ import {
 } from '@/components/file-dialogs';
 import { FileGrid, type FileGridFile } from '@/components/file-grid';
 import { FileRow } from '@/components/file-row';
-import { ShareDialog } from '@/components/share-dialog';
 import {
   Table,
   TableBody,
@@ -17,14 +16,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { FileDialogProvider, useFileDialogs } from '@/contexts/file-dialog-context';
-import { ShareDialogProvider } from '@/contexts/share-dialog-context';
-import { useDragContext } from '@/contexts/drag-context';
 import { useSelection } from '@/contexts/selection-context';
 import { useViewMode } from '@/hooks/use-view-mode';
 
 export type FileListRow = FileDialogsFile & {
   createdAt: string;
   uploadStatus: 'pending' | 'uploading' | 'complete' | 'failed';
+  favorite?: boolean;
   existingShare?: { id: string; shareUrl: string; expiresAt: string | null } | null;
 };
 
@@ -45,13 +43,6 @@ function FileTableView({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead
-            scope="col"
-            className="w-9 px-1"
-            aria-label="Drag handle"
-          >
-            <span className="sr-only">Drag handle</span>
-          </TableHead>
           <TableHead scope="col">Name</TableHead>
           <TableHead scope="col" className="w-32">
             Size
@@ -59,10 +50,7 @@ function FileTableView({
           <TableHead scope="col" className="w-40">
             Uploaded
           </TableHead>
-          <TableHead scope="col" className="w-32">
-            Status
-          </TableHead>
-          <TableHead scope="col" className="w-44 text-right">
+          <TableHead scope="col" className="w-56 text-right">
             <span className="sr-only">Actions</span>
           </TableHead>
         </TableRow>
@@ -125,32 +113,29 @@ export function FileListClient({ rows }: { rows: FileListRow[] }) {
 
   return (
     <FileDialogProvider>
-      <ShareDialogProvider>
-        <div
-          key={viewMode}
-          className="animate-in fade-in zoom-in-95 duration-300"
-        >
-          {viewMode === 'list' ? (
-            <FileTableView
-              rows={rows}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              shouldScroll={shouldScroll}
-              animate={animate}
-            />
-          ) : (
-            <FileGridWrapper
-              rows={rows}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              shouldScroll={shouldScroll}
-              animate={animate}
-            />
-          )}
-        </div>
-        <FileDialogs files={dialogFiles} mediaFiles={mediaFiles} />
-        <ShareDialog />
-      </ShareDialogProvider>
+      <div
+        key={viewMode}
+        className="animate-in fade-in zoom-in-95 duration-300"
+      >
+        {viewMode === 'list' ? (
+          <FileTableView
+            rows={rows}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            shouldScroll={shouldScroll}
+            animate={animate}
+          />
+        ) : (
+          <FileGridWrapper
+            rows={rows}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            shouldScroll={shouldScroll}
+            animate={animate}
+          />
+        )}
+      </div>
+      <FileDialogs files={dialogFiles} mediaFiles={mediaFiles} />
     </FileDialogProvider>
   );
 }
@@ -169,7 +154,6 @@ function FileGridWrapper({
   animate: boolean;
 }) {
   const { openPreviewDialog } = useFileDialogs();
-  const { isMoving } = useDragContext();
 
   const gridFiles = useMemo<FileGridFile[]>(
     () =>
@@ -179,6 +163,7 @@ function FileGridWrapper({
         mimeType: r.mimeType,
         thumbnailUrl: r.thumbnailUrl,
         uploadStatus: r.uploadStatus,
+        favorite: r.favorite,
         existingShare: r.existingShare,
       })),
     [rows],
@@ -194,7 +179,6 @@ function FileGridWrapper({
       selectedId={selectedId}
       onSelect={onSelect}
       onOpen={handleOpen}
-      isMoving={isMoving}
       shouldScroll={shouldScroll}
       animate={animate}
     />
