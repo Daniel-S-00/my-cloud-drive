@@ -65,7 +65,7 @@ export function SidebarContent({
             className="flex w-full items-center justify-center gap-2 rounded-md border border-accent-primary/40 bg-accent-primary/15 px-3 py-2 text-sm font-medium text-accent-glow transition-colors hover:bg-accent-primary/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow disabled:opacity-60"
           >
             <Crown className="h-4 w-4" />
-            {upgrading ? 'Redirecting…' : 'Upgrade to Pro'}
+            {upgrading ? 'Redirecting…' : 'Upgrade to Plus'}
           </button>
         )}
 
