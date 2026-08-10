@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 import { db } from '@/server/db/client';
@@ -43,6 +44,23 @@ function planFromSubscription(sub: Stripe.Subscription): {
   });
 
   const periodEnd = sub.items.data[0]?.current_period_end;
+
+  // Fail-loud guard against API-version drift: a paid subscription must
+  // carry a billing period end on its first subscription item. If it
+  // doesn't (Stripe moved/renamed the field in a newer API version),
+  // persisting null would silently downgrade the user to free at the
+  // next quota check. Surface it to Sentry instead of writing bad data.
+  if (
+    plan &&
+    (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due' || sub.status === 'unpaid') &&
+    !periodEnd
+  ) {
+    Sentry.captureException(
+      new Error(
+        `Stripe subscription ${sub.id} (status=${sub.status}) has no current_period_end on items.data[0] — possible API version drift.`,
+      ),
+    );
+  }
 
   if (!plan) {
     return {
