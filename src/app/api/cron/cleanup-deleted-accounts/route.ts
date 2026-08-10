@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/nextjs';
 import {
   DeleteObjectsCommand,
   ListObjectsV2Command,
@@ -86,6 +87,7 @@ async function handleCleanup(req: NextRequest) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`Failed to delete user ${user.id}:`, msg);
+      Sentry.captureException(err instanceof Error ? err : new Error(msg));
       results.push(`FAILED user ${user.id}: ${msg}`);
     }
   }

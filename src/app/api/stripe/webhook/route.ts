@@ -154,6 +154,26 @@ export async function POST(req: NextRequest) {
         }
         break;
       }
+      case 'invoice.payment_failed': {
+        // Option A (grace by design): a failed renewal does NOT downgrade
+        // the user immediately — they keep the paid quota until the period
+        // they paid for ends (see isPaidPlan in plans.ts). But we must
+        // persist the resulting subscription state (status -> past_due)
+        // so the UI can surface a "payment failed — update billing"
+        // notice. The invoice carries the subscription id; upserting it
+        // keeps the DB row in sync with Stripe's source of truth.
+        const invoice = event.data.object as Stripe.Invoice;
+        const subId =
+          typeof invoice.parent?.subscription_details?.subscription ===
+          'string'
+            ? invoice.parent.subscription_details.subscription
+            : invoice.parent?.subscription_details?.subscription?.id;
+        if (subId) {
+          const sub = await stripe.subscriptions.retrieve(subId);
+          await upsertFromSubscription(sub);
+        }
+        break;
+      }
       case 'customer.subscription.updated':
       case 'customer.subscription.created':
       case 'customer.subscription.deleted': {

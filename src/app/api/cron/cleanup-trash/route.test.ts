@@ -10,6 +10,7 @@ const hoisted = vi.hoisted(() => {
   return {
     db,
     deleteFromR2: vi.fn(),
+    captureException: vi.fn(),
   };
 });
 
@@ -18,6 +19,9 @@ vi.mock('@/server/storage/r2', () => ({
   r2: { send: vi.fn() },
   R2_BUCKET: 'test-bucket',
   deleteFromR2: hoisted.deleteFromR2,
+}));
+vi.mock('@sentry/nextjs', () => ({
+  captureException: hoisted.captureException,
 }));
 vi.mock('server-only', () => ({}));
 
@@ -116,6 +120,10 @@ describe('cleanup-trash cron', () => {
     expect(body.deletedFiles).toBe(0);
     expect(body.results).toContain('FAILED file f1: r2 down');
     expect(hoisted.db.delete).not.toHaveBeenCalled();
+    expect(hoisted.captureException).toHaveBeenCalledTimes(1);
+    expect(hoisted.captureException).toHaveBeenCalledWith(
+      new Error('r2 down'),
+    );
     errSpy.mockRestore();
   });
 
@@ -137,6 +145,7 @@ describe('cleanup-trash cron', () => {
     expect(body.deletedFiles).toBe(0);
     expect(body.results).toContain('FAILED file f1: r2 down string');
     expect(hoisted.db.delete).not.toHaveBeenCalled();
+    expect(hoisted.captureException).toHaveBeenCalledWith(new Error('r2 down string'));
     errSpy.mockRestore();
   });
 
@@ -165,6 +174,7 @@ describe('cleanup-trash cron', () => {
     expect(body.deletedFolders).toBe(0);
     expect(body.results).toContain('FAILED folder folder-ok: [object Object]');
     expect(body.results).toContain('FAILED folder folder-fail: [object Object]');
+    expect(hoisted.captureException).toHaveBeenCalledTimes(2);
     errSpy.mockRestore();
   });
 
@@ -189,6 +199,9 @@ describe('cleanup-trash cron', () => {
     const body = await res.json();
     expect(body.deletedFolders).toBe(0);
     expect(body.results).toContain('FAILED folder folder-fail: fk restrict');
+    expect(hoisted.captureException).toHaveBeenCalledWith(
+      new Error('fk restrict'),
+    );
     errSpy.mockRestore();
   });
 });

@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, lt } from 'drizzle-orm';
+import * as Sentry from '@sentry/nextjs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { db } from '@/server/db/client';
 import { files } from '@/server/db/schema';
@@ -65,6 +66,7 @@ async function handleCleanup(req: NextRequest) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`Failed to clean up stale upload ${row.id}:`, msg);
+      Sentry.captureException(err instanceof Error ? err : new Error(msg));
       results.push(`FAILED upload ${row.id}: ${msg}`);
     }
   }

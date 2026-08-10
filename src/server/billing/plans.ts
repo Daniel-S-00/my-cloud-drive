@@ -36,6 +36,15 @@ export function getPlanStorageBytes(plan: PlanName): number {
  * paid while it is active OR while the current billing period they paid
  * for is still running (soft landing: immediate cancellation keeps the
  * quota until the period they already paid for ends, then downgrades).
+ *
+ * CHURN POLICY — OPTION A (GRACE BY DESIGN):
+ * A failed renewal (status `past_due`/`unpaid`) does NOT downgrade the
+ * user immediately. They keep the paid quota until the end of the
+ * period they already paid for, then fall back to free. The webhook
+ * records `invoice.payment_failed` and the settings UI surfaces a
+ * "payment failed — update billing" notice so the user can fix their
+ * card before losing access. This is deliberate: the user paid for
+ * the period, so they get the value of it.
  */
 export function isPaidPlan(
   status: string | null | undefined,

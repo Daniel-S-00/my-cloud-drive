@@ -1,4 +1,5 @@
 import { and, eq, isNotNull, lt, sql } from 'drizzle-orm';
+import * as Sentry from '@sentry/nextjs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { db } from '@/server/db/client';
 import { files, folders } from '@/server/db/schema';
@@ -55,6 +56,7 @@ async function handleCleanup(req: NextRequest) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`Failed to purge file ${row.id}:`, msg);
+      Sentry.captureException(err instanceof Error ? err : new Error(msg));
       results.push(`FAILED file ${row.id}: ${msg}`);
     }
   }
@@ -89,6 +91,7 @@ async function handleCleanup(req: NextRequest) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`Failed to purge folder ${row.id}:`, msg);
+      Sentry.captureException(err instanceof Error ? err : new Error(msg));
       results.push(`FAILED folder ${row.id}: ${msg}`);
     }
   }

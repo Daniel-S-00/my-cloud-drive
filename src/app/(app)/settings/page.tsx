@@ -149,6 +149,20 @@ export default function SettingsPage() {
             <p className="text-sm text-text-secondary">Loading...</p>
           ) : subscription && subscription.isActive ? (
             <div className="flex flex-col gap-3">
+              {subscription.status === 'past_due' ||
+              subscription.status === 'unpaid' ? (
+                <div
+                  className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-400"
+                  role="status"
+                >
+                  Your last payment failed. Your storage stays active
+                  until{' '}
+                  {subscription.currentPeriodEnd
+                    ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
+                    : 'the end of your billing period'}
+                  , but update your billing details to keep your plan.
+                </div>
+              ) : null}
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-green-500/20 px-2.5 py-0.5 text-xs font-medium text-green-400">
                   {subscription.plan}

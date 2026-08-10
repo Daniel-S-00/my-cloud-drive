@@ -212,6 +212,24 @@ describe('getSubscriptionStatus', () => {
     // period — the plan badge/quote stays until that period ends.
     expect(result?.isActive).toBe(true);
   });
+
+  it('keeps a past_due plan active during the grace period (Option A)', async () => {
+    hoisted.selectQueue.push([
+      {
+        plan: 'plus',
+        status: 'past_due',
+        storageQuotaBytes: 100 * 1024 ** 3,
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+        cancelAtPeriodEnd: null,
+        stripeSubscriptionId: 'sub_123',
+      },
+    ]);
+    const result = await getSubscriptionStatus();
+    // Churn policy Option A: a failed renewal keeps the paid quota until
+    // the period the user already paid for ends.
+    expect(result?.isActive).toBe(true);
+    expect(result?.status).toBe('past_due');
+  });
 });
 
 describe('cancelSubscription', () => {

@@ -220,6 +220,41 @@ describe('stripe webhook', () => {
     );
   });
 
+  it('handles invoice.payment_failed by upserting the past_due subscription', async () => {
+    retrieveMock.mockResolvedValue(
+      subscriptionPayload({ status: 'past_due' }),
+    );
+    const { body, header } = await signedEvent(
+      {
+        id: 'in_1',
+        parent: {
+          type: 'subscription',
+          subscription_details: { subscription: 'sub_123' },
+        },
+      },
+      'invoice.payment_failed',
+    );
+    const res = await POST(makeReq(body, header));
+    expect(res.status).toBe(200);
+    expect(retrieveMock).toHaveBeenCalledWith('sub_123');
+    expect(hoisted.insertValuesLog[0]).toMatchObject({
+      stripeSubscriptionId: 'sub_123',
+      plan: 'plus',
+      status: 'past_due',
+    });
+  });
+
+  it('acks invoice.payment_failed when the subscription id is missing', async () => {
+    const { body, header } = await signedEvent(
+      { id: 'in_1', parent: null },
+      'invoice.payment_failed',
+    );
+    const res = await POST(makeReq(body, header));
+    expect(res.status).toBe(200);
+    expect(retrieveMock).not.toHaveBeenCalled();
+    expect(hoisted.insertValuesLog).toHaveLength(0);
+  });
+
   it('returns 500 when the user cannot be resolved (Stripe retries)', async () => {
     // No metadata and no email match.
     hoisted.selectQueue.push([]);
