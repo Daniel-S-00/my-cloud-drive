@@ -11,6 +11,7 @@ async function getSidebarData() {
   const user = await getOptionalUser();
   if (!user) {
     return {
+      user: null,
       trashCount: 0,
       sharesCount: 0,
       usedBytes: 0,
@@ -45,6 +46,11 @@ async function getSidebarData() {
   const quota = await getStorageQuota();
 
   return {
+    user: {
+      name: user.name,
+      email: user.email,
+      image: user.image,
+    },
     trashCount: trashRow?.count ?? 0,
     sharesCount: sharesRow?.count ?? 0,
     usedBytes: quota?.usedBytes ?? 0,
@@ -61,6 +67,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const {
+    user,
     trashCount,
     sharesCount,
     usedBytes,
@@ -73,6 +80,7 @@ export default async function AppLayout({
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg-base text-text-primary">
       <AppHeader
+        user={user}
         trashCount={trashCount}
         sharesCount={sharesCount}
         usedBytes={usedBytes}
