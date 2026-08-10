@@ -155,8 +155,6 @@ describe('stripe webhook', () => {
     expect(inserted.userId).toBe('u1');
     expect(inserted.plan).toBe('plus');
     expect(inserted.status).toBe('active');
-    // Matches PLANS.plus.storageBytes — which is 100 MB under the
-    // temporary test quota.
     expect(inserted.storageQuotaBytes).toBe(
       PLANS.plus.storageBytes,
     );

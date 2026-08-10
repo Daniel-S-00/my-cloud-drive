@@ -50,6 +50,13 @@
       "when": 1787593000000,
       "tag": "0006_enable_2fa_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787599000000,
+      "tag": "0007_enable_subscriptions_rls",
+      "breakpoints": true
     }
   ]
 }
