@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/cleanup-deleted-accounts",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-stale-uploads",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-trash",
+      "schedule": "0 4 * * *"
     }
   ]
 }

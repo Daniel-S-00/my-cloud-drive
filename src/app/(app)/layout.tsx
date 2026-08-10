@@ -1,13 +1,25 @@
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { AppHeader } from '@/components/app-header';
 import { AppSidebar } from '@/components/app-sidebar';
+import { TrashLoginToast } from '@/components/trash-login-toast';
 import { getOptionalUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, shares } from '@/server/db/schema';
+import { getStorageQuota } from '@/server/billing/quota';
 
 async function getSidebarData() {
   const user = await getOptionalUser();
-  if (!user) return { trashCount: 0, sharesCount: 0, usedBytes: 0 };
+  if (!user) {
+    return {
+      trashCount: 0,
+      sharesCount: 0,
+      usedBytes: 0,
+      storageQuotaBytes: 0,
+      isSubscribed: false,
+      overQuota: false,
+      plan: 'free',
+    };
+  }
 
   const [trashRow] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -28,15 +40,18 @@ async function getSidebarData() {
       ),
     );
 
-  const [storageRow] = await db
-    .select({ total: sql<number>`coalesce(sum(${files.sizeBytes}), 0)::bigint` })
-    .from(files)
-    .where(and(eq(files.ownerId, user.id), isNull(files.deletedAt)));
+  // Single source of truth for usage + quota (includes the soft-landing
+  // rule: paid quota holds until the current period ends).
+  const quota = await getStorageQuota();
 
   return {
     trashCount: trashRow?.count ?? 0,
     sharesCount: sharesRow?.count ?? 0,
-    usedBytes: Number(storageRow?.total ?? 0),
+    usedBytes: quota?.usedBytes ?? 0,
+    storageQuotaBytes: quota?.quotaBytes ?? 0,
+    isSubscribed: quota?.isPaid ?? false,
+    overQuota: quota?.overQuota ?? false,
+    plan: quota?.plan ?? 'free',
   };
 }
 
@@ -45,7 +60,15 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { trashCount, sharesCount, usedBytes } = await getSidebarData();
+  const {
+    trashCount,
+    sharesCount,
+    usedBytes,
+    storageQuotaBytes,
+    isSubscribed,
+    overQuota,
+    plan,
+  } = await getSidebarData();
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg-base text-text-primary">
@@ -53,15 +76,24 @@ export default async function AppLayout({
         trashCount={trashCount}
         sharesCount={sharesCount}
         usedBytes={usedBytes}
+        storageQuotaBytes={storageQuotaBytes}
+        isSubscribed={isSubscribed}
+        overQuota={overQuota}
+        plan={plan}
       />
       <div className="flex min-h-0 flex-1">
         <AppSidebar
           trashCount={trashCount}
           sharesCount={sharesCount}
           usedBytes={usedBytes}
+          storageQuotaBytes={storageQuotaBytes}
+          isSubscribed={isSubscribed}
+          overQuota={overQuota}
+          plan={plan}
         />
         <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
       </div>
+      <TrashLoginToast trashCount={trashCount} />
     </div>
   );
 }

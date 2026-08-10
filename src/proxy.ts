@@ -2,7 +2,23 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { auth } from '@/server/auth/config';
 
-const PUBLIC_PREFIXES = ['/login', '/signup', '/api/auth', '/auth', '/verify-email', '/recover-account', '/verify-2fa', '/forgot-password', '/reset-password', '/s'];
+// Webhook/cron endpoints do their own auth (Stripe signature, CRON_SECRET
+// bearer) and are called by external systems without a browser session —
+// they must pass through the proxy untouched.
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/signup',
+  '/api/auth',
+  '/api/stripe',
+  '/api/cron',
+  '/auth',
+  '/verify-email',
+  '/recover-account',
+  '/verify-2fa',
+  '/forgot-password',
+  '/reset-password',
+  '/s',
+];
 const PUBLIC_EXACT = new Set<string>(['/', '/login', '/signup']);
 const DRIVE_PATH = '/drive';
 

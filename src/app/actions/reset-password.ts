@@ -2,7 +2,7 @@
 
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@supabase/supabase-js';
-import { headers } from 'next/headers';
+import { getRequestOrigin } from '@/lib/request-origin';
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -27,23 +27,10 @@ export type CompletePasswordResetResult = {
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-// Derives the reset-password origin from the actual request host
-// (x-forwarded-host / host), instead of NEXT_PUBLIC_APP_URL. This
-// fixes preview deployments: a request from
-// https://*-daniel-ss-projects-86a15ba6.vercel.app now produces a
-// reset link redirecting to that preview, not to production.
-// Falls back to NEXT_PUBLIC_APP_URL when headers are unavailable
-// (edge cases like serverless cold starts without forwarded headers).
-// Same pattern as the 2FA cookie secure flag in
-// src/server/auth/config.ts and src/app/actions/two-factor.ts.
+// The reset-password origin is derived from the actual request host so
+// preview deployments produce preview links (see getRequestOrigin).
 async function buildResetUrl(): Promise<string> {
-  const headersList = await headers();
-  const host =
-    headersList.get('x-forwarded-host') ?? headersList.get('host');
-  const proto = headersList.get('x-forwarded-proto') ?? 'https';
-  const origin = host
-    ? `${proto}://${host.replace(/\/$/, '')}`
-    : process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
+  const origin = await getRequestOrigin();
   return origin ? `${origin}/reset-password` : '/reset-password';
 }
 

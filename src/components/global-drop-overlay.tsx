@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { useUpload } from '@/hooks/use-upload';
+import { useUpload } from '@/contexts/upload-context';
 
 function UploadIcon({ className }: { className?: string }) {
   return <Upload className={className} aria-hidden />;
@@ -18,7 +18,7 @@ export function GlobalDropOverlay({
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
-  const { upload } = useUpload({ folderId });
+  const { upload } = useUpload();
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -59,10 +59,10 @@ export function GlobalDropOverlay({
       }
 
       for (const file of droppedFiles) {
-        await upload(file);
+        await upload(file, folderId);
       }
     },
-    [upload],
+    [upload, folderId],
   );
 
   useEffect(() => {
