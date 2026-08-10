@@ -15,6 +15,9 @@ import { deleteFromR2 } from '@/server/storage/r2';
 // Delete those rows and, defensively, any R2 object that may have
 // landed anyway (a PUT can succeed even when the client never reaches
 // confirmUpload — leaving an orphaned object with no completed row).
+//
+// NOTE: runs once per day (vercel.json, Hobby cron limit) — the batch
+// limit is sized to sweep a full day of abandoned uploads in one run.
 const STALE_AGE_MINUTES = 20;
 const STALE_TYPES = ['pending', 'failed'] as const;
 
@@ -48,7 +51,7 @@ async function handleCleanup(req: NextRequest) {
         lt(files.createdAt, cutoff),
       ),
     )
-    .limit(50);
+    .limit(500);
 
   const results: string[] = [];
   let deleted = 0;
