@@ -1,6 +1,7 @@
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { AppHeader } from '@/components/app-header';
 import { AppSidebar } from '@/components/app-sidebar';
+import { TrashLoginToast } from '@/components/trash-login-toast';
 import { getOptionalUser } from '@/server/auth/session';
 import { db } from '@/server/db/client';
 import { files, shares } from '@/server/db/schema';
@@ -92,6 +93,7 @@ export default async function AppLayout({
         />
         <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
       </div>
+      <TrashLoginToast trashCount={trashCount} />
     </div>
   );
 }
