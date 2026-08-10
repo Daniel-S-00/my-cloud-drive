@@ -107,7 +107,11 @@ test.describe('per-item 3-dot menu', () => {
 
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem', { name: /Download/ })).toBeVisible();
-    await expect(menu.getByRole('menuitem', { name: /Share/ })).toBeVisible();
+    // The label is "Share…" for a new share or "Copy link" for an
+    // existing one — both are the share affordance.
+    await expect(
+      menu.getByRole('menuitem', { name: /Share|Copy link/ }),
+    ).toBeVisible();
     await expect(
       menu.getByRole('menuitem', { name: /Copy name/ }),
     ).toBeVisible();
