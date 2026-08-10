@@ -1,9 +1,24 @@
 import Link from 'next/link';
-import { Settings } from 'lucide-react';
 import { MobileNav } from '@/components/mobile-nav';
 import { SearchBar } from '@/components/search-bar';
 
+type HeaderUser = {
+  name: string | null;
+  email: string | null;
+  image: string | null;
+};
+
+function userDisplayName(user: HeaderUser | null): string {
+  return user?.name ?? user?.email ?? 'Settings';
+}
+
+function userInitial(user: HeaderUser | null): string {
+  const source = user?.name ?? user?.email ?? '?';
+  return source.trim().charAt(0).toUpperCase();
+}
+
 export function AppHeader({
+  user,
   trashCount,
   sharesCount,
   usedBytes,
@@ -12,6 +27,7 @@ export function AppHeader({
   overQuota,
   plan,
 }: {
+  user: HeaderUser | null;
   trashCount: number;
   sharesCount: number;
   usedBytes: number;
@@ -39,11 +55,26 @@ export function AppHeader({
         <div className="flex flex-1 items-center justify-end">
           <Link
             href="/settings"
-            aria-label="Settings"
-            title="Settings"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-surface-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
+            aria-label={`Open settings for ${userDisplayName(user)}`}
+            title={userDisplayName(user)}
+            className="group flex h-9 w-9 items-center justify-center rounded-full transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-glow"
           >
-            <Settings className="h-4 w-4" />
+            {user?.image ? (
+              // OAuth (Google/GitHub) provides the avatar; render it as
+              // the account button.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.image}
+                alt=""
+                width={36}
+                height={36}
+                className="h-9 w-9 rounded-full border border-border-subtle object-cover"
+              />
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-border-subtle bg-bg-surface-hover text-sm font-semibold text-text-primary">
+                {userInitial(user)}
+              </span>
+            )}
           </Link>
         </div>
       </div>
