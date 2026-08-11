@@ -2,13 +2,12 @@
 
 import { useRef, type ChangeEvent } from 'react';
 import { Plus } from 'lucide-react';
-import { toast } from 'sonner';
 import { useUpload } from '@/contexts/upload-context';
 import { resolveFileInputItems } from '@/lib/folder-upload';
 
 export function UploadFab({ folderId }: { folderId: string | null }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { upload, isUploading } = useUpload();
+  const { uploadBatch, isUploading } = useUpload();
 
   const handleClick = () => {
     inputRef.current?.click();
@@ -22,13 +21,19 @@ export function UploadFab({ folderId }: { folderId: string | null }) {
     input.value = '';
     if (resolved.length === 0) return;
 
-    if (resolved.length > 1) {
-      toast.info(`Uploading ${resolved.length} files.`);
-    }
+    // Group into ONE status item: a folder selection shows as a single
+    // upload with aggregate progress instead of one item per file.
+    const topLevels = new Set(
+      resolved
+        .map((r) => r.file.webkitRelativePath?.split('/')[0])
+        .filter(Boolean),
+    );
+    const label =
+      topLevels.size === 1
+        ? (topLevels.values().next().value as string)
+        : `Upload (${resolved.length} files)`;
 
-    for (const { file, folderId: targetFolderId } of resolved) {
-      await upload(file, targetFolderId);
-    }
+    await uploadBatch(resolved, label);
   };
 
   return (

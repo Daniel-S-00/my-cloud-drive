@@ -14,12 +14,20 @@ export function FileUpload({ folderId }: FileUploadProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const { upload, isUploading } = useUpload();
+  const { uploadBatch, isUploading } = useUpload();
 
   const handleItems = async (items: Array<{ file: File; folderId: string | null }>) => {
-    for (const { file, folderId: targetFolderId } of items) {
-      await upload(file, targetFolderId);
-    }
+    if (items.length === 0) return;
+    const topLevels = new Set(
+      items
+        .map((r) => r.file.webkitRelativePath?.split('/')[0])
+        .filter(Boolean),
+    );
+    const label =
+      topLevels.size === 1
+        ? (topLevels.values().next().value as string)
+        : `Upload (${items.length} files)`;
+    await uploadBatch(items, label);
     router.refresh();
   };
 
