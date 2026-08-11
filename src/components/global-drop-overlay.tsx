@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUpload } from '@/contexts/upload-context';
+import { resolveDragItems } from '@/lib/folder-upload';
 
 function UploadIcon({ className }: { className?: string }) {
   return <Upload className={className} aria-hidden />;
@@ -51,15 +52,17 @@ export function GlobalDropOverlay({
       setIsDragging(false);
       dragCounter.current = 0;
 
-      const droppedFiles = Array.from(e.dataTransfer?.files || []);
-      if (droppedFiles.length === 0) return;
+      // Traverse webkitGetAsEntry so dropped folders preserve their
+      // structure (each file is enqueued with its resolved folder id).
+      const resolved = await resolveDragItems(e.dataTransfer, folderId);
+      if (resolved.length === 0) return;
 
-      if (droppedFiles.length > 1) {
-        toast.info(`Uploading ${droppedFiles.length} files…`);
+      if (resolved.length > 1) {
+        toast.info(`Uploading ${resolved.length} files…`);
       }
 
-      for (const file of droppedFiles) {
-        await upload(file, folderId);
+      for (const { file, folderId: targetFolderId } of resolved) {
+        await upload(file, targetFolderId);
       }
     },
     [upload, folderId],
@@ -85,7 +88,7 @@ export function GlobalDropOverlay({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-base/80 backdrop-blur-md border-4 border-dashed border-accent-glow rounded-none">
       <div className="flex flex-col items-center gap-4 text-text-primary px-6 text-center">
         <UploadIcon className="h-24 w-24 text-accent-glow" />
-        <h2 className="text-3xl font-semibold">Drop files to upload</h2>
+        <h2 className="text-3xl font-semibold">Drop files or folders to upload</h2>
         <p className="text-text-secondary">
           Files will be uploaded to{' '}
           <span className="font-medium text-accent-glow">{currentFolderName}</span>
