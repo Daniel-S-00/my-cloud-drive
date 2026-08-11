@@ -4,6 +4,7 @@ import { useRef, type ChangeEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUpload } from '@/contexts/upload-context';
+import { resolveFileInputItems } from '@/lib/folder-upload';
 
 export function UploadFab({ folderId }: { folderId: string | null }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -14,16 +15,19 @@ export function UploadFab({ folderId }: { folderId: string | null }) {
   };
 
   const handleChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const fileArray = Array.from(e.target.files || []);
-    e.target.value = '';
-    if (fileArray.length === 0) return;
+    const input = e.target;
+    // Resolve webkitdirectory selections into files-with-target-folder so
+    // picked folders preserve their structure.
+    const resolved = await resolveFileInputItems(input, folderId);
+    input.value = '';
+    if (resolved.length === 0) return;
 
-    if (fileArray.length > 1) {
-      toast.info(`Uploading ${fileArray.length} files…`);
+    if (resolved.length > 1) {
+      toast.info(`Uploading ${resolved.length} files.`);
     }
 
-    for (const file of fileArray) {
-      await upload(file, folderId);
+    for (const { file, folderId: targetFolderId } of resolved) {
+      await upload(file, targetFolderId);
     }
   };
 
@@ -33,6 +37,9 @@ export function UploadFab({ folderId }: { folderId: string | null }) {
         ref={inputRef}
         type="file"
         multiple
+        // Directory picker: lets the user select whole folders in
+        // Chromium/Firefox/Safari. Files-only pickers ignore it.
+        {...({ webkitdirectory: '', directory: '' } as object)}
         onChange={handleChange}
         className="hidden"
         disabled={isUploading}
