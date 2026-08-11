@@ -52,7 +52,9 @@ export function UploadStatusBar() {
               ? `Uploading… ${overallProgress}%`
               : failed.length > 0
                 ? `${failed.length} upload${failed.length > 1 ? 's' : ''} failed`
-                : `${done.length} upload${done.length > 1 ? 's' : ''} complete`}
+                : done.length === 1
+                  ? `${done[0].fileCount} upload${done[0].fileCount > 1 ? 's' : ''} complete`
+                  : `${done.length} upload${done.length > 1 ? 's' : ''} complete`}
           </span>
         </div>
         <button

@@ -20,10 +20,17 @@ export type UploadItem = {
   id: string;
   name: string;
   size: number;
+  /** Number of files this batch represents (1 for single-file uploads). */
+  fileCount: number;
   status: 'queued' | 'uploading' | 'complete' | 'error';
   progress: number;
   error?: string;
   uploadedAs?: string;
+};
+
+export type UploadFile = {
+  file: File;
+  folderId: string | null;
 };
 
 type UploadContextValue = {
@@ -31,7 +38,20 @@ type UploadContextValue = {
   isUploading: boolean;
   /** Aggregate progress across active items (0-100). */
   overallProgress: number;
+  /**
+   * Enqueue a single file. Runs as its own one-file batch so single
+   * uploads keep their per-file progress + toast.
+   */
   upload: (file: File, folderId: string | null) => Promise<void>;
+  /**
+   * Enqueue a group of files (e.g. a whole folder) as ONE status item.
+   * Files are uploaded sequentially; progress and the completion toast
+   * reflect the batch as a whole instead of one toast per file.
+   */
+  uploadBatch: (
+    files: UploadFile[],
+    label: string,
+  ) => Promise<void>;
   clearCompleted: () => void;
 };
 
@@ -42,7 +62,7 @@ let nextId = 0;
 export function UploadProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const queueRef = useRef<
-    Array<{ file: File; folderId: string | null; id: string }>
+    Array<{ id: string; files: UploadFile[]; label: string }>
   >([]);
   const busyRef = useRef(false);
 
@@ -52,15 +72,18 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  // Upload one item fully, updating progress via `patch`. Reads/writes go
-  // through refs so a long upload doesn't re-render the provider per tick.
-  const runItem = useCallback(
-    async (file: File, folderId: string | null, id: string) => {
+  // Upload one FILE of a batch, returning the number of bytes uploaded
+  // or throwing. Progress is reported via `onProgress` (0-100 for this
+  // file). Reads/writes go through refs so a long upload doesn't
+  // re-render the provider per tick.
+  const uploadOneFile = useCallback(
+    async (
+      file: File,
+      folderId: string | null,
+      onProgress: (pct: number) => void,
+    ): Promise<void> => {
       let pendingFileId: string | null = null;
       let pendingStorageKey: string | null = null;
-
-      patch(id, { status: 'uploading', progress: 0 });
-
       try {
         const { presignedUrl, storageKey, fileId, fileName, wasRenamed } =
           await generateUploadUrl({
@@ -82,13 +105,13 @@ export function UploadProvider({ children }: { children: ReactNode }) {
           xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
               const pct = Math.round((event.loaded / event.total) * 100);
-              patch(id, { progress: pct });
+              onProgress(pct);
             }
           };
 
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-              patch(id, { progress: 100 });
+              onProgress(100);
               resolve();
             } else {
               reject(
@@ -117,21 +140,12 @@ export function UploadProvider({ children }: { children: ReactNode }) {
           mimeType: file.type || undefined,
         });
 
-        patch(id, { status: 'complete', progress: 100, uploadedAs: fileName });
-
         if (wasRenamed) {
           toast.success('File renamed to avoid conflict', {
             description: `Uploaded "${file.name}" as "${fileName}".`,
           });
-        } else {
-          toast.success('Upload complete', { description: fileName });
         }
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Unknown upload error';
-        patch(id, { status: 'error', error: message });
-        toast.error('Upload failed', { description: message });
-
         if (pendingFileId && pendingStorageKey) {
           try {
             await cancelUpload({
@@ -143,13 +157,65 @@ export function UploadProvider({ children }: { children: ReactNode }) {
             // Best-effort cleanup.
           }
         }
+        throw err;
       }
     },
-    [patch],
+    [],
   );
 
-  // Sequential worker: processes queued items one at a time. New uploads
-  // enqueue behind the current one; the `busy` flag prevents double-runs.
+  // Run one queued batch (one UploadItem) to completion, updating the
+  // item's aggregate progress across its files.
+  const runBatch = useCallback(
+    async (
+      id: string,
+      files: UploadFile[],
+      label: string,
+    ): Promise<void> => {
+      patch(id, { status: 'uploading', progress: 0 });
+      const totalBytes = files.reduce((acc, f) => acc + f.file.size, 0);
+      let uploadedBytes = 0;
+      let errorCount = 0;
+      let lastError: string | undefined;
+
+      for (const { file, folderId } of files) {
+        try {
+          await uploadOneFile(file, folderId, (pct) => {
+            // Approximate batch progress by the share this file's bytes
+            // represent of the total batch.
+            const fileBytes = Math.round((pct / 100) * file.size);
+            const total = totalBytes || 1;
+            patch(id, {
+              progress: Math.round(
+                ((uploadedBytes + fileBytes) / total) * 100,
+              ),
+            });
+          });
+          uploadedBytes += file.size;
+        } catch (err) {
+          errorCount++;
+          lastError = err instanceof Error ? err.message : 'Upload failed';
+          // Don't abort the rest of the batch on one file failure.
+        }
+      }
+
+      if (errorCount > 0) {
+        patch(id, { status: 'error', error: lastError });
+        toast.error('Upload failed', {
+          description: lastError ?? `Failed for ${errorCount} file(s).`,
+        });
+      } else {
+        patch(id, { status: 'complete', progress: 100 });
+        const n = files.length;
+        toast.success(
+          n === 1 ? 'Upload complete' : `${n} uploads complete`,
+          { description: label },
+        );
+      }
+    },
+    [patch, uploadOneFile],
+  );
+
+  // Sequential worker: processes queued batches one at a time.
   const drain = useCallback(async () => {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -159,27 +225,49 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         busyRef.current = false;
         break;
       }
-      await runItem(next.file, next.folderId, next.id);
+      await runBatch(next.id, next.files, next.label);
     }
-  }, [runItem]);
+  }, [runBatch]);
 
-  const upload = useCallback(
-    async (file: File, folderId: string | null) => {
+  const enqueue = useCallback(
+    (files: UploadFile[], label: string) => {
       const id = `upload-${++nextId}`;
+      const totalBytes = files.reduce((acc, f) => acc + f.file.size, 0);
       setItems((prev) => [
         ...prev,
         {
           id,
-          name: file.name,
-          size: file.size,
+          name: label,
+          size: totalBytes,
+          fileCount: files.length,
           status: 'queued',
           progress: 0,
         },
       ]);
-      queueRef.current.push({ file, folderId, id });
+      queueRef.current.push({ id, files, label });
       void drain();
+      return id;
     },
     [drain],
+  );
+
+  const upload = useCallback(
+    async (file: File, folderId: string | null) => {
+      enqueue([{ file, folderId }], file.name);
+    },
+    [enqueue],
+  );
+
+  const uploadBatch = useCallback(
+    async (files: UploadFile[], label: string) => {
+      if (files.length === 0) return;
+      if (files.length === 1) {
+        enqueue(files, files[0].file.name);
+        return;
+      }
+      enqueue(files, label);
+    },
+    [enqueue],
   );
 
   const clearCompleted = useCallback(() => {
@@ -202,8 +290,15 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   const value = useMemo(
-    () => ({ items, isUploading, overallProgress, upload, clearCompleted }),
-    [items, isUploading, overallProgress, upload, clearCompleted],
+    () => ({
+      items,
+      isUploading,
+      overallProgress,
+      upload,
+      uploadBatch,
+      clearCompleted,
+    }),
+    [items, isUploading, overallProgress, upload, uploadBatch, clearCompleted],
   );
 
   return <UploadContext.Provider value={value}>{children}</UploadContext.Provider>;

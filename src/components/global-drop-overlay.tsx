@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
-import { toast } from 'sonner';
 import { useUpload } from '@/contexts/upload-context';
 import { resolveDragItems } from '@/lib/folder-upload';
-
 function UploadIcon({ className }: { className?: string }) {
   return <Upload className={className} aria-hidden />;
 }
@@ -19,7 +17,7 @@ export function GlobalDropOverlay({
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
-  const { upload } = useUpload();
+  const { uploadBatch } = useUpload();
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -57,15 +55,19 @@ export function GlobalDropOverlay({
       const resolved = await resolveDragItems(e.dataTransfer, folderId);
       if (resolved.length === 0) return;
 
-      if (resolved.length > 1) {
-        toast.info(`Uploading ${resolved.length} files…`);
-      }
+      // Group a whole folder into ONE status item. Use the top-level
+      // folder name when every file shares it, else a generic label.
+      const topLevels = new Set(
+        resolved.map((r) => r.file.webkitRelativePath?.split('/')[0]).filter(Boolean),
+      );
+      const label =
+        topLevels.size === 1
+          ? (topLevels.values().next().value as string)
+          : `Upload (${resolved.length} files)`;
 
-      for (const { file, folderId: targetFolderId } of resolved) {
-        await upload(file, targetFolderId);
-      }
+      await uploadBatch(resolved, label);
     },
-    [upload, folderId],
+    [uploadBatch, folderId],
   );
 
   useEffect(() => {
