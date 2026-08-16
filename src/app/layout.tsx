@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { IBM_Plex_Mono, Manrope, Syne } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthSessionProvider } from "@/components/auth-session-provider";
@@ -60,6 +61,7 @@ export default function RootLayout({
             }}
           />
         </AuthSessionProvider>
+        <Analytics />
       </body>
     </html>
   );
