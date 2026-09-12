@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { isCoarsePointer } from './pointer';
 import {
+  isAdaptiveWebglCapable,
   isWebglCapable,
   prefersReducedMotion,
   readDeviceHints,
@@ -19,6 +20,10 @@ describe('without a DOM', () => {
 
   it('is not capable', () => {
     expect(isWebglCapable()).toBe(false);
+  });
+
+  it('is not adaptively capable either', () => {
+    expect(isAdaptiveWebglCapable()).toBe(false);
   });
 
   it('has no motion preference to honour', () => {

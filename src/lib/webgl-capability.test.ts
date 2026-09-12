@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   isLowMemoryDevice,
+  isAdaptiveWebglCapable,
   isWebglCapable,
   prefersReducedMotion,
   readDeviceHints,
@@ -121,6 +122,31 @@ describe('isWebglCapable', () => {
     installMatchMedia();
     vi.stubGlobal('navigator', { deviceMemory: 2, hardwareConcurrency: 4 });
     expect(isWebglCapable()).toBe(false);
+  });
+});
+
+describe('isAdaptiveWebglCapable', () => {
+  it('admits touch-first devices that the fixed-cost gate turns away', () => {
+    installMatchMedia({ [COARSE]: true });
+
+    expect(isAdaptiveWebglCapable({ deviceMemory: 8 })).toBe(true);
+    expect(isWebglCapable({ deviceMemory: 8 })).toBe(false);
+  });
+
+  it('still refuses when the user asked for less motion', () => {
+    installMatchMedia({ [REDUCED]: true });
+    expect(isAdaptiveWebglCapable({ deviceMemory: 8 })).toBe(false);
+  });
+
+  it('still refuses low-memory machines', () => {
+    installMatchMedia();
+    expect(isAdaptiveWebglCapable({ deviceMemory: 2 })).toBe(false);
+  });
+
+  it('falls back to the navigator hints when none are passed', () => {
+    installMatchMedia();
+    vi.stubGlobal('navigator', { deviceMemory: 2, hardwareConcurrency: 4 });
+    expect(isAdaptiveWebglCapable()).toBe(false);
   });
 });
 

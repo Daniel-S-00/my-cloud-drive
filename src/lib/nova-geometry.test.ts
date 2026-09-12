@@ -1,192 +1,285 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import {
-  COLUMN_RADIUS,
+  NOVA_CORE,
+  NOVA_DUST,
+  NOVA_PLANETOIDS,
+  NOVA_POINT_SIZE,
   NOVA_QUALITY_TIERS,
-  POINT_SIZE,
-  SHELL_RADIUS,
+  NOVA_SHADE,
   buildNovaAttributes,
   pickQualityTier,
 } from './nova-geometry';
 
-/** Deterministic LCG so the distributions can be asserted exactly. */
-function seededRng(seed: number): () => number {
+/** Deterministic LCG so the distribution assertions are reproducible. */
+function seeded(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
-    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    state = (state * 1664525 + 1013904223) >>> 0;
     return state / 0x100000000;
   };
 }
 
-const SHIFT_RANGES = {
-  x: [0, Math.PI],
-  y: [0, Math.PI * 2],
-  z: [0.1 * Math.PI * 0.1, 1 * Math.PI * 0.1],
-  w: [0.1, 1],
-};
+const BODIES = NOVA_PLANETOIDS.count;
+
+/** Body `index` in generation order has this many points. */
+function bodySize(index: number, planetoidCount: number): number {
+  const perBody = Math.floor(planetoidCount / BODIES);
+  return perBody + (index < planetoidCount % BODIES ? 1 : 0);
+}
+
+function orbitAt(orbits: Float32Array, point: number) {
+  return [
+    orbits[point * 4],
+    orbits[point * 4 + 1],
+    orbits[point * 4 + 2],
+    orbits[point * 4 + 3],
+  ];
+}
+
+/** First point index of each body, paired with the body's own orbit. */
+function bodyOrbits(orbits: Float32Array, coreCount: number, planetoidCount: number) {
+  const bodies: { radius: number; speed: number; start: number; size: number }[] =
+    [];
+  let point = coreCount;
+  for (let body = 0; body < BODIES; body += 1) {
+    const size = bodySize(body, planetoidCount);
+    const [radius, , speed] = orbitAt(orbits, point);
+    bodies.push({ radius, speed, start: point, size });
+    point += size;
+  }
+  return bodies;
+}
 
 describe('NOVA_QUALITY_TIERS', () => {
-  it('keeps the high tier well under the original 150k points', () => {
-    expect(NOVA_QUALITY_TIERS.high.shellCount + NOVA_QUALITY_TIERS.high.columnCount).toBe(80_000);
-    expect(NOVA_QUALITY_TIERS.medium.shellCount + NOVA_QUALITY_TIERS.medium.columnCount).toBe(40_000);
+  it('keeps the total point budget the scene was tuned around', () => {
+    const total = (tier: keyof typeof NOVA_QUALITY_TIERS) => {
+      const counts = NOVA_QUALITY_TIERS[tier];
+      return counts.coreCount + counts.planetoidCount + counts.dustCount;
+    };
+    expect(total('high')).toBe(80_000);
+    expect(total('medium')).toBe(40_000);
   });
 
-  it('scales the medium tier to exactly half the high tier', () => {
-    expect(NOVA_QUALITY_TIERS.medium.shellCount * 2).toBe(NOVA_QUALITY_TIERS.high.shellCount);
-    expect(NOVA_QUALITY_TIERS.medium.columnCount * 2).toBe(NOVA_QUALITY_TIERS.high.columnCount);
+  it('halves every population on the lower tier', () => {
+    const { high, medium } = NOVA_QUALITY_TIERS;
+    expect(medium.coreCount * 2).toBe(high.coreCount);
+    expect(medium.planetoidCount * 2).toBe(high.planetoidCount);
+    expect(medium.dustCount * 2).toBe(high.dustCount);
   });
 });
 
 describe('pickQualityTier', () => {
-  it('prefers device memory when the browser reports it', () => {
-    expect(pickQualityTier({ deviceMemory: 8, hardwareConcurrency: 2 })).toBe('high');
-    expect(pickQualityTier({ deviceMemory: 4, hardwareConcurrency: 32 })).toBe('medium');
+  it('prefers high on roomy devices', () => {
+    expect(pickQualityTier({ deviceMemory: 8 })).toBe('high');
+    expect(pickQualityTier({ deviceMemory: 16 })).toBe('high');
   });
 
-  it('falls back to core count when device memory is unreported', () => {
-    expect(pickQualityTier({ hardwareConcurrency: 8 })).toBe('high');
+  it('drops to medium on constrained memory', () => {
+    expect(pickQualityTier({ deviceMemory: 4 })).toBe('medium');
+    expect(pickQualityTier({ deviceMemory: 2 })).toBe('medium');
+  });
+
+  it('falls back to core count when memory is not reported', () => {
     expect(pickQualityTier({ hardwareConcurrency: 12 })).toBe('high');
     expect(pickQualityTier({ hardwareConcurrency: 4 })).toBe('medium');
   });
 
-  it('defaults to medium when nothing is known', () => {
+  it('prefers memory over core count when both are known', () => {
+    expect(pickQualityTier({ deviceMemory: 2, hardwareConcurrency: 16 })).toBe(
+      'medium',
+    );
+    expect(pickQualityTier({ deviceMemory: 8, hardwareConcurrency: 2 })).toBe(
+      'high',
+    );
+  });
+
+  it('assumes medium when nothing is reported', () => {
     expect(pickQualityTier({})).toBe('medium');
-    expect(pickQualityTier({ deviceMemory: 0, hardwareConcurrency: 0 })).toBe('medium');
   });
 });
 
 describe('buildNovaAttributes', () => {
-  const shellCount = 300;
-  const columnCount = 700;
-
-  it('allocates one entry per point in each attribute', () => {
-    const { positions, sizes, shifts, count } = buildNovaAttributes({
-      shellCount,
-      columnCount,
-      rng: seededRng(1),
-    });
-
-    expect(count).toBe(shellCount + columnCount);
-    expect(positions).toHaveLength(count * 3);
-    expect(sizes).toHaveLength(count);
-    expect(shifts).toHaveLength(count * 4);
+  const coreCount = 400;
+  const planetoidCount = 600;
+  const dustCount = 200;
+  const total = coreCount + planetoidCount + dustCount;
+  const attributes = buildNovaAttributes({
+    coreCount,
+    planetoidCount,
+    dustCount,
+    rng: seeded(7),
   });
 
-  it('handles an empty cloud', () => {
-    const { positions, sizes, shifts, count } = buildNovaAttributes({
-      shellCount: 0,
-      columnCount: 0,
-      rng: seededRng(1),
-    });
-
-    expect(count).toBe(0);
-    expect(positions).toHaveLength(0);
-    expect(sizes).toHaveLength(0);
-    expect(shifts).toHaveLength(0);
+  it('sizes every buffer to the point count', () => {
+    expect(attributes.count).toBe(total);
+    expect(attributes.positions).toHaveLength(total * 3);
+    expect(attributes.sizes).toHaveLength(total);
+    expect(attributes.orbits).toHaveLength(total * 4);
+    expect(attributes.shades).toHaveLength(total);
   });
 
-  it('keeps every shell point on a sphere of radius ~9.5-10', () => {
-    const { positions } = buildNovaAttributes({
-      shellCount,
-      columnCount: 0,
-      rng: seededRng(7),
-    });
-
-    for (let i = 0; i < shellCount; i += 1) {
-      const x = positions[i * 3];
-      const y = positions[i * 3 + 1];
-      const z = positions[i * 3 + 2];
-      const radius = Math.sqrt(x * x + y * y + z * z);
-      expect(radius).toBeGreaterThanOrEqual(SHELL_RADIUS.base - 1e-3);
-      expect(radius).toBeLessThanOrEqual(SHELL_RADIUS.base + SHELL_RADIUS.spread + 1e-3);
+  it('produces no NaN, whatever the generator decides', () => {
+    for (const buffer of [
+      attributes.positions,
+      attributes.sizes,
+      attributes.orbits,
+      attributes.shades,
+    ]) {
+      expect(Array.from(buffer).every(Number.isFinite)).toBe(true);
     }
   });
 
-  it('keeps every column point inside the hollow disc', () => {
-    const { positions } = buildNovaAttributes({
-      shellCount: 0,
-      columnCount,
-      rng: seededRng(11),
+  it('is reproducible for a given generator', () => {
+    const again = buildNovaAttributes({
+      coreCount,
+      planetoidCount,
+      dustCount,
+      rng: seeded(7),
     });
+    expect(Array.from(again.positions)).toEqual(Array.from(attributes.positions));
+    expect(Array.from(again.orbits)).toEqual(Array.from(attributes.orbits));
+  });
 
-    const innerSquared = COLUMN_RADIUS.inner * COLUMN_RADIUS.inner;
-    const outerSquared = COLUMN_RADIUS.outer * COLUMN_RADIUS.outer;
+  it('handles an empty population', () => {
+    const empty = buildNovaAttributes({
+      coreCount: 0,
+      planetoidCount: 0,
+      dustCount: 0,
+      rng: seeded(1),
+    });
+    expect(empty.count).toBe(0);
+    expect(empty.positions).toHaveLength(0);
+    expect(empty.orbits).toHaveLength(0);
+  });
 
-    for (let i = 0; i < columnCount; i += 1) {
-      const x = positions[i * 3];
-      const y = positions[i * 3 + 1];
-      const z = positions[i * 3 + 2];
-      const radialSquared = x * x + z * z;
-
-      expect(radialSquared).toBeGreaterThanOrEqual(innerSquared - 0.1);
-      expect(radialSquared).toBeLessThanOrEqual(outerSquared + 0.1);
-      expect(Math.abs(y)).toBeLessThanOrEqual(1 + 1e-3);
+  it('builds the core as a ball at the origin, with nothing to orbit', () => {
+    for (let point = 0; point < coreCount; point += 1) {
+      const x = attributes.positions[point * 3];
+      const y = attributes.positions[point * 3 + 1];
+      const z = attributes.positions[point * 3 + 2];
+      expect(Math.hypot(x, y, z)).toBeLessThanOrEqual(NOVA_CORE.radius + 1e-3);
+      expect(orbitAt(attributes.orbits, point)).toEqual([0, 0, 0, 0]);
+      expect(attributes.shades[point]).toBeCloseTo(NOVA_SHADE.core, 5);
     }
   });
 
-  it('keeps sizes and shifts within the ranges the shader expects', () => {
-    const { sizes, shifts, count } = buildNovaAttributes({
-      shellCount,
-      columnCount,
-      rng: seededRng(13),
-    });
+  it('builds each planetoid as one rigid orbit', () => {
+    let expected = coreCount;
+    for (const body of bodyOrbits(
+      attributes.orbits,
+      coreCount,
+      planetoidCount,
+    )) {
+      expect(body.start).toBe(expected);
+      const first = orbitAt(attributes.orbits, body.start);
 
-    for (let i = 0; i < count; i += 1) {
-      expect(sizes[i]).toBeGreaterThanOrEqual(POINT_SIZE.base);
-      expect(sizes[i]).toBeLessThanOrEqual(POINT_SIZE.base + POINT_SIZE.spread);
+      for (let i = 0; i < body.size; i += 1) {
+        // Every point of a body must share the body's orbit, otherwise the
+        // body smears along its path instead of travelling as one object.
+        expect(orbitAt(attributes.orbits, body.start + i)).toEqual(first);
+        // Float32 storage, so compare with a tolerance rather than exactly.
+        expect(attributes.shades[body.start + i]).toBeCloseTo(
+          NOVA_SHADE.planetoid,
+          5,
+        );
+      }
 
-      const shiftX = shifts[i * 4];
-      const shiftY = shifts[i * 4 + 1];
-      const shiftZ = shifts[i * 4 + 2];
-      const shiftW = shifts[i * 4 + 3];
-
-      expect(shiftX).toBeGreaterThanOrEqual(SHIFT_RANGES.x[0]);
-      expect(shiftX).toBeLessThanOrEqual(SHIFT_RANGES.x[1]);
-      expect(shiftY).toBeGreaterThanOrEqual(SHIFT_RANGES.y[0]);
-      expect(shiftY).toBeLessThanOrEqual(SHIFT_RANGES.y[1]);
-      expect(shiftZ).toBeGreaterThanOrEqual(SHIFT_RANGES.z[0]);
-      expect(shiftZ).toBeLessThanOrEqual(SHIFT_RANGES.z[1]);
-      expect(shiftW).toBeGreaterThanOrEqual(SHIFT_RANGES.w[0]);
-      expect(shiftW).toBeLessThanOrEqual(SHIFT_RANGES.w[1]);
+      expected += body.size;
     }
+    expect(expected).toBe(coreCount + planetoidCount);
   });
 
-  it('is deterministic for a given seed', () => {
-    const first = buildNovaAttributes({ shellCount, columnCount, rng: seededRng(23) });
-    const second = buildNovaAttributes({ shellCount, columnCount, rng: seededRng(23) });
-
-    expect(Array.from(first.positions)).toEqual(Array.from(second.positions));
-    expect(Array.from(first.sizes)).toEqual(Array.from(second.sizes));
-    expect(Array.from(first.shifts)).toEqual(Array.from(second.shifts));
-  });
-
-  it('produces different clouds for different seeds', () => {
-    const first = buildNovaAttributes({ shellCount, columnCount, rng: seededRng(29) });
-    const second = buildNovaAttributes({ shellCount, columnCount, rng: seededRng(31) });
-
-    expect(Array.from(first.positions)).not.toEqual(Array.from(second.positions));
-  });
-
-  it('stores the shell before the column', () => {
-    const { positions } = buildNovaAttributes({
-      shellCount,
-      columnCount,
-      rng: seededRng(37),
-    });
-
-    const lastShell = shellCount - 1;
-    const x = positions[lastShell * 3];
-    const y = positions[lastShell * 3 + 1];
-    const z = positions[lastShell * 3 + 2];
-    expect(Math.sqrt(x * x + y * y + z * z)).toBeLessThanOrEqual(
-      SHELL_RADIUS.base + SHELL_RADIUS.spread + 1e-3,
+  it('gives every planetoid a distinct orbit', () => {
+    const radii = new Set(
+      bodyOrbits(attributes.orbits, coreCount, planetoidCount).map(
+        (body) => body.radius,
+      ),
     );
+    expect(radii.size).toBe(BODIES);
+  });
 
-    const firstColumn = shellCount;
-    const cx = positions[firstColumn * 3];
-    const cz = positions[firstColumn * 3 + 2];
-    expect(cx * cx + cz * cz).toBeGreaterThanOrEqual(
-      COLUMN_RADIUS.inner * COLUMN_RADIUS.inner - 0.1,
-    );
+  it('keeps every orbit inside the configured band', () => {
+    for (const body of bodyOrbits(attributes.orbits, coreCount, planetoidCount)) {
+      expect(body.radius).toBeGreaterThanOrEqual(NOVA_PLANETOIDS.orbitInner);
+      expect(body.radius).toBeLessThanOrEqual(NOVA_PLANETOIDS.orbitOuter);
+      expect(body.speed).toBeCloseTo(NOVA_PLANETOIDS.speed / body.radius, 6);
+    }
+  });
+
+  it('makes the widest orbit the slowest one', () => {
+    // Angular speed falls off with radius, so the inner bodies lap the outer
+    // ones — this is what replaced the old differential twist, and it is
+    // bounded because the bodies never stop being discrete objects.
+    const bodies = bodyOrbits(attributes.orbits, coreCount, planetoidCount);
+    const widest = bodies.reduce((a, b) => (b.radius > a.radius ? b : a));
+    const tightest = bodies.reduce((a, b) => (b.radius < a.radius ? b : a));
+    expect(widest.speed).toBeLessThan(tightest.speed);
+  });
+
+  it('leans every orbit plane by no more than the configured tilt', () => {
+    for (let point = coreCount; point < coreCount + planetoidCount; point += 1) {
+      expect(Math.abs(attributes.orbits[point * 4 + 3])).toBeLessThanOrEqual(
+        NOVA_PLANETOIDS.maxTilt,
+      );
+    }
+  });
+
+  it('keeps planetoid points near their own orbit', () => {
+    for (const body of bodyOrbits(attributes.orbits, coreCount, planetoidCount)) {
+      for (let i = 0; i < body.size; i += 1) {
+        const at = (body.start + i) * 3;
+        const distance = Math.hypot(
+          attributes.positions[at],
+          attributes.positions[at + 1],
+          attributes.positions[at + 2],
+        );
+        // The offset is added to the orbit centre, so a point can sit a body
+        // radius either side of it — never further.
+        expect(distance).toBeLessThanOrEqual(
+          body.radius + NOVA_PLANETOIDS.bodyMax + 1e-3,
+        );
+      }
+    }
+  });
+
+  it('leaves the dust static, so nothing continuous is left to shear', () => {
+    const dustStart = coreCount + planetoidCount;
+    for (let i = 0; i < dustCount; i += 1) {
+      const point = dustStart + i;
+      expect(orbitAt(attributes.orbits, point)).toEqual([0, 0, 0, 0]);
+      expect(attributes.shades[point]).toBeCloseTo(NOVA_SHADE.dust, 5);
+    }
+  });
+
+  it('spreads the dust across a flared disc', () => {
+    const dustStart = coreCount + planetoidCount;
+    for (let i = 0; i < dustCount; i += 1) {
+      const at = (dustStart + i) * 3;
+      const x = attributes.positions[at];
+      const y = attributes.positions[at + 1];
+      const z = attributes.positions[at + 2];
+      expect(Math.hypot(x, z)).toBeLessThanOrEqual(NOVA_DUST.radius + 1e-3);
+      expect(Math.abs(y)).toBeLessThanOrEqual(NOVA_DUST.thickness + 1e-3);
+    }
+  });
+
+  it('keeps every point size inside the configured range', () => {
+    const { min, spread } = NOVA_POINT_SIZE;
+    for (const size of attributes.sizes) {
+      expect(size).toBeGreaterThanOrEqual(min);
+      expect(size).toBeLessThanOrEqual(min + spread + 1e-6);
+    }
+  });
+
+  it('biases sizes small, so a few points carry the brightness', () => {
+    const { min, spread } = NOVA_POINT_SIZE;
+    const midpoint = min + spread / 2;
+    const large = Array.from(attributes.sizes).filter(
+      (size) => size > midpoint,
+    ).length;
+    // A linear distribution would put about half above the midpoint; the
+    // squared bias has to push well under that.
+    expect(large).toBeLessThan(total * 0.35);
   });
 });

@@ -161,6 +161,19 @@ vi.mock('three', () => {
     ) {}
   }
 
+  class Vector2 {
+    constructor(
+      public x = 0,
+      public y = 0,
+    ) {}
+
+    set(x: number, y: number) {
+      this.x = x;
+      this.y = y;
+      return this;
+    }
+  }
+
   return {
     WebGLRenderer,
     Scene,
@@ -170,6 +183,7 @@ vi.mock('three', () => {
     PointsMaterial,
     Points,
     Vector3,
+    Vector2,
     AdditiveBlending: 2,
     ShaderChunk: {
       get points_vert() {
@@ -277,6 +291,52 @@ function resizeTo(element: HTMLElement, width: number, height: number) {
   });
 }
 
+function stubRect(
+  element: HTMLElement,
+  rect: { left: number; top: number; width: number; height: number },
+) {
+  element.getBoundingClientRect = () =>
+    ({
+      x: rect.left,
+      y: rect.top,
+      left: rect.left,
+      top: rect.top,
+      right: rect.left + rect.width,
+      bottom: rect.top + rect.height,
+      width: rect.width,
+      height: rect.height,
+      toJSON: () => ({}),
+    }) as DOMRect;
+}
+
+/**
+ * MouseEvent rather than PointerEvent: the handler only reads clientX/Y,
+ * and jsdom's PointerEvent support is not something to depend on.
+ */
+function movePointerTo(clientX: number, clientY: number) {
+  act(() => {
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX, clientY }));
+  });
+}
+
+/** The uniform objects are shared by reference, so this reads live values. */
+function readUniforms() {
+  const shader: MockShader = {
+    uniforms: {},
+    vertexShader: ANCHORED_VERTEX,
+    fragmentShader: ANCHORED_FRAGMENT,
+  };
+  h.materials[0].onBeforeCompile?.(shader);
+  return shader.uniforms;
+}
+
+function advanceFrames(count: number) {
+  const loop = h.renderers[0].setAnimationLoop.mock.calls[0][0] as () => void;
+  act(() => {
+    for (let i = 0; i < count; i += 1) loop();
+  });
+}
+
 async function flush(waitMs = 0) {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, waitMs));
@@ -321,15 +381,6 @@ describe('HeroScene capability gate', () => {
     expect(container.firstChild).toBeNull();
     expect(h.renderers).toHaveLength(0);
   });
-
-  it('renders nothing on touch-first devices', async () => {
-    installMatchMedia({ '(pointer: coarse)': true });
-
-    const { container } = await mount();
-
-    expect(container.firstChild).toBeNull();
-    expect(h.renderers).toHaveLength(0);
-  });
 });
 
 describe('HeroScene mounting', () => {
@@ -354,20 +405,27 @@ describe('HeroScene mounting', () => {
     );
   });
 
-  it('uploads the position, sizes and shift attributes', async () => {
+  it('uploads the position, sizes, orbits and shades attributes', async () => {
     await mount();
 
-    expect(h.attributeNames).toEqual(['position', 'sizes', 'shift']);
-    expect(h.attributes.map((attribute) => attribute.itemSize)).toEqual([3, 1, 4]);
+    expect(h.attributeNames).toEqual([
+      'position',
+      'sizes',
+      'orbits',
+      'shades',
+    ]);
+    expect(h.attributes.map((attribute) => attribute.itemSize)).toEqual([
+      3, 1, 4, 1,
+    ]);
   });
 
   it('sizes the cloud to the quality tier it picked', async () => {
     await mount();
 
     const expectedTier = pickQualityTier(readDeviceHints());
+    const counts = NOVA_QUALITY_TIERS[expectedTier];
     const expectedCount =
-      NOVA_QUALITY_TIERS[expectedTier].shellCount +
-      NOVA_QUALITY_TIERS[expectedTier].columnCount;
+      counts.coreCount + counts.planetoidCount + counts.dustCount;
 
     const positions = h.attributes[0];
     expect(positions.itemSize).toBe(3);
@@ -449,6 +507,122 @@ describe('HeroScene resizing', () => {
     // Only the initial sizing done at mount.
     expect(h.renderers[0].setSize).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps the cursor influence circular across a resize', async () => {
+    const { container } = await mount();
+    const sceneContainer = container.firstElementChild as HTMLElement;
+    resizeTo(sceneContainer, 800, 600);
+
+    const observer = resizeObservers[0];
+    act(() => {
+      observer.callback([], observer as unknown as ResizeObserver);
+    });
+
+    expect(
+      (readUniforms().uPointerAspect as { value: number }).value,
+    ).toBeCloseTo(800 / 600, 6);
+  });
+});
+
+describe('HeroScene cursor reaction', () => {
+  it('points the influence at the cursor while it is over the hero', async () => {
+    const { container } = await mount();
+    stubRect(container.firstElementChild as HTMLElement, {
+      left: 0,
+      top: 0,
+      width: 1000,
+      height: 500,
+    });
+
+    movePointerTo(250, 125);
+    advanceFrames(40);
+
+    const uniforms = readUniforms();
+    const pointer = (uniforms.uPointer as { value: { x: number; y: number } })
+      .value;
+    const strength = uniforms.uPointerStrength as { value: number };
+
+    // 250/1000 -> -0.5 in NDC x, and 125/500 flipped to +0.5 in NDC y.
+    expect(pointer.x).toBeCloseTo(-0.5, 6);
+    expect(pointer.y).toBeCloseTo(0.5, 6);
+    expect(strength.value).toBeGreaterThan(0.9);
+  });
+
+  it('stays inert until the cursor actually moves', async () => {
+    const { container } = await mount();
+    stubRect(container.firstElementChild as HTMLElement, {
+      left: 0,
+      top: 0,
+      width: 1000,
+      height: 500,
+    });
+
+    advanceFrames(20);
+
+    expect((readUniforms().uPointerStrength as { value: number }).value).toBe(0);
+  });
+
+  it('eases the influence out once the cursor leaves the hero', async () => {
+    const { container } = await mount();
+    stubRect(container.firstElementChild as HTMLElement, {
+      left: 0,
+      top: 0,
+      width: 1000,
+      height: 500,
+    });
+
+    movePointerTo(250, 125);
+    advanceFrames(40);
+    expect(
+      (readUniforms().uPointerStrength as { value: number }).value,
+    ).toBeGreaterThan(0.9);
+
+    movePointerTo(250, 5000);
+    advanceFrames(60);
+
+    expect(
+      (readUniforms().uPointerStrength as { value: number }).value,
+    ).toBeLessThan(0.05);
+  });
+
+  it('fades out when the pointer leaves the document entirely', async () => {
+    const { container } = await mount();
+    stubRect(container.firstElementChild as HTMLElement, {
+      left: 0,
+      top: 0,
+      width: 1000,
+      height: 500,
+    });
+
+    movePointerTo(500, 250);
+    advanceFrames(40);
+
+    act(() => {
+      document.dispatchEvent(new MouseEvent('pointerleave'));
+    });
+    advanceFrames(60);
+
+    expect(
+      (readUniforms().uPointerStrength as { value: number }).value,
+    ).toBeLessThan(0.05);
+  });
+
+  it('stays inert when the container has no measurable size', async () => {
+    // jsdom reports an all-zero rect by default, mirroring a collapsed or
+    // not-yet-laid-out hero. Dividing by that width would produce NaN.
+    await mount();
+
+    movePointerTo(10, 10);
+    advanceFrames(5);
+
+    const uniforms = readUniforms();
+    const pointer = (uniforms.uPointer as { value: { x: number; y: number } })
+      .value;
+
+    expect((uniforms.uPointerStrength as { value: number }).value).toBe(0);
+    expect(Number.isNaN(pointer.x)).toBe(false);
+    expect(Number.isNaN(pointer.y)).toBe(false);
+  });
 });
 
 describe('HeroScene shader wiring', () => {
@@ -471,10 +645,13 @@ describe('HeroScene shader wiring', () => {
       'uColorCore',
       'uColorDeep',
       'uColorMid',
+      'uPointer',
+      'uPointerAspect',
+      'uPointerStrength',
     ]);
     expect(shader.vertexShader).toContain('gl_PointSize = size * sizes;');
     expect(shader.vertexShader).toContain('uColorCore');
-    expect(shader.fragmentShader).toContain('smoothstep(0.5, 0.1, d)');
+    expect(shader.fragmentShader).toContain('pow(1.0 - novaR2, 2.0)');
   });
 
   it('feeds the theme palette into the shader uniforms', async () => {
@@ -657,6 +834,45 @@ describe('HeroScene teardown', () => {
     unmount();
     await flush();
 
+    expect(h.renderers).toHaveLength(0);
+  });
+});
+
+describe('HeroScene on touch-first devices', () => {
+  it('mounts anyway, on the smaller tier and a capped pixel ratio', async () => {
+    installMatchMedia({ '(pointer: coarse)': true });
+    Object.defineProperty(window, 'devicePixelRatio', {
+      configurable: true,
+      value: 3,
+    });
+
+    try {
+      await mount();
+
+      // The fixed-cost gate turns touch devices away; the adaptive one admits
+      // them, so the scene has to actually shed the budget it was let in on.
+      expect(h.renderers).toHaveLength(1);
+      expect(h.renderers[0].setPixelRatio).toHaveBeenCalledWith(1.5);
+
+      const counts = NOVA_QUALITY_TIERS.medium;
+      const total =
+        counts.coreCount + counts.planetoidCount + counts.dustCount;
+      const position = h.attributes.find((entry) => entry.itemSize === 3);
+      expect(position?.array.length).toBe(total * 3);
+    } finally {
+      Object.defineProperty(window, 'devicePixelRatio', {
+        configurable: true,
+        value: 1,
+      });
+    }
+  });
+
+  it('still refuses to mount when the user asked for less motion', async () => {
+    installMatchMedia({ '(prefers-reduced-motion: reduce)': true });
+
+    const { container } = await mount();
+
+    expect(container.firstChild).toBeNull();
     expect(h.renderers).toHaveLength(0);
   });
 });

@@ -4,8 +4,14 @@ import { isCoarsePointer } from './pointer';
  * WebGL capability gate shared by every animated background in the app.
  *
  * A full-viewport WebGL scene is the main source of jank on weak GPUs, so
- * all of them share one policy: touch-first devices, low-memory machines,
- * and users who asked for less motion get the static treatment instead.
+ * they share a policy: low-memory machines and users who asked for less
+ * motion always get the static treatment.
+ *
+ * Touch-first devices are the one place the two scenes disagree, so there
+ * are two gates rather than one. A fixed-cost scene holds the same budget on
+ * every device, so on a phone it is a liability and gets skipped. A scene
+ * that can shed cost — fewer points, capped pixel ratio — is allowed there
+ * instead, as long as it actually does shed it. The caller owns that part.
  */
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
@@ -40,10 +46,27 @@ export function isLowMemoryDevice(
   );
 }
 
+/**
+ * For fixed-cost scenes: the same budget everywhere, so a touch-first device
+ * is excluded rather than left to stutter.
+ */
 export function isWebglCapable(hints?: DeviceHints): boolean {
   if (typeof window === 'undefined') return false;
   if (prefersReducedMotion()) return false;
   if (isCoarsePointer()) return false;
+  return !isLowMemoryDevice(hints);
+}
+
+/**
+ * For scenes that scale their own cost down. Touch-first devices are allowed
+ * here, so whoever calls this must check {@link isCoarsePointer} and cut the
+ * budget — a smaller tier and a capped pixel ratio. The pixel ratio is the
+ * bigger lever of the two on a phone, where a DPR of 3 is several times the
+ * fragment work of a laptop.
+ */
+export function isAdaptiveWebglCapable(hints?: DeviceHints): boolean {
+  if (typeof window === 'undefined') return false;
+  if (prefersReducedMotion()) return false;
   return !isLowMemoryDevice(hints);
 }
 
