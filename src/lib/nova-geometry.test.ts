@@ -237,11 +237,17 @@ describe('buildNovaAttributes', () => {
     expect(speeds.every((speed) => speed > 0)).toBe(true);
   });
 
-  it('leans the whole system by one shared angle', () => {
+  it('leans the whole system by one shared oblique angle', () => {
     // The lean is a scene value now, not a per-point one, so it must not
     // live in the attribute.
-    expect(NOVA_PLANE_TILT).toBeCloseTo(Math.PI / 4, 6);
     expect(attributes.orbits).toHaveLength(total * 3);
+    // Asserted as a property rather than a fixed number, because what has to
+    // hold is that the disc stays oblique. Near sin 0 it goes edge-on and
+    // collapses to a line; near cos 0 it goes face-on and collapses to a
+    // circle. The exact lean between those two is a taste knob, not an
+    // invariant, so it should not fail the suite every time it is tuned.
+    expect(Math.sin(NOVA_PLANE_TILT)).toBeGreaterThan(0.2);
+    expect(Math.cos(NOVA_PLANE_TILT)).toBeGreaterThan(0.2);
   });
 
   it('keeps planetoid points near their own orbit', () => {

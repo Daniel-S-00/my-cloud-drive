@@ -38,10 +38,10 @@ export const NOVA_ORBIT_SPEED = 0.9;
 /**
  * Lean of the whole system, in radians, about Z. Applied as the points
  * object's own rotation rather than in the shader, since that is the same
- * transform for free. 45° runs the disc's long axis diagonally across the
- * frame instead of leaving it flat and nearly edge-on.
+ * transform for free. 20° tips the disc off flat so it reads as a disc seen
+ * at an angle, without the pronounced diagonal a steeper lean gives.
  */
-export const NOVA_PLANE_TILT = Math.PI / 4;
+export const NOVA_PLANE_TILT = Math.PI / 9;
 
 export const NOVA_PLANETOIDS = {
   /** How many bodies orbit the core. */
