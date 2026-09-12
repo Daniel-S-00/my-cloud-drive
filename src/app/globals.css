@@ -185,6 +185,21 @@ dialog::backdrop {
 }
 
 /*
+ * Typing caret for the glitch headline. Only ever rendered while the reveal
+ * is running, so reduced motion never sees it. Falls back to the inherited
+ * colour if the theme token is unavailable.
+ */
+.landing-caret {
+  display: inline-block;
+  width: 0.09em;
+  height: 0.85em;
+  margin-left: 0.08em;
+  vertical-align: -0.08em;
+  background-color: var(--color-accent-glow, currentColor);
+  animation: landing-caret-blink 0.9s step-end infinite;
+}
+
+/*
  * Low-contrast "drafting grid" adapted from the personal-page project
  * (its .site-shell). Uses this project's own color tokens.
  */
@@ -270,6 +285,16 @@ html.resizing *::after {
 @keyframes landing-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes landing-caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
   }
 }
 

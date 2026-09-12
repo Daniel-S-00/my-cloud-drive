@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
+import { GlitchHeadline } from './glitch-headline';
 import HeroScene from './hero-scene';
 
 function reveal(delay: string): CSSProperties {
@@ -175,15 +176,18 @@ export function Hero() {
       </div>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-4 pb-12 pt-12 text-center sm:px-6 md:pt-14">
-        <h1
-          className="landing-fade max-w-3xl text-balance font-display text-5xl font-semibold leading-[1.05] tracking-tight text-text-primary sm:text-6xl md:text-7xl"
-          style={reveal('0ms')}
-        >
-          Your files,{' '}
-          <span className="landing-display font-normal text-accent-glow">
-            in your orbit.
-          </span>
-        </h1>
+        {/* The headline's own entry is the typing reveal, so it carries no
+            fade: the two would fight over the characters' visibility. */}
+        <GlitchHeadline
+          className="max-w-3xl text-balance font-display text-5xl font-semibold leading-[1.05] tracking-tight text-text-primary sm:text-6xl md:text-7xl"
+          parts={[
+            { text: 'Your files, ' },
+            {
+              text: 'in your orbit.',
+              className: 'landing-display font-normal text-accent-glow',
+            },
+          ]}
+        />
 
         <p
           className="landing-fade mt-5 max-w-xl text-balance text-base text-text-secondary"
