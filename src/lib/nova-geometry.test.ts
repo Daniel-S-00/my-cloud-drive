@@ -250,7 +250,12 @@ describe('buildNovaAttributes', () => {
     expect(Math.cos(NOVA_PLANE_TILT)).toBeGreaterThan(0.2);
   });
 
-  it('keeps planetoid points near their own orbit', () => {
+  it('rides the planetoids on a plane above the dust', () => {
+    // The lift has to clear the disc, or the bodies are still inside it.
+    // Asserted against the full thickness rather than the flared value, so
+    // it holds wherever a point happens to sit in the disc.
+    expect(NOVA_PLANETOIDS.lift).toBeGreaterThan(NOVA_DUST.thickness);
+
     for (const body of bodyOrbits(
       attributes.orbits,
       coreCount,
@@ -258,16 +263,15 @@ describe('buildNovaAttributes', () => {
     )) {
       for (let i = 0; i < body.size; i += 1) {
         const at = (body.start + i) * 3;
-        const distance = Math.hypot(
+        // Distance from the body's own centre, which means undoing the lift
+        // first. The offset is added to the orbit centre, so a point can sit
+        // a body radius either side of it — never further.
+        const offset = Math.hypot(
           attributes.positions[at],
-          attributes.positions[at + 1],
+          attributes.positions[at + 1] - NOVA_PLANETOIDS.lift,
           attributes.positions[at + 2],
         );
-        // The offset is added to the orbit centre, so a point can sit a body
-        // radius either side of it — never further.
-        expect(distance).toBeLessThanOrEqual(
-          body.radius + NOVA_PLANETOIDS.bodyMax + 1e-3,
-        );
+        expect(offset).toBeLessThanOrEqual(NOVA_PLANETOIDS.bodyMax + 1e-3);
       }
     }
   });

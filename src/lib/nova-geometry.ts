@@ -52,6 +52,11 @@ export const NOVA_PLANETOIDS = {
   /** Radius of each body. Kept well under the core so the hierarchy reads. */
   bodyMin: 0.34,
   bodyMax: 0.82,
+  /**
+   * How far the bodies ride above the disc plane, along its normal. Has to
+   * clear the dust thickness or they are simply back inside the disc.
+   */
+  lift: 3.5,
 } as const;
 
 export const NOVA_DUST = {
@@ -144,19 +149,27 @@ export function buildNovaAttributes({
    * Uniform inside a ball. The cube root is what keeps the density even —
    * without it points crowd the centre instead of filling the volume.
    */
-  const ballOffset = (ballRadius: number): [number, number, number] => {
+  const ballOffset = (
+    ballRadius: number,
+    lift = 0,
+  ): [number, number, number] => {
     const [x, y, z] = randomDirection(rng);
     const distance = ballRadius * Math.cbrt(rng());
-    return [x * distance, y * distance, z * distance];
+    return [x * distance, y * distance + lift, z * distance];
   };
 
-  // The core: a dense ball at the origin, with nothing to orbit.
+  // The core: a dense ball at the origin, with nothing to orbit. It stays on
+  // the disc plane rather than riding above it, which is what keeps it
+  // reading as the centre of the disc.
   for (let i = 0; i < coreCount; i += 1) {
     push(ballOffset(NOVA_CORE.radius), STATIC, NOVA_SHADE.core);
   }
 
   // Planetoids: each body is a ball of points that shares one orbit, so the
-  // body stays rigid as it travels instead of smearing along the path.
+  // body stays rigid as it travels instead of smearing along the path. The
+  // lift rides them on a plane above the dust rather than through it; it is
+  // local +Y, so the scene's own lean carries it along and the bodies hold a
+  // fixed height over the disc instead of over the world.
   const perBody = Math.floor(planetoidCount / NOVA_PLANETOIDS.count);
   const extra = planetoidCount % NOVA_PLANETOIDS.count;
 
@@ -179,7 +192,11 @@ export function buildNovaAttributes({
     const bodyPointCount = perBody + (body < extra ? 1 : 0);
 
     for (let i = 0; i < bodyPointCount; i += 1) {
-      push(ballOffset(bodyRadius), orbit, NOVA_SHADE.planetoid);
+      push(
+        ballOffset(bodyRadius, NOVA_PLANETOIDS.lift),
+        orbit,
+        NOVA_SHADE.planetoid,
+      );
     }
   }
 
