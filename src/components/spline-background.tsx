@@ -10,6 +10,10 @@ import {
 } from 'react';
 import dynamic from 'next/dynamic';
 import type { Application } from '@splinetool/runtime';
+import {
+  isWebglCapable,
+  subscribeWebglCapability,
+} from '@/lib/webgl-capability';
 
 const Spline = dynamic(() => import('@splinetool/react-spline'), {
   ssr: false,
@@ -19,46 +23,6 @@ const Spline = dynamic(() => import('@splinetool/react-spline'), {
 // CSS. It's an atmospheric background behind a card, so the slight
 // softness is invisible while the fill-rate (and GPU cost) drops.
 const RENDER_SCALE = 0.7;
-
-function isSplineCapable(): boolean {
-  if (typeof window === 'undefined') return false;
-  // Respect the OS "reduce motion" preference.
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    return false;
-  }
-  // Touch-first devices (phones/tablets) have far weaker GPUs — the
-  // full-screen WebGL scene is the main source of jank there.
-  if (window.matchMedia('(pointer: coarse)').matches) {
-    return false;
-  }
-  // Low-memory machines (where the API reports it) get the static
-  // backdrop too.
-  const memory = (navigator as Navigator & { deviceMemory?: number })
-    .deviceMemory;
-  if (typeof memory === 'number' && memory > 0 && memory < 4) {
-    return false;
-  }
-  return true;
-}
-
-function getSplineCapable(): boolean {
-  if (typeof window === 'undefined') return false;
-  return isSplineCapable();
-}
-
-// Re-evaluate whenever the OS motion preference or the primary pointer
-// type changes (e.g. reduced-motion toggled, device rotation).
-function subscribeSplineCapable(callback: () => void): () => void {
-  if (typeof window === 'undefined') return () => {};
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const coarse = window.matchMedia('(pointer: coarse)');
-  reduced.addEventListener('change', callback);
-  coarse.addEventListener('change', callback);
-  return () => {
-    reduced.removeEventListener('change', callback);
-    coarse.removeEventListener('change', callback);
-  };
-}
 
 function StaticBackdrop() {
   return (
@@ -100,8 +64,8 @@ export default function SplineBackground() {
   // after hydration. Passing the same function for both would make the
   // client compute "server snapshot = true" and mismatch the HTML.
   const capable = useSyncExternalStore(
-    subscribeSplineCapable,
-    getSplineCapable,
+    subscribeWebglCapability,
+    isWebglCapable,
     () => false,
   );
   const [app, setApp] = useState<Application | null>(null);

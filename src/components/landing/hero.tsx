@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
+import HeroScene from './hero-scene';
 
 function reveal(delay: string): CSSProperties {
   return { animationDelay: delay };
@@ -159,8 +160,18 @@ export function Hero() {
       data-testid="hero"
       className="relative flex min-h-[calc(100svh-4rem)] flex-col overflow-hidden"
     >
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-[-300px] h-[560px] w-[860px] -translate-x-1/2 rounded-full bg-accent-primary/15 blur-[120px]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+        <HeroScene />
+        {/* Scrim stack. The canvas is transparent, so the vertical wash
+            only darkens the particles; the radial shield does the same
+            but concentrated behind the copy, which otherwise sits on the
+            brightest part of the field; the bottom fade paints the page
+            colour over the clipped edge of the canvas so the section
+            boundary doesn't read as a line. */}
+        <div className="absolute inset-0 bg-gradient-to-b from-bg-base/70 via-bg-base/30 to-bg-base/60" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_62%_42%_at_50%_30%,rgb(4_8_16/0.78),transparent_78%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(to_bottom,transparent,rgb(4_8_16/0.55)_55%,rgb(4_8_16))]" />
+        <div className="absolute left-1/2 top-[-300px] h-[560px] w-[860px] -translate-x-1/2 rounded-full bg-accent-primary/10 blur-[120px]" />
       </div>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-4 pb-12 pt-12 text-center sm:px-6 md:pt-14">
