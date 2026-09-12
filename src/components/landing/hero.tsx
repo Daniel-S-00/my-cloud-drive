@@ -189,9 +189,8 @@ export function Hero() {
           className="landing-fade mt-5 max-w-xl text-balance text-base text-text-secondary"
           style={reveal('90ms')}
         >
-          My Cloud Drive is a private home for your files — drag-and-drop
-          uploads, shareable links, trash recovery, and two-factor security,
-          all under your control.
+          Drag-and-drop uploads, shareable links, trash recovery, and
+          two-factor security — everything you upload stays in your orbit.
         </p>
 
         <div
