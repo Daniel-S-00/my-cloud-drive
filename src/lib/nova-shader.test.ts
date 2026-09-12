@@ -84,7 +84,7 @@ describe('patchNovaVertex', () => {
     expect(patched).toContain(NOVA_VERTEX_DECLS);
     expect(patched).toContain('uniform float time;');
     expect(patched).toContain('attribute float sizes;');
-    expect(patched).toContain('attribute vec4 orbits;');
+    expect(patched).toContain('attribute vec3 orbits;');
     expect(patched).toContain('attribute float shades;');
     expect(patched).toContain('varying vec3 vColor;');
     expect(patched).toContain('uniform vec3 uColorCore;');
@@ -132,15 +132,19 @@ describe('patchNovaVertex', () => {
   it('moves each point along its own orbit', () => {
     expect(NOVA_VERTEX_ORBIT).toContain('orbits.y + time * orbits.z');
     expect(NOVA_VERTEX_ORBIT).toContain('* orbits.x');
-    expect(NOVA_VERTEX_ORBIT).toContain('orbits.w');
+    // The plane is shared now, so the attribute carries no per-point tilt.
+    expect(NOVA_VERTEX_ORBIT).not.toContain('orbits.w');
   });
 
-  it('leaves static points exactly where they are', () => {
-    // Core and dust carry a zero orbit, so the centre term has to vanish
-    // rather than merely be small.
-    expect(NOVA_VERTEX_ORBIT).toContain('transformed += novaCenter;');
-    const angleAtRest = 'orbits.y + time * orbits.z';
-    expect(NOVA_VERTEX_ORBIT).toContain(`float novaAngle = ${angleAtRest};`);
+  it('leaves a zero orbit exactly where the point started', () => {
+    // Core points carry a zero orbit, so the radius has to scale the whole
+    // displacement: at orbits.x == 0 the point must not shift at all.
+    expect(NOVA_VERTEX_ORBIT).toContain(
+      'transformed += vec3(cos(novaAngle), 0.0, sin(novaAngle)) * orbits.x;',
+    );
+    expect(NOVA_VERTEX_ORBIT).toContain(
+      'float novaAngle = orbits.y + time * orbits.z;',
+    );
   });
 });
 

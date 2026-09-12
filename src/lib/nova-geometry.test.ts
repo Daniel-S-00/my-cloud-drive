@@ -3,6 +3,8 @@ import { describe, it, expect } from 'vitest';
 import {
   NOVA_CORE,
   NOVA_DUST,
+  NOVA_ORBIT_SPEED,
+  NOVA_PLANE_TILT,
   NOVA_PLANETOIDS,
   NOVA_POINT_SIZE,
   NOVA_QUALITY_TIERS,
@@ -29,16 +31,15 @@ function bodySize(index: number, planetoidCount: number): number {
 }
 
 function orbitAt(orbits: Float32Array, point: number) {
-  return [
-    orbits[point * 4],
-    orbits[point * 4 + 1],
-    orbits[point * 4 + 2],
-    orbits[point * 4 + 3],
-  ];
+  return [orbits[point * 3], orbits[point * 3 + 1], orbits[point * 3 + 2]];
 }
 
 /** First point index of each body, paired with the body's own orbit. */
-function bodyOrbits(orbits: Float32Array, coreCount: number, planetoidCount: number) {
+function bodyOrbits(
+  orbits: Float32Array,
+  coreCount: number,
+  planetoidCount: number,
+) {
   const bodies: { radius: number; speed: number; start: number; size: number }[] =
     [];
   let point = coreCount;
@@ -57,8 +58,8 @@ describe('NOVA_QUALITY_TIERS', () => {
       const counts = NOVA_QUALITY_TIERS[tier];
       return counts.coreCount + counts.planetoidCount + counts.dustCount;
     };
-    expect(total('high')).toBe(80_000);
-    expect(total('medium')).toBe(40_000);
+    expect(total('high')).toBe(144_000);
+    expect(total('medium')).toBe(72_000);
   });
 
   it('halves every population on the lower tier', () => {
@@ -104,6 +105,7 @@ describe('buildNovaAttributes', () => {
   const planetoidCount = 600;
   const dustCount = 200;
   const total = coreCount + planetoidCount + dustCount;
+  const dustStart = coreCount + planetoidCount;
   const attributes = buildNovaAttributes({
     coreCount,
     planetoidCount,
@@ -115,7 +117,7 @@ describe('buildNovaAttributes', () => {
     expect(attributes.count).toBe(total);
     expect(attributes.positions).toHaveLength(total * 3);
     expect(attributes.sizes).toHaveLength(total);
-    expect(attributes.orbits).toHaveLength(total * 4);
+    expect(attributes.orbits).toHaveLength(total * 3);
     expect(attributes.shades).toHaveLength(total);
   });
 
@@ -137,7 +139,9 @@ describe('buildNovaAttributes', () => {
       dustCount,
       rng: seeded(7),
     });
-    expect(Array.from(again.positions)).toEqual(Array.from(attributes.positions));
+    expect(Array.from(again.positions)).toEqual(
+      Array.from(attributes.positions),
+    );
     expect(Array.from(again.orbits)).toEqual(Array.from(attributes.orbits));
   });
 
@@ -159,7 +163,7 @@ describe('buildNovaAttributes', () => {
       const y = attributes.positions[point * 3 + 1];
       const z = attributes.positions[point * 3 + 2];
       expect(Math.hypot(x, y, z)).toBeLessThanOrEqual(NOVA_CORE.radius + 1e-3);
-      expect(orbitAt(attributes.orbits, point)).toEqual([0, 0, 0, 0]);
+      expect(orbitAt(attributes.orbits, point)).toEqual([0, 0, 0]);
       expect(attributes.shades[point]).toBeCloseTo(NOVA_SHADE.core, 5);
     }
   });
@@ -200,10 +204,14 @@ describe('buildNovaAttributes', () => {
   });
 
   it('keeps every orbit inside the configured band', () => {
-    for (const body of bodyOrbits(attributes.orbits, coreCount, planetoidCount)) {
+    for (const body of bodyOrbits(
+      attributes.orbits,
+      coreCount,
+      planetoidCount,
+    )) {
       expect(body.radius).toBeGreaterThanOrEqual(NOVA_PLANETOIDS.orbitInner);
       expect(body.radius).toBeLessThanOrEqual(NOVA_PLANETOIDS.orbitOuter);
-      expect(body.speed).toBeCloseTo(NOVA_PLANETOIDS.speed / body.radius, 6);
+      expect(body.speed).toBeCloseTo(NOVA_ORBIT_SPEED / body.radius, 5);
     }
   });
 
@@ -217,16 +225,31 @@ describe('buildNovaAttributes', () => {
     expect(widest.speed).toBeLessThan(tightest.speed);
   });
 
-  it('leans every orbit plane by no more than the configured tilt', () => {
-    for (let point = coreCount; point < coreCount + planetoidCount; point += 1) {
-      expect(Math.abs(attributes.orbits[point * 4 + 3])).toBeLessThanOrEqual(
-        NOVA_PLANETOIDS.maxTilt,
-      );
+  it('turns the bodies and the dust the same way', () => {
+    // Every angular speed sharing a sign is what makes the scene read as one
+    // rotating system. Per-body inclinations used to fight this: a body on a
+    // mirrored plane climbs where its neighbour descends, which looks like
+    // bodies orbiting in opposite directions.
+    const speeds: number[] = [];
+    for (let point = coreCount; point < total; point += 1) {
+      speeds.push(attributes.orbits[point * 3 + 2]);
     }
+    expect(speeds.every((speed) => speed > 0)).toBe(true);
+  });
+
+  it('leans the whole system by one shared angle', () => {
+    // The lean is a scene value now, not a per-point one, so it must not
+    // live in the attribute.
+    expect(NOVA_PLANE_TILT).toBeCloseTo(Math.PI / 4, 6);
+    expect(attributes.orbits).toHaveLength(total * 3);
   });
 
   it('keeps planetoid points near their own orbit', () => {
-    for (const body of bodyOrbits(attributes.orbits, coreCount, planetoidCount)) {
+    for (const body of bodyOrbits(
+      attributes.orbits,
+      coreCount,
+      planetoidCount,
+    )) {
       for (let i = 0; i < body.size; i += 1) {
         const at = (body.start + i) * 3;
         const distance = Math.hypot(
@@ -243,25 +266,47 @@ describe('buildNovaAttributes', () => {
     }
   });
 
-  it('leaves the dust static, so nothing continuous is left to shear', () => {
-    const dustStart = coreCount + planetoidCount;
+  it('co-rotates the dust with the bodies at the same radius', () => {
     for (let i = 0; i < dustCount; i += 1) {
       const point = dustStart + i;
-      expect(orbitAt(attributes.orbits, point)).toEqual([0, 0, 0, 0]);
+      const radius = attributes.orbits[point * 3];
+      const speed = attributes.orbits[point * 3 + 2];
+      expect(speed).toBeCloseTo(NOVA_ORBIT_SPEED / radius, 5);
+    }
+  });
+
+  it('floors the dust orbit so nothing sits on the axis', () => {
+    // The 1/radius speed law tends to infinity near the centre, so the
+    // innermost dust has to be held off it.
+    for (let i = 0; i < dustCount; i += 1) {
+      expect(attributes.orbits[(dustStart + i) * 3]).toBeGreaterThanOrEqual(
+        NOVA_DUST.minOrbit,
+      );
+    }
+  });
+
+  it('carries the dust disc in its orbit, not its offset', () => {
+    for (let i = 0; i < dustCount; i += 1) {
+      const point = dustStart + i;
+      expect(attributes.orbits[point * 3]).toBeLessThanOrEqual(
+        NOVA_DUST.radius + 1e-3,
+      );
+      // The offset is only the disc's thickness; where the point sits in the
+      // ring comes from the orbit.
+      expect(attributes.positions[point * 3]).toBe(0);
+      expect(attributes.positions[point * 3 + 2]).toBe(0);
+      expect(Math.abs(attributes.positions[point * 3 + 1])).toBeLessThanOrEqual(
+        NOVA_DUST.thickness + 1e-3,
+      );
       expect(attributes.shades[point]).toBeCloseTo(NOVA_SHADE.dust, 5);
     }
   });
 
-  it('spreads the dust across a flared disc', () => {
-    const dustStart = coreCount + planetoidCount;
-    for (let i = 0; i < dustCount; i += 1) {
-      const at = (dustStart + i) * 3;
-      const x = attributes.positions[at];
-      const y = attributes.positions[at + 1];
-      const z = attributes.positions[at + 2];
-      expect(Math.hypot(x, z)).toBeLessThanOrEqual(NOVA_DUST.radius + 1e-3);
-      expect(Math.abs(y)).toBeLessThanOrEqual(NOVA_DUST.thickness + 1e-3);
-    }
+  it('keeps the dust dimmer than the planetoids', () => {
+    // With additive blending the dust accumulates over far more points, so
+    // its per-point shade has to stay well above the bodies' or it buries
+    // them.
+    expect(NOVA_SHADE.dust).toBeGreaterThan(NOVA_SHADE.planetoid);
   });
 
   it('keeps every point size inside the configured range', () => {

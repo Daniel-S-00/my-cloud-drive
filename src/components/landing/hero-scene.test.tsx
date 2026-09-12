@@ -415,7 +415,7 @@ describe('HeroScene mounting', () => {
       'shades',
     ]);
     expect(h.attributes.map((attribute) => attribute.itemSize)).toEqual([
-      3, 1, 4, 1,
+      3, 1, 3, 1,
     ]);
   });
 
@@ -430,7 +430,7 @@ describe('HeroScene mounting', () => {
     const positions = h.attributes[0];
     expect(positions.itemSize).toBe(3);
     expect(positions.array.length).toBe(expectedCount * 3);
-    expect([40_000, 80_000]).toContain(expectedCount);
+    expect([72_000, 144_000]).toContain(expectedCount);
   });
 
   it('starts the render loop', async () => {

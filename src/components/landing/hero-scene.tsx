@@ -3,6 +3,7 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { WebGLRenderer } from 'three';
 import {
+  NOVA_PLANE_TILT,
   NOVA_QUALITY_TIERS,
   buildNovaAttributes,
   pickQualityTier,
@@ -35,8 +36,6 @@ const PARALLAX = {
   damping: 0.045,
 } as const;
 const POINT_BASE_SIZE = 0.1;
-/** Rigid turn of the whole system, in radians per unit of `elapsed`. */
-const GLOBAL_SPIN = 0.02;
 const MAX_PIXEL_RATIO = 2;
 /**
  * A phone reporting a DPR of 3 renders nine times the pixels of the same
@@ -114,7 +113,7 @@ function mountScene(
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('sizes', new THREE.BufferAttribute(sizes, 1));
-  geometry.setAttribute('orbits', new THREE.BufferAttribute(orbits, 4));
+  geometry.setAttribute('orbits', new THREE.BufferAttribute(orbits, 3));
   geometry.setAttribute('shades', new THREE.BufferAttribute(shades, 1));
 
   const palette = resolveNovaPalette(document.documentElement);
@@ -142,6 +141,10 @@ function mountScene(
   };
 
   const points = new THREE.Points(geometry, material);
+  // One lean for the whole system, so the disc runs diagonally across the
+  // frame. Rotating the object is the same transform the shader would apply
+  // per vertex, only free.
+  points.rotation.z = NOVA_PLANE_TILT;
   scene.add(points);
 
   let pointerX = 0;
@@ -193,9 +196,6 @@ function mountScene(
     elapsed += delta * 0.5;
 
     uniforms.time.value = elapsed * Math.PI;
-    // A slow, rigid turn of the whole system. Because it is uniform it adds
-    // no shear; the relative motion comes from the orbits themselves.
-    points.rotation.y = elapsed * GLOBAL_SPIN;
 
     cameraX += (pointerX * PARALLAX.horizontal - cameraX) * PARALLAX.damping;
     cameraY +=

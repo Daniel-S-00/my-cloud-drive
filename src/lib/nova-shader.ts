@@ -32,7 +32,7 @@ export const NOVA_VERTEX_DECLS = [
   'uniform float uPointerAspect;',
   'uniform float uPointerStrength;',
   'attribute float sizes;',
-  'attribute vec4 orbits;',
+  'attribute vec3 orbits;',
   'attribute float shades;',
   'varying vec3 vColor;',
   '',
@@ -52,9 +52,8 @@ export const NOVA_VERTEX_RAMP = [
 
 /**
  * Orbital motion. Each point carries its own orbit — radius, phase, angular
- * speed and the inclination of its plane — in the `orbits` attribute, so a
- * body's points travel together and the body stays rigid instead of
- * smearing along its path.
+ * speed in the `orbits` attribute, so a body's points travel together and the
+ * body stays rigid instead of smearing along its path.
  *
  * Angular speed is stored per point rather than derived here, which is what
  * lets the inner bodies lap the outer ones. Static points carry a zero
@@ -62,15 +61,7 @@ export const NOVA_VERTEX_RAMP = [
  */
 export const NOVA_VERTEX_ORBIT = [
   '\tfloat novaAngle = orbits.y + time * orbits.z;',
-  '\tvec3 novaCenter = vec3(cos(novaAngle), 0.0, sin(novaAngle)) * orbits.x;',
-  '\tfloat novaCosTilt = cos(orbits.w);',
-  '\tfloat novaSinTilt = sin(orbits.w);',
-  '\tnovaCenter = vec3(',
-  '\t\tnovaCenter.x,',
-  '\t\tnovaCenter.y * novaCosTilt - novaCenter.z * novaSinTilt,',
-  '\t\tnovaCenter.y * novaSinTilt + novaCenter.z * novaCosTilt',
-  '\t);',
-  '\ttransformed += novaCenter;',
+  '\ttransformed += vec3(cos(novaAngle), 0.0, sin(novaAngle)) * orbits.x;',
 ].join('\n');
 
 /**
