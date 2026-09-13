@@ -46,9 +46,15 @@ export function GlitchMorph({ phrases, className }: GlitchMorphProps) {
 
   // Frame zero is the first phrase, settled. That is what the server renders
   // and what someone who asked for less motion keeps seeing.
-  const animating =
-    !prefersReducedMotion() &&
-    (visible || typeof IntersectionObserver === 'undefined');
+  // Only tick while it is actually on screen.
+  //
+  // Deliberately no fallback for a browser without an IntersectionObserver:
+  // "no observer" is also true during the server render, so treating it as
+  // visible made the server paint a scrambling frame that the client's first
+  // render disagreed with — a hydration mismatch that threw away the whole
+  // tree. Without an observer the phrase simply holds still, which is the
+  // graceful answer anyway.
+  const animating = !prefersReducedMotion() && visible;
   // Start on the write that brings the opening phrase in rather than on its
   // hold, so the line scrambles itself alive instead of appearing already
   // spelled out. That write closes the previous turn of the loop, which is

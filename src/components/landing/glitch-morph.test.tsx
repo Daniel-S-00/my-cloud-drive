@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { GlitchMorph } from './glitch-morph';
 import { GLITCH_TIMING, MORPH_TIMING, morphCycle } from '@/lib/glitch-text';
 
@@ -166,6 +167,26 @@ describe('GlitchMorph', () => {
       ).toBeGreaterThan(0);
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it('server-renders the settled phrase when there is no observer at all', () => {
+    // The real server has no IntersectionObserver, and reading "no observer"
+    // as visible paints a scrambling frame there that the client's first
+    // render disagrees with — a hydration mismatch that throws the whole tree
+    // away. The stub has to go for this to reproduce at all: the test
+    // environment installs one, so the condition would never be true here.
+    const globals = globalThis as unknown as Record<string, unknown>;
+    const saved = globals.IntersectionObserver;
+    delete globals.IntersectionObserver;
+
+    try {
+      const serverHtml = renderToStaticMarkup(<GlitchMorph phrases={PHRASES} />);
+
+      expect(serverHtml).toContain(PHRASES[0].text);
+      expect(serverHtml).not.toContain('landing-glitch-glyph');
+    } finally {
+      globals.IntersectionObserver = saved;
     }
   });
 
