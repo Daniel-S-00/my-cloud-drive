@@ -221,6 +221,24 @@ dialog::backdrop {
   color: transparent;
 }
 
+/*
+ * Morphing phrase. Every phrase occupies the same grid cell, so the cell is
+ * as wide as the longest one and the text around it never reflows as the
+ * phrase shortens or grows — the same problem the characters above solve for
+ * a single reveal, at the scale of a whole line.
+ */
+.landing-morph {
+  display: inline-grid;
+}
+
+.landing-morph > * {
+  grid-area: 1 / 1;
+}
+
+.landing-morph-ghost {
+  visibility: hidden;
+}
+
 .landing-glitch-glyph {
   position: absolute;
   inset: 0;

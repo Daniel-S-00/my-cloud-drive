@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { GlitchHeadline } from './glitch-headline';
+import { GlitchMorph } from './glitch-morph';
 import HeroScene from './hero-scene';
 
 function reveal(delay: string): CSSProperties {
@@ -186,6 +187,18 @@ export function Hero() {
               text: 'in your orbit.',
               className: 'landing-display font-normal text-accent-glow',
             },
+          ]}
+        />
+
+        {/* A rotating extension of the headline's idea. It writes itself in
+            as the headline finishes typing, then keeps cycling. */}
+        <GlitchMorph
+          className="mt-4 font-display text-xl leading-tight text-accent-glow sm:text-2xl"
+          phrases={[
+            { text: 'Private to you.' },
+            { text: 'Yours to share.' },
+            { text: 'Never locked in.' },
+            { text: 'Under your control.' },
           ]}
         />
 

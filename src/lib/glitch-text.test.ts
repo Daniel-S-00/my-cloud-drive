@@ -8,6 +8,10 @@ import {
   pickGlyph,
   pickScrambleTicks,
   startDecode,
+  morphAt,
+  morphCycle,
+  MORPH_TIMING,
+  stableGlyph,
   type GlitchFrame,
 } from './glitch-text';
 
@@ -154,6 +158,130 @@ describe('startDecode', () => {
     expect(frame.done).toBe(true);
     expect(frame.chars.map((entry) => entry.char).join('')).toBe('ab');
     expect(frame.chars.every((entry) => entry.symbol === null)).toBe(true);
+  });
+});
+
+describe('morphCycle', () => {
+  it('sizes every phrase window to the longest phrase', () => {
+    // One character leaves per frame and one arrives per frame, so the
+    // longest phrase decides the window and no phrase gets cut off.
+    expect(morphCycle([{ text: 'ab' }])).toEqual({
+      erase: 2,
+      write: 2,
+      total: MORPH_TIMING.hold + 4,
+    });
+    expect(morphCycle([{ text: 'ab' }, { text: 'abcdefghij' }])).toEqual({
+      erase: 10,
+      write: 10,
+      total: MORPH_TIMING.hold + 20,
+    });
+  });
+
+  it('still yields a usable window for an empty list', () => {
+    expect(morphCycle([])).toEqual({
+      erase: 1,
+      write: 1,
+      total: MORPH_TIMING.hold + 2,
+    });
+  });
+});
+
+describe('stableGlyph', () => {
+  it('only ever returns glyphs from the set', () => {
+    for (let seed = 0; seed < 200; seed += 1) {
+      expect(SCRAMBLE_GLYPHS.includes(stableGlyph(seed))).toBe(true);
+    }
+  });
+
+  it('is stable for one seed and spread across seeds', () => {
+    expect(stableGlyph(7)).toBe(stableGlyph(7));
+
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 200; seed += 1) seen.add(stableGlyph(seed));
+    expect(seen.size).toBeGreaterThan(4);
+  });
+});
+
+describe('morphAt', () => {
+  const PHRASES = [
+    { text: 'in your orbit.' },
+    { text: 'on your terms.' },
+    { text: 'under your control.' },
+  ];
+  const cycle = morphCycle(PHRASES);
+  const { hold } = MORPH_TIMING;
+
+  it('opens on the first phrase, settled', () => {
+    const state = morphAt(PHRASES, 0);
+
+    expect(state.index).toBe(0);
+    expect(state.revealed).toBe(PHRASES[0].text.length);
+    // Hold is the quiet part of the cycle: nothing is scrambling.
+    expect(state.chars.every((entry) => entry.symbol === null)).toBe(true);
+  });
+
+  it('stays settled for the whole hold window', () => {
+    const lastHeld = morphAt(PHRASES, hold - 1);
+
+    expect(lastHeld.index).toBe(0);
+    expect(lastHeld.chars.every((entry) => entry.symbol === null)).toBe(true);
+  });
+
+  it('takes one character away per frame while erasing', () => {
+    expect(morphAt(PHRASES, hold).revealed).toBe(PHRASES[0].text.length - 1);
+    expect(morphAt(PHRASES, hold + 1).revealed).toBe(
+      PHRASES[0].text.length - 2,
+    );
+  });
+
+  it('trails noise at the moving edge, and only there', () => {
+    const state = morphAt(PHRASES, hold + 2);
+    const visible = state.chars.slice(0, state.revealed);
+    const noisy = visible.filter((entry) => entry.symbol !== null);
+
+    expect(noisy.length).toBeGreaterThan(0);
+    // The phrase behind the edge has already settled — noise is the tell of
+    // movement, so covering the whole line with it would read as static.
+    expect(noisy.length).toBeLessThan(visible.length);
+    for (const entry of noisy) {
+      expect(SCRAMBLE_GLYPHS.includes(entry.symbol ?? '')).toBe(true);
+    }
+    expect(visible[0].symbol).toBeNull();
+  });
+
+  it('brings the next phrase in one character at a time', () => {
+    expect(morphAt(PHRASES, hold + cycle.erase).revealed).toBe(1);
+    expect(morphAt(PHRASES, hold + cycle.erase + 1).revealed).toBe(2);
+  });
+
+  it('moves on to the next phrase, and wraps at the end of the list', () => {
+    expect(morphAt(PHRASES, cycle.total + hold).index).toBe(1);
+    expect(morphAt(PHRASES, cycle.total * PHRASES.length + 1).index).toBe(0);
+  });
+
+  it('renders a frame identically, so a re-render cannot reshuffle it', () => {
+    const frame = hold + 3;
+
+    expect(morphAt(PHRASES, frame)).toEqual(morphAt(PHRASES, frame));
+  });
+
+  it('wraps cleanly for a negative or a far-future frame', () => {
+    // Reading backwards is a legitimate query and must not index out of the
+    // list: one frame before the start is the closing frame of the loop
+    // before, not of the opening one.
+    expect(morphAt(PHRASES, -1)).toEqual(
+      morphAt(PHRASES, cycle.total * PHRASES.length - 1),
+    );
+
+    // A whole number of turns, so it lands back on the opening phrase.
+    expect(morphAt(PHRASES, cycle.total * 300).index).toBe(0);
+  });
+
+  it('survives an empty phrase list', () => {
+    const state = morphAt([], 0);
+
+    expect(state.chars).toEqual([]);
+    expect(state.revealed).toBe(0);
   });
 });
 

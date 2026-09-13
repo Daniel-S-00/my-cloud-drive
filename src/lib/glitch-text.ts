@@ -56,6 +56,131 @@ export function startDecode(
   }));
 }
 
+/** Timing for the morph loop, in frames of {@link GLITCH_TIMING.tick}. */
+export const MORPH_TIMING = {
+  /**
+   * Frames a phrase sits settled before it starts leaving. Long enough to
+   * read a short phrase without waiting for the next one.
+   */
+  hold: 70,
+} as const;
+
+/**
+ * Frame budget for one turn of the morph loop.
+ *
+ * Derived from the longest phrase rather than fixed, so every phrase gets the
+ * same window and none can be cut off mid-word: one character leaves per
+ * frame while erasing and one arrives per frame while writing.
+ */
+export function morphCycle(phrases: readonly GlitchPart[]): {
+  erase: number;
+  write: number;
+  total: number;
+} {
+  const longest = phrases.reduce(
+    (max, phrase) => Math.max(max, phrase.text.length),
+    1,
+  );
+  return {
+    erase: longest,
+    write: longest,
+    total: MORPH_TIMING.hold + longest * 2,
+  };
+}
+
+/** How many characters sit at the moving edge showing noise. */
+const MORPH_EDGE = 2;
+
+export type MorphState = {
+  /** Which phrase is on screen, or arriving. */
+  index: number;
+  /** Characters to render, in order. */
+  chars: GlitchChar[];
+  /** How many of them are visible; the rest are waiting their turn. */
+  revealed: number;
+};
+
+/**
+ * The characters to show at a given frame of the loop.
+ *
+ * A phrase is held settled, scrambled away one character per frame, and the
+ * next one scrambled in the same way — the shape the reference uses, with the
+ * noise trailing the edge of the reveal rather than covering the whole line.
+ *
+ * Pure and frame-indexed like {@link decodeAt}: the caller drives it off an
+ * elapsed-frame counter, so React never has to be told to start anything and
+ * a replay of the same frame renders identically.
+ */
+export function morphAt(
+  phrases: readonly GlitchPart[],
+  frame: number,
+): MorphState {
+  const words = phrases.length > 0 ? phrases : [{ text: '' }];
+  const { erase, total } = morphCycle(words);
+  const step = ((frame % total) + total) % total;
+  // Wrapped both ways: a negative frame is a legitimate query, and it must
+  // not index backwards out of the phrase list.
+  const index =
+    ((Math.floor(frame / total) % words.length) + words.length) % words.length;
+  const { hold } = MORPH_TIMING;
+
+  if (step < hold) {
+    return revealState(words[index], Number.POSITIVE_INFINITY, 0, step, index);
+  }
+
+  if (step < hold + erase) {
+    // The first frame of the erase has already lost a character, so the
+    // phrase is empty at the end of the window rather than one short of it.
+    const remaining = words[index].text.length - 1 - (step - hold);
+    return revealState(words[index], remaining, MORPH_EDGE, step, index);
+  }
+
+  const next = (index + 1) % words.length;
+  return revealState(
+    words[next],
+    step - hold - erase + 1,
+    MORPH_EDGE,
+    step,
+    next,
+  );
+}
+
+/**
+ * Builds the character list for one phrase: `revealed` characters are on
+ * screen, and the last `edge` of those are still showing noise. The seed is
+ * the position within the turn rather than the absolute frame, so the noise
+ * pattern repeats on every pass instead of drifting.
+ */
+function revealState(
+  phrase: GlitchPart,
+  revealed: number,
+  edge: number,
+  seed: number,
+  index: number,
+): MorphState {
+  const chars = flattenGlitchParts([phrase]);
+  const visible = Math.max(0, Math.min(revealed, chars.length));
+
+  return {
+    index,
+    revealed: visible,
+    chars: chars.map((entry, position) => {
+      // Only the last few characters at the moving edge carry noise; the
+      // ones behind it have already settled.
+      if (position < visible && visible - 1 - position < edge) {
+        return { ...entry, symbol: stableGlyph(position * 31 + seed) };
+      }
+      return entry;
+    }),
+  };
+}
+
+/** A glyph chosen from a seed, so replaying the same frame looks identical. */
+export function stableGlyph(seed: number): string {
+  const hash = Math.sin(seed * 12.9898) * 43758.5453;
+  return SCRAMBLE_GLYPHS[Math.floor((hash - Math.floor(hash)) * SCRAMBLE_GLYPHS.length)];
+}
+
 /**
  * Deterministic glyph source for {@link decodeAt}. Stepping a counter through
  * a hash keeps the sequence identical on every replay, so an unrelated
