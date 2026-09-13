@@ -1,4 +1,6 @@
 import { Check, ShieldCheck } from 'lucide-react';
+import { GlitchHeadline } from './glitch-headline';
+import { GlitchText } from './glitch-text';
 
 const assurances = [
   {
@@ -31,18 +33,28 @@ export function Security() {
           <div>
             <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-accent-glow">
               <ShieldCheck className="h-4 w-4" />
-              Security
+              <GlitchText parts={[{ text: 'Security' }]} />
             </p>
-            <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl">
-              Protected{' '}
-              <span className="landing-display font-normal text-accent-glow">
-                from the ground up.
-              </span>
-            </h2>
+            <GlitchHeadline
+              as="h2"
+              start="view"
+              className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl"
+              parts={[
+                { text: 'Protected ' },
+                {
+                  text: 'from the ground up.',
+                  className: 'landing-display font-normal text-accent-glow',
+                },
+              ]}
+            />
             <p className="mt-4 max-w-md text-base leading-relaxed text-text-secondary">
-              Storage is only half the story. Every account, file, and share is
-              guarded by the same practices you&apos;d expect from a service you
-              pay for — because your data deserves nothing less.
+              <GlitchText
+                parts={[
+                  {
+                    text: "Storage is only half the story. Every account, file, and share is guarded by the same practices you'd expect from a service you pay for — because your data deserves nothing less.",
+                  },
+                ]}
+              />
             </p>
           </div>
 
@@ -54,10 +66,10 @@ export function Security() {
                 </span>
                 <div>
                   <p className="text-sm font-semibold text-text-primary">
-                    {title}
+                    <GlitchText parts={[{ text: title }]} />
                   </p>
                   <p className="mt-0.5 text-sm leading-relaxed text-text-secondary">
-                    {desc}
+                    <GlitchText parts={[{ text: desc }]} />
                   </p>
                 </div>
               </li>

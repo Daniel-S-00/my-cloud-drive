@@ -1,4 +1,6 @@
 import { Lock, RotateCcw, Share2, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { GlitchHeadline } from './glitch-headline';
+import { GlitchText } from './glitch-text';
 
 const pillars: { icon: LucideIcon; title: string; desc: string }[] = [
   {
@@ -32,8 +34,15 @@ export function Pillars() {
             <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-subtle bg-bg-surface text-accent-glow">
               <Icon className="h-4.5 w-4.5" strokeWidth={1.75} />
             </span>
-            <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-            <p className="text-sm leading-relaxed text-text-secondary">{desc}</p>
+            <GlitchHeadline
+              as="h3"
+              start="view"
+              className="text-sm font-semibold text-text-primary"
+              parts={[{ text: title }]}
+            />
+            <p className="text-sm leading-relaxed text-text-secondary">
+              <GlitchText parts={[{ text: desc }]} />
+            </p>
           </div>
         ))}
       </div>

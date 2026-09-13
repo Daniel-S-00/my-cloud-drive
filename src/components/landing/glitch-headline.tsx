@@ -13,6 +13,7 @@ import {
   type GlitchFrame,
   type GlitchPart,
 } from '@/lib/glitch-text';
+import { useEnteredView } from '@/hooks/use-entered-view';
 import { prefersReducedMotion } from '@/lib/webgl-capability';
 
 /**
@@ -34,17 +35,37 @@ export type GlitchHeadlineProps = {
   /** Styled runs, in order. Each run's class names reach its characters. */
   parts: readonly GlitchPart[];
   className?: string;
+  /**
+   * 'mount' starts the reveal on load, for the headline the page opens with.
+   * 'view' waits until the headline scrolls into view, for the ones further
+   * down — where a reveal that played out off screen would already be spent
+   * by the time anyone saw it.
+   */
+  start?: 'mount' | 'view';
+  /**
+   * Heading level to render. The reveal has to sit on the real heading so the
+   * page keeps its outline, and each section's is a different level.
+   */
+  as?: 'h1' | 'h2' | 'h3';
 };
 
-export function GlitchHeadline({ parts, className }: GlitchHeadlineProps) {
+export function GlitchHeadline({
+  parts,
+  className,
+  start = 'mount',
+  as: Heading = 'h1',
+}: GlitchHeadlineProps) {
   // The server renders the settled headline, so crawlers, no-JS readers and
   // reduced-motion users all get the real text in the first paint.
   const [frame, setFrame] = useState(() => settledFrame(parts));
+  const { ref, entered } = useEnteredView<HTMLHeadingElement>();
+  const ready = start === 'mount' || entered;
 
   useBeforePaint(() => {
+    if (!ready) return;
     if (prefersReducedMotion()) return;
     setFrame((current) => ({ ...current, revealed: 0, done: false }));
-  }, []);
+  }, [ready]);
 
   useEffect(() => {
     if (frame.done) return;
@@ -83,11 +104,12 @@ export function GlitchHeadline({ parts, className }: GlitchHeadlineProps) {
     // The scrambled glyphs are noise, so the heading is named explicitly and
     // its animated contents are hidden from assistive tech. The plain text is
     // also what the server puts in the markup, so this costs nothing for SEO.
-    <h1
+    <Heading
+      ref={ref}
       className={className}
       aria-label={parts.map((part) => part.text).join('')}
     >
       <span aria-hidden="true">{nodes}</span>
-    </h1>
+    </Heading>
   );
 }

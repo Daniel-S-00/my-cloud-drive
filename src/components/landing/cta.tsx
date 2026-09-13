@@ -1,5 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { GlitchHeadline } from './glitch-headline';
+import { GlitchText } from './glitch-text';
 
 export function Cta() {
   return (
@@ -9,15 +11,26 @@ export function Cta() {
       </div>
 
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center px-4 py-24 text-center sm:px-6">
-        <h2 className="text-balance font-display text-4xl font-semibold tracking-tight text-text-primary sm:text-5xl">
-          Ready to bring your files{' '}
-          <span className="landing-display font-normal text-accent-glow">
-            back home?
-          </span>
-        </h2>
+        <GlitchHeadline
+          as="h2"
+          start="view"
+          className="text-balance font-display text-4xl font-semibold tracking-tight text-text-primary sm:text-5xl"
+          parts={[
+            { text: 'Ready to bring your files ' },
+            {
+              text: 'back home?',
+              className: 'landing-display font-normal text-accent-glow',
+            },
+          ]}
+        />
         <p className="mt-5 max-w-lg text-balance text-base text-text-secondary">
-          Create your account in seconds and take back control of where your
-          stuff lives.
+          <GlitchText
+            parts={[
+              {
+                text: 'Create your account in seconds and take back control of where your stuff lives.',
+              },
+            ]}
+          />
         </p>
 
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">

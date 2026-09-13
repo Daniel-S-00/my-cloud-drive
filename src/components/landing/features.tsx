@@ -7,6 +7,8 @@ import {
   Upload,
   type LucideIcon,
 } from 'lucide-react';
+import { GlitchHeadline } from './glitch-headline';
+import { GlitchText } from './glitch-text';
 
 const features: { icon: LucideIcon; title: string; desc: string }[] = [
   {
@@ -46,17 +48,28 @@ export function Features() {
     <section id="features" data-testid="features" className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-24 sm:px-6">
       <div className="mx-auto max-w-2xl text-center">
         <p className="font-mono text-xs uppercase tracking-widest text-accent-glow">
-          Capabilities
+          <GlitchText parts={[{ text: 'Capabilities' }]} />
         </p>
-        <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl">
-          Everything you need.{' '}
-          <span className="landing-display font-normal text-accent-glow">
-            Nothing you don&apos;t.
-          </span>
-        </h2>
+        <GlitchHeadline
+          as="h2"
+          start="view"
+          className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl"
+          parts={[
+            { text: 'Everything you need. ' },
+            {
+              text: "Nothing you don't.",
+              className: 'landing-display font-normal text-accent-glow',
+            },
+          ]}
+        />
         <p className="mt-4 text-balance text-base text-text-secondary">
-          A focused set of features that cover the day-to-day of owning your
-          files — without the clutter of a mega-suite.
+          <GlitchText
+            parts={[
+              {
+                text: 'A focused set of features that cover the day-to-day of owning your files — without the clutter of a mega-suite.',
+              },
+            ]}
+          />
         </p>
       </div>
 
@@ -70,8 +83,15 @@ export function Features() {
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-primary/15 text-accent-glow transition-transform group-hover:scale-105">
               <Icon className="h-5 w-5" strokeWidth={1.75} />
             </span>
-            <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-            <p className="text-sm leading-relaxed text-text-secondary">{desc}</p>
+            <GlitchHeadline
+              as="h3"
+              start="view"
+              className="text-sm font-semibold text-text-primary"
+              parts={[{ text: title }]}
+            />
+            <p className="text-sm leading-relaxed text-text-secondary">
+              <GlitchText parts={[{ text: desc }]} />
+            </p>
           </div>
         ))}
       </div>

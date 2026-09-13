@@ -25,7 +25,70 @@ export const GLITCH_TIMING = {
   /** Scramble ticks applied to a freshly revealed character. */
   scrambleMin: 2,
   scrambleMax: 5,
+  /**
+   * Scramble ticks for the whole-block variant, which starts every character
+   * at once. Deliberately far shorter than a headline's: a paragraph the
+   * reader is waiting to read has to resolve quickly, so this is a change of
+   * glyph rather than a reveal.
+   */
+  decodeTicks: 4,
 } as const;
+
+/**
+ * Starts every character scrambling at once, for the whole-block variant.
+ *
+ * Nothing is hidden here — the characters keep their places and only their
+ * glyphs change, so the reader never waits for the block to finish. From
+ * this point `advanceGlitch` needs no coaxing: passing a reveal count equal
+ * to the character count skips the sequential reveal entirely and only
+ * drains the scramble.
+ */
+export function startDecode(
+  chars: readonly GlitchChar[],
+  rng: () => number = Math.random,
+): GlitchChar[] {
+  return chars.map((entry) => ({
+    ...entry,
+    symbol: pickGlyph(rng),
+    ticks: GLITCH_TIMING.decodeTicks,
+  }));
+}
+
+/**
+ * Deterministic glyph source for {@link decodeAt}. Stepping a counter through
+ * a hash keeps the sequence identical on every replay, so an unrelated
+ * re-render cannot reshuffle a scramble that is already on screen.
+ */
+function replayRng(): () => number {
+  let step = 0;
+  return () => {
+    step += 1;
+    const hash = Math.sin(step * 12.9898) * 43758.5453;
+    return hash - Math.floor(hash);
+  };
+}
+
+/**
+ * Replays the block scramble up to a given phase, purely.
+ *
+ * The component drives this off an elapsed-frame counter instead of holding
+ * the scramble in state, so the render is a plain function of the tick and
+ * nothing has to be told to start. Phase 0 is the untouched text, and
+ * anything past `decodeTicks` is the text settled again.
+ */
+export function decodeAt(
+  chars: readonly GlitchChar[],
+  phase: number,
+): readonly GlitchChar[] {
+  if (phase <= 0) return chars;
+
+  const rng = replayRng();
+  let current = startDecode(chars, rng);
+  for (let step = 1; step < phase; step += 1) {
+    current = advanceGlitch(current, current.length, rng).chars;
+  }
+  return current;
+}
 
 export type GlitchPart = {
   text: string;

@@ -7,6 +7,7 @@ import {
   flattenGlitchParts,
   pickGlyph,
   pickScrambleTicks,
+  startDecode,
   type GlitchFrame,
 } from './glitch-text';
 
@@ -96,6 +97,60 @@ describe('pickScrambleTicks', () => {
     for (let i = 0; i < 300; i += 1) seen.add(pickScrambleTicks(rng));
     expect(seen).toContain(GLITCH_TIMING.scrambleMin);
     expect(seen).toContain(GLITCH_TIMING.scrambleMax);
+  });
+});
+
+describe('startDecode', () => {
+  it('starts every character at once, rather than one per tick', () => {
+    const chars = flattenGlitchParts([{ text: 'abc' }]);
+    const decoding = startDecode(chars, seeded(4));
+
+    expect(decoding).toHaveLength(3);
+    expect(decoding.every((entry) => entry.symbol !== null)).toBe(true);
+    expect(
+      decoding.every((entry) => entry.ticks === GLITCH_TIMING.decodeTicks),
+    ).toBe(true);
+  });
+
+  it('resolves far faster than a headline character does', () => {
+    // The point of the variant: a paragraph must not make the reader wait,
+    // so its whole scramble lasts a fraction of a headline's per-character
+    // scramble.
+    expect(GLITCH_TIMING.decodeTicks * GLITCH_TIMING.tick).toBeLessThan(150);
+  });
+
+  it('only ever shows glyphs from the set', () => {
+    const decoding = startDecode(
+      flattenGlitchParts([{ text: 'abcd' }]),
+      seeded(2),
+    );
+    for (const entry of decoding) {
+      expect(SCRAMBLE_GLYPHS.includes(entry.symbol ?? '')).toBe(true);
+    }
+  });
+
+  it('leaves the input untouched', () => {
+    const chars = flattenGlitchParts([{ text: 'ab' }]);
+    const before = chars.map((entry) => ({ ...entry }));
+
+    startDecode(chars, seeded(1));
+
+    expect(chars).toEqual(before);
+  });
+
+  it('drains through advanceGlitch once the reveal is already complete', () => {
+    const chars = startDecode(flattenGlitchParts([{ text: 'ab' }]), seeded(5));
+    let frame: GlitchFrame = { chars, revealed: chars.length, done: false };
+    let guard = 0;
+
+    while (!frame.done && guard < 20) {
+      frame = advanceGlitch(frame.chars, frame.revealed, seeded(guard + 1));
+      guard += 1;
+    }
+
+    expect(frame.done).toBe(true);
+    expect(frame.chars.map((entry) => entry.char).join('')).toBe('ab');
+    expect(frame.chars.every((entry) => entry.symbol === null)).toBe(true);
   });
 });
 
