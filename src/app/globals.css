@@ -188,15 +188,46 @@ dialog::backdrop {
  * Typing caret for the glitch headline. Only ever rendered while the reveal
  * is running, so reduced motion never sees it. Falls back to the inherited
  * colour if the theme token is unavailable.
+ *
+ * Taken out of flow and hung off the character it follows: in flow it added
+ * its own width to the line, and a headline sized shrink-to-fit changed width
+ * as the caret moved from one line to the next.
  */
 .landing-caret {
-  display: inline-block;
+  position: absolute;
+  left: 100%;
+  top: 0.05em;
   width: 0.09em;
   height: 0.85em;
-  margin-left: 0.08em;
-  vertical-align: -0.08em;
   background-color: var(--color-accent-glow, currentColor);
   animation: landing-caret-blink 0.9s step-end infinite;
+}
+
+/*
+ * Glitch character. The scrambling glyph is taken out of flow and painted
+ * over the character, which stays where it is holding the measure.
+ *
+ * Both halves are load-bearing. Replacing the character outright re-wrapped
+ * headlines and resized containers mid-reveal; a zero-width in-flow glyph
+ * fixed that for blocks but not for the hero headline, whose shrink-to-fit
+ * width still counted the glyph's intrinsic size. The positioning is on from
+ * the start, so a scramble never changes the box it paints into.
+ */
+.landing-glitch-char {
+  position: relative;
+}
+
+.landing-glitch-real {
+  color: transparent;
+}
+
+.landing-glitch-glyph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 /*

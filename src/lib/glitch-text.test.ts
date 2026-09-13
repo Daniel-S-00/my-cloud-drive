@@ -112,11 +112,14 @@ describe('startDecode', () => {
     ).toBe(true);
   });
 
-  it('resolves far faster than a headline character does', () => {
-    // The point of the variant: a paragraph must not make the reader wait,
-    // so its whole scramble lasts a fraction of a headline's per-character
-    // scramble.
-    expect(GLITCH_TIMING.decodeTicks * GLITCH_TIMING.tick).toBeLessThan(150);
+  it('lasts long enough to register and short enough not to gate reading', () => {
+    // The first cut ran at four ticks, which resolved before the eye caught
+    // it and read as a snap rather than a decode. It stays bounded: the block
+    // is a change of glyph over text that is already in place, so this
+    // decides how long the noise lasts, not how long the reader waits.
+    const total = GLITCH_TIMING.decodeTicks * GLITCH_TIMING.tick;
+    expect(total).toBeGreaterThan(150);
+    expect(total).toBeLessThan(300);
   });
 
   it('only ever shows glyphs from the set', () => {

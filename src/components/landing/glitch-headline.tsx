@@ -80,25 +80,37 @@ export function GlitchHeadline({
     // them in the layout is what stops a centred headline from reflowing
     // character by character as it types.
     const started = index < frame.revealed;
+    const scrambling = started && entry.symbol !== null;
+    // The caret hangs off the last character that has started, out of flow.
+    const carriesCaret = !frame.done && index === frame.revealed - 1;
     return (
       <span
         key={index}
-        className={entry.className}
+        className={
+          entry.className
+            ? `landing-glitch-char ${entry.className}`
+            : 'landing-glitch-char'
+        }
         style={started ? undefined : { opacity: 0 }}
       >
-        {started && entry.symbol !== null ? entry.symbol : entry.char}
+        {/* The glyph is taken out of flow and painted over the character,
+            which stays in place holding the measure. An in-flow glyph of zero
+            width was not enough on its own: the headline is a shrink-to-fit
+            flex item, so even that changed its width. */}
+        {scrambling ? (
+          <span className="landing-glitch-glyph" aria-hidden="true">
+            {entry.symbol}
+          </span>
+        ) : null}
+        <span className={scrambling ? 'landing-glitch-real' : undefined}>
+          {entry.char}
+        </span>
+        {carriesCaret ? (
+          <span className="landing-caret" aria-hidden="true" />
+        ) : null}
       </span>
     );
   });
-
-  // The caret sits just past the last character that has started.
-  if (!frame.done && frame.revealed > 0) {
-    nodes.splice(
-      frame.revealed,
-      0,
-      <span key="caret" className="landing-caret" />,
-    );
-  }
 
   return (
     // The scrambled glyphs are noise, so the heading is named explicitly and

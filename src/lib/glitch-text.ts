@@ -27,11 +27,13 @@ export const GLITCH_TIMING = {
   scrambleMax: 5,
   /**
    * Scramble ticks for the whole-block variant, which starts every character
-   * at once. Deliberately far shorter than a headline's: a paragraph the
-   * reader is waiting to read has to resolve quickly, so this is a change of
-   * glyph rather than a reveal.
+   * at once. Longer than a headline character's scramble despite being the
+   * "short" variant, because the two are read differently: a headline reveal
+   * is text arriving, while the block is a change of glyph over text that is
+   * already in place. At four ticks it resolved before the eye caught it and
+   * read as a snap rather than a decode.
    */
-  decodeTicks: 4,
+  decodeTicks: 10,
 } as const;
 
 /**

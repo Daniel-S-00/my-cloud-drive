@@ -66,11 +66,33 @@ export function GlitchText({ parts, className }: GlitchTextProps) {
           read glyphs. */}
       <span className="sr-only">{parts.map((part) => part.text).join('')}</span>
       <span aria-hidden="true">
-        {chars.map((entry, index) => (
-          <span key={index} className={entry.className}>
-            {entry.symbol ?? entry.char}
-          </span>
-        ))}
+        {chars.map((entry, index) => {
+          const scrambling = entry.symbol !== null;
+          return (
+            <span
+              key={index}
+              className={
+                entry.className
+                  ? `landing-glitch-char ${entry.className}`
+                  : 'landing-glitch-char'
+              }
+            >
+              {/* Same trick as the headline: the glyph paints from a
+                  zero-width box ahead of the character, so it costs no width.
+                  Replacing the character outright was what re-wrapped a
+                  paragraph and changed the containers' size while it
+                  resolved. */}
+              {scrambling ? (
+                <span className="landing-glitch-glyph" aria-hidden="true">
+                  {entry.symbol}
+                </span>
+              ) : null}
+              <span className={scrambling ? 'landing-glitch-real' : undefined}>
+                {entry.char}
+              </span>
+            </span>
+          );
+        })}
       </span>
     </span>
   );

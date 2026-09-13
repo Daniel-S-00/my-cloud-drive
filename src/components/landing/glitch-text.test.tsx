@@ -104,13 +104,20 @@ describe('GlitchText reveal', () => {
 
       // Every character changes at the same moment. It is a change of glyph,
       // not of visibility: a reader never waits for a paragraph to type out.
-      const scrambling = spans.filter(
-        (span, index) => (span.textContent ?? '') !== PLAIN[index],
-      );
+      // The glyph sits in its own span ahead of the character, so the
+      // character's text is no longer what tells us it is scrambling.
+      const glyphOf = (span: Element) =>
+        span.querySelector('.landing-glitch-glyph')?.textContent ?? null;
+      const scrambling = spans.filter((span) => glyphOf(span) !== null);
       expect(scrambling).toHaveLength(PLAIN.length);
       for (const span of scrambling) {
-        expect(SCRAMBLE_GLYPHS.includes(span.textContent ?? '')).toBe(true);
+        expect(SCRAMBLE_GLYPHS.includes(glyphOf(span) ?? '')).toBe(true);
         expect(span.style.opacity).not.toBe('0');
+        // And the real character is still in the flow holding its measure:
+        // replacing it outright was what re-wrapped paragraphs mid-decode.
+        expect(span.querySelector('.landing-glitch-real')?.textContent).toBe(
+          PLAIN[spans.indexOf(span)],
+        );
       }
     } finally {
       vi.useRealTimers();
@@ -148,9 +155,9 @@ describe('GlitchText reveal', () => {
       // still to come — which is exactly the wait this variant exists to
       // avoid.
       expect(GLITCH_TIMING.decodeTicks).toBeLessThan(PLAIN.length);
-      expect(GLITCH_TIMING.decodeTicks).toBeLessThan(
-        GLITCH_TIMING.scrambleMax,
-      );
+      // Bounded in frames, not in characters: the block costs the same
+      // whether it holds a phrase or a paragraph.
+      expect(GLITCH_TIMING.decodeTicks * GLITCH_TIMING.tick).toBeLessThan(300);
 
       act(() => {
         vi.advanceTimersByTime(
@@ -170,7 +177,11 @@ describe('GlitchText reveal', () => {
     const { container } = render(<GlitchText parts={PARTS} />);
 
     for (const span of charSpans(container)) {
-      expect(span.className).toBe('accent');
+      const classes = Array.from(span.classList);
+      expect(classes).toContain('accent');
+      // The positioning class rides along, so a scramble never changes the
+      // box the character paints into.
+      expect(classes).toContain('landing-glitch-char');
     }
   });
 

@@ -127,14 +127,21 @@ describe('GlitchHeadline reveal', () => {
         vi.advanceTimersByTime(GLITCH_TIMING.tick * 8);
       });
 
-      const scrambling = spans.filter(
-        (span, index) => (span.textContent ?? '') !== PLAIN[index],
-      );
+      // The glyph lives in its own span ahead of the character, so the
+      // character's own text is no longer what tells us it is scrambling.
+      const glyphOf = (span: Element) =>
+        span.querySelector('.landing-glitch-glyph')?.textContent ?? null;
+      const scrambling = spans.filter((span) => glyphOf(span) !== null);
       expect(scrambling.length).toBeGreaterThan(0);
       for (const span of scrambling) {
         // A scrambling character can only ever show a glyph from the set,
         // which is why the set must not contain letters.
-        expect(SCRAMBLE_GLYPHS.includes(span.textContent ?? '')).toBe(true);
+        expect(SCRAMBLE_GLYPHS.includes(glyphOf(span) ?? '')).toBe(true);
+        // And the real character is still in the flow holding its own
+        // measure — that is what stops the headline re-wrapping mid-reveal.
+        expect(span.querySelector('.landing-glitch-real')?.textContent).toBe(
+          PLAIN[spans.indexOf(span)],
+        );
       }
     } finally {
       vi.useRealTimers();
@@ -169,8 +176,14 @@ describe('GlitchHeadline reveal', () => {
 
     // The accent half has its own font and colour; losing it here would
     // restyle half the headline the moment it animates.
-    expect(spans[PLAIN.indexOf('in your')].className).toBe('accent');
-    expect(spans[0].className).toBe('');
+    const accented = Array.from(spans[PLAIN.indexOf('in your')].classList);
+    expect(accented).toContain('accent');
+    expect(Array.from(spans[0].classList)).not.toContain('accent');
+    // And the positioning class is on every character from the start, so a
+    // scramble never changes the box it paints into.
+    for (const span of spans) {
+      expect(Array.from(span.classList)).toContain('landing-glitch-char');
+    }
   });
 });
 
