@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   GLITCH_TIMING,
   MORPH_TIMING,
@@ -9,6 +15,14 @@ import {
   type GlitchPart,
 } from '@/lib/glitch-text';
 import { prefersReducedMotion } from '@/lib/webgl-capability';
+
+/**
+ * useLayoutEffect warns when a client component is rendered on the server.
+ * The blank has to land before the browser paints, otherwise the settled
+ * phrase shows for a frame and then jumps into the scramble.
+ */
+const useBeforePaint =
+  typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export type GlitchMorphProps = {
   /** Phrases to cycle through, in order. */
@@ -26,26 +40,44 @@ export type GlitchMorphProps = {
  * never reflows as the phrase changes length. And the loop only ticks while
  * it is on screen — a hero has no business rendering 45 times a second once
  * it has scrolled away.
+ *
+ * It never sits there spelled out, either. The settled opening phrase is the
+ * fallback the server renders and all a reader who asked for less motion
+ * needs; everyone else watches the phrase arrive, because writing it is the
+ * only way it reaches the screen.
  */
 export function GlitchMorph({ phrases, className }: GlitchMorphProps) {
   const host = useRef<HTMLSpanElement | null>(null);
   const [visible, setVisible] = useState(false);
   const [frame, setFrame] = useState(0);
+  const [painted, setPainted] = useState(false);
+
+  // The client's first render has to agree with the server's settled phrase
+  // or hydration throws the tree away, so the blank lands on the paint right
+  // after that one.
+  useBeforePaint(() => setPainted(true), []);
 
   useEffect(() => {
     const element = host.current;
     if (!element || typeof IntersectionObserver === 'undefined') return;
 
     const observer = new IntersectionObserver((entries) => {
-      setVisible(entries.some((entry) => entry.isIntersecting));
+      const onScreen = entries.some((entry) => entry.isIntersecting);
+      setVisible(onScreen);
+      // Leaving the stage restarts the turn. Picking a frozen loop back up
+      // would drop the phrase on screen whole whenever the pause happened to
+      // land in its hold, which is the settled state the blank below exists
+      // to keep out of sight; restarting writes every appearance in the same
+      // way.
+      if (!onScreen) setFrame(0);
     });
 
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
 
-  // Frame zero is the first phrase, settled. That is what the server renders
-  // and what someone who asked for less motion keeps seeing.
+  // Frame zero is the first phrase, settled: what the server renders, and
+  // what someone who asked for less motion keeps.
   // Only tick while it is actually on screen.
   //
   // Deliberately no fallback for a browser without an IntersectionObserver:
@@ -54,7 +86,8 @@ export function GlitchMorph({ phrases, className }: GlitchMorphProps) {
   // render disagreed with — a hydration mismatch that threw away the whole
   // tree. Without an observer the phrase simply holds still, which is the
   // graceful answer anyway.
-  const animating = !prefersReducedMotion() && visible;
+  const reduced = prefersReducedMotion();
+  const animating = !reduced && visible;
   // Start on the write that brings the opening phrase in rather than on its
   // hold, so the line scrambles itself alive instead of appearing already
   // spelled out. That write closes the previous turn of the loop, which is
@@ -68,6 +101,18 @@ export function GlitchMorph({ phrases, className }: GlitchMorphProps) {
     () => morphAt(phrases, animating ? frame + offset : 0),
     [phrases, animating, frame, offset],
   );
+
+  // While the loop is not running, the settled phrase is a fallback and not
+  // a state to watch: left on screen it is the finished text parked there
+  // before the scramble, and the same flash every time the line comes back
+  // into view. A browser with no observer is the exception — blanking there
+  // would leave nothing behind it.
+  const waiting =
+    painted &&
+    !reduced &&
+    typeof IntersectionObserver !== 'undefined' &&
+    !animating;
+  const revealed = waiting ? 0 : state.revealed;
 
   useEffect(() => {
     if (!animating) return;
@@ -99,7 +144,7 @@ export function GlitchMorph({ phrases, className }: GlitchMorphProps) {
       ))}
       <span className="landing-morph-live" aria-hidden="true">
         {state.chars.map((entry, index) => {
-          const shown = index < state.revealed;
+          const shown = index < revealed;
           const scrambling = shown && entry.symbol !== null;
           return (
             <span

@@ -74,13 +74,21 @@ function shownText(container: HTMLElement): string {
     .join('');
 }
 
-function enterView() {
+function report(isIntersecting: boolean) {
   act(() => {
     observers[0].callback(
-      [{ isIntersecting: true }] as unknown as IntersectionObserverEntry[],
+      [{ isIntersecting }] as unknown as IntersectionObserverEntry[],
       observers[0] as unknown as IntersectionObserver,
     );
   });
+}
+
+function enterView() {
+  report(true);
+}
+
+function leaveView() {
+  report(false);
 }
 
 beforeEach(() => {
@@ -96,11 +104,17 @@ afterEach(() => {
 });
 
 describe('GlitchMorph', () => {
-  it('opens on the first phrase, settled', () => {
+  it('paints nothing while the loop waits, not the settled phrase', () => {
     const { container } = render(<GlitchMorph phrases={PHRASES} />);
+    const spans = charSpans(container);
 
-    expect(shownText(container)).toBe(PHRASES[0].text);
-    expect(container.querySelectorAll('.landing-glitch-glyph')).toHaveLength(0);
+    // The opening phrase is in the markup — the server rendered it, and it
+    // holds the measure — but on screen the line stays empty until the loop
+    // is writing it. Showing the settled phrase here is the flash of the
+    // finished text this component is supposed to avoid.
+    expect(spans).toHaveLength(PHRASES[0].text.length);
+    expect(spans.every((span) => span.style.opacity === '0')).toBe(true);
+    expect(shownText(container)).toBe('');
   });
 
   it('holds every phrase in the layout, so the width cannot change', () => {
@@ -134,11 +148,29 @@ describe('GlitchMorph', () => {
         vi.advanceTimersByTime(GLITCH_TIMING.tick * 40);
       });
 
-      // Still the opening phrase: an off-screen loop would have burned its
-      // whole cycle before anyone saw it.
-      expect(shownText(container)).toBe(PHRASES[0].text);
+      // Still blank: an off-screen loop would have burned its whole cycle
+      // before anyone saw it, and the settled phrase standing in for it
+      // would flash the finished text the moment it scrolled into view.
+      expect(shownText(container)).toBe('');
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it('keeps the settled fallback when there is no observer to start the loop', () => {
+    // Blanking is only safe while something can come along and start the
+    // loop. Without an observer nothing ever would, and the line would be
+    // empty for good — the settled phrase is the graceful answer there.
+    const globals = globalThis as unknown as Record<string, unknown>;
+    const saved = globals.IntersectionObserver;
+    delete globals.IntersectionObserver;
+
+    try {
+      const { container } = render(<GlitchMorph phrases={PHRASES} />);
+
+      expect(shownText(container)).toBe(PHRASES[0].text);
+    } finally {
+      globals.IntersectionObserver = saved;
     }
   });
 
@@ -165,6 +197,39 @@ describe('GlitchMorph', () => {
       expect(
         visible.filter((span) => glyphOf(span) !== null).length,
       ).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('writes the phrase in again after it leaves the screen', () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<GlitchMorph phrases={PHRASES} />);
+      enterView();
+
+      act(() => {
+        vi.advanceTimersByTime(GLITCH_TIMING.tick * 40);
+      });
+
+      leaveView();
+      // Back on screen, the turn starts over rather than resuming wherever
+      // the pause landed — a resume mid-hold would put the whole phrase up
+      // with no writing, which is the flash this all exists to avoid.
+      enterView();
+
+      act(() => {
+        vi.advanceTimersByTime(GLITCH_TIMING.tick * 2);
+      });
+
+      const visible = charSpans(container).filter(
+        (span) => span.style.opacity !== '0',
+      );
+      expect(visible.length).toBeGreaterThan(0);
+      expect(visible.length).toBeLessThan(PHRASES[0].text.length);
+      expect(shownText(container)).toBe(
+        PHRASES[0].text.slice(0, visible.length),
+      );
     } finally {
       vi.useRealTimers();
     }

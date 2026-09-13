@@ -24,6 +24,43 @@ function installMatchMedia(matches: Record<string, boolean> = {}) {
   }));
 }
 
+type ObserverStub = { callback: IntersectionObserverCallback };
+
+/** Records the callback, so a test decides when the heading is seen. */
+function installObserver(): ObserverStub[] {
+  const observers: ObserverStub[] = [];
+
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      callback: IntersectionObserverCallback;
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+      takeRecords = () => [];
+      root = null;
+      rootMargin = '';
+      thresholds = [];
+
+      constructor(callback: IntersectionObserverCallback) {
+        this.callback = callback;
+        observers.push(this as unknown as ObserverStub);
+      }
+    },
+  );
+
+  return observers;
+}
+
+function enterView(observers: ObserverStub[]) {
+  act(() => {
+    observers[0].callback(
+      [{ isIntersecting: true }] as unknown as IntersectionObserverEntry[],
+      observers[0] as unknown as IntersectionObserver,
+    );
+  });
+}
+
 /** The per-character spans, excluding the caret. */
 function charSpans(container: HTMLElement): HTMLElement[] {
   return Array.from(
@@ -253,5 +290,61 @@ describe('GlitchHeadline accessibility', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('GlitchHeadline view start', () => {
+  it('paints nothing while it waits below the fold', () => {
+    installMatchMedia();
+    installObserver();
+    vi.useFakeTimers();
+    try {
+      const { container } = render(
+        <GlitchHeadline parts={PARTS} start="view" />,
+      );
+      const spans = charSpans(container);
+
+      // The settled headline is the server's fallback, not a first frame:
+      // leaving it up while the heading comes up the screen is the flash of
+      // the finished text this start mode is meant to avoid.
+      expect(hiddenCount(spans)).toBe(PLAIN.length);
+
+      act(() => {
+        vi.advanceTimersByTime(GLITCH_TIMING.tick * 10);
+      });
+
+      // And it does not type itself in off screen either.
+      expect(hiddenCount(spans)).toBe(PLAIN.length);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reveals from the start once it has scrolled into view', () => {
+    installMatchMedia();
+    const observers = installObserver();
+    vi.useFakeTimers();
+    try {
+      const { container } = render(
+        <GlitchHeadline parts={PARTS} start="view" />,
+      );
+      enterView(observers);
+
+      act(() => {
+        vi.advanceTimersByTime(GLITCH_TIMING.tick * 3);
+      });
+
+      expect(hiddenCount(charSpans(container))).toBe(PLAIN.length - 3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the settled headline for someone who asked for less motion', () => {
+    installMatchMedia({ '(prefers-reduced-motion: reduce)': true });
+    installObserver();
+    const { container } = render(<GlitchHeadline parts={PARTS} start="view" />);
+
+    expect(hiddenCount(charSpans(container))).toBe(0);
   });
 });

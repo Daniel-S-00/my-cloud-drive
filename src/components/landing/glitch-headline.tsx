@@ -61,19 +61,26 @@ export function GlitchHeadline({
   const { ref, entered } = useEnteredView<HTMLHeadingElement>();
   const ready = start === 'mount' || entered;
 
+  // Blanked before the first client paint for anyone who allows motion. The
+  // settled frame is the server's fallback — for crawlers, no-JS readers and
+  // reduced motion — and leaving it up is what shows the finished headline
+  // for a moment while a 'view' one scrolls into place, before the reveal
+  // restarts from nothing. Blanking at mount rather than at `ready` closes
+  // that window: nothing is on screen to flash in the first place.
   useBeforePaint(() => {
-    if (!ready) return;
     if (prefersReducedMotion()) return;
     setFrame((current) => ({ ...current, revealed: 0, done: false }));
-  }, [ready]);
+  }, []);
 
   useEffect(() => {
-    if (frame.done) return;
+    // A 'view' headline waits blank rather than typing itself in off screen,
+    // where nobody would see the reveal it was holding.
+    if (!ready || frame.done) return;
     const id = setInterval(() => {
       setFrame((current) => advanceGlitch(current.chars, current.revealed));
     }, GLITCH_TIMING.tick);
     return () => clearInterval(id);
-  }, [frame.done]);
+  }, [ready, frame.done]);
 
   const nodes: ReactNode[] = frame.chars.map((entry, index) => {
     // Characters past the reveal point are present but unpainted. Holding
