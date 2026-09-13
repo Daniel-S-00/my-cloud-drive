@@ -11,18 +11,39 @@ import {
 import dynamic from 'next/dynamic';
 import type { Application } from '@splinetool/runtime';
 import {
+  backgroundRenderSize,
+  hasHardwareWebgl,
   isWebglCapable,
+  pickBackgroundTier,
   subscribeWebglCapability,
+  type BackgroundTier,
 } from '@/lib/webgl-capability';
+import { useSceneBudget } from '@/hooks/use-scene-budget';
 
 const Spline = dynamic(() => import('@splinetool/react-spline'), {
   ssr: false,
 });
 
-// The scene is rendered at a fraction of the viewport and upscaled by
-// CSS. It's an atmospheric background behind a card, so the slight
-// softness is invisible while the fill-rate (and GPU cost) drops.
-const RENDER_SCALE = 0.7;
+/**
+ * Same policy as the hero scene: start on the first idle moment rather than
+ * racing hydration for the main thread. Parsing the file and compiling its
+ * shaders is the most expensive thing these pages do, and it is decoration
+ * behind a card — nothing is lost by letting the page paint first. The
+ * fallback covers Safari, which has no requestIdleCallback.
+ */
+const IDLE_TIMEOUT_MS = 1200;
+const IDLE_FALLBACK_MS = 200;
+
+function deferUntilIdle(callback: () => void): () => void {
+  if (typeof window.requestIdleCallback === 'function') {
+    const handle = window.requestIdleCallback(callback, {
+      timeout: IDLE_TIMEOUT_MS,
+    });
+    return () => window.cancelIdleCallback(handle);
+  }
+  const handle = window.setTimeout(callback, IDLE_FALLBACK_MS);
+  return () => window.clearTimeout(handle);
+}
 
 function StaticBackdrop() {
   return (
@@ -69,10 +90,43 @@ export default function SplineBackground() {
     () => false,
   );
   const [app, setApp] = useState<Application | null>(null);
+  // Read once: the hints describe the machine, which does not change under
+  // us, and asking again per render would be a new object every time.
+  const [tier] = useState<BackgroundTier>(() => pickBackgroundTier());
+  const [started, setStarted] = useState(false);
+  // Assumed until the idle check runs: the last gate is the only one that
+  // needs a GPU to answer, so it is worth asking for one only when the
+  // scene is about to be built anyway.
+  const [hardware, setHardware] = useState(true);
+  const verdict = useSceneBudget(started);
+
+  const dropped = !hardware || verdict === 'drop';
+  const sizeTier: BackgroundTier = verdict === 'lean' ? 'lite' : tier;
 
   const onLoad = useCallback((spline: Application) => {
     setApp(spline);
   }, []);
+
+  useEffect(() => {
+    if (!capable || started || dropped) return;
+
+    let cancelled = false;
+    const cancel = deferUntilIdle(() => {
+      if (cancelled) return;
+      // A context the browser would have to draw in software is worse than
+      // no scene at all, and the browser says so for free.
+      if (!hasHardwareWebgl()) {
+        setHardware(false);
+        return;
+      }
+      setStarted(true);
+    });
+
+    return () => {
+      cancelled = true;
+      cancel();
+    };
+  }, [capable, started, dropped]);
 
   useEffect(() => {
     if (!app) return;
@@ -82,9 +136,11 @@ export default function SplineBackground() {
     // a ResizeObserver ~300ms after load that re-reads the container and
     // would undo the cap, so keep re-applying briefly until it settles.
     const applyResolution = () => {
-      const w = Math.max(320, Math.round(window.innerWidth * RENDER_SCALE));
-      const h = Math.max(320, Math.round(window.innerHeight * RENDER_SCALE));
-      app.setSize(w, h);
+      const { width, height } = backgroundRenderSize(
+        { width: window.innerWidth, height: window.innerHeight },
+        sizeTier,
+      );
+      app.setSize(width, height);
     };
 
     applyResolution();
@@ -118,20 +174,37 @@ export default function SplineBackground() {
       window.removeEventListener('blur', onBlur);
       window.removeEventListener('focus', onFocus);
     };
-  }, [app]);
+  }, [app, sizeTier]);
 
-  if (!capable) {
+  // `dropped` is the scene giving up on itself, either because the browser
+  // has no hardware path or because the probe watched it miss most of the
+  // frames. Unmounting is what frees it: the wrapper disposes the runtime,
+  // which hands the WebGL context back.
+  if (!capable || dropped) {
     return <StaticBackdrop />;
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    // The scene answers the pointer with hover states, and every one of
+    // those is a ray cast against the whole scene. On the lean tier — a weak
+    // machine to begin with, or one the probe caught struggling — that trade
+    // does not pay, so the canvas stops taking pointer events and the
+    // renderer never has to hunt for what is under the cursor.
+    <div
+      className={
+        sizeTier === 'lite'
+          ? 'pointer-events-none absolute inset-0 overflow-hidden'
+          : 'absolute inset-0 overflow-hidden'
+      }
+    >
       <SplineErrorBoundary fallback={<StaticBackdrop />}>
-        <Spline
-          scene="/scene.splinecode"
-          className="h-full w-full"
-          onLoad={onLoad}
-        />
+        {started ? (
+          <Spline
+            scene="/scene.splinecode"
+            className="h-full w-full"
+            onLoad={onLoad}
+          />
+        ) : null}
       </SplineErrorBoundary>
     </div>
   );
