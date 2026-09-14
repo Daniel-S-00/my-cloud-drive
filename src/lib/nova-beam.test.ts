@@ -28,9 +28,9 @@ describe('buildNovaBeamAttributes', () => {
     expect(attributes.positions).toHaveLength(attributes.count * 3);
     expect(attributes.normals).toHaveLength(attributes.count * 3);
     expect(attributes.alongs).toHaveLength(attributes.count);
-    expect(
-      attributes.indices.length,
-    ).toBe(NOVA_BEAM.rings * NOVA_BEAM.segments * 6 * 2);
+    expect(attributes.indices.length).toBe(
+      NOVA_BEAM.rings * NOVA_BEAM.segments * 6 * 2,
+    );
   });
 
   it('produces no NaN', () => {
@@ -68,6 +68,20 @@ describe('buildNovaBeamAttributes', () => {
     // Mirrored, not stacked: one jet would read as a plume.
     expect(up).toBe(perBeam);
     expect(down).toBe(perBeam);
+  });
+
+  it('starts narrow at its source, and opens as it travels', () => {
+    // The base is a throat, not a mouth: wide enough that the source does not
+    // look pinched, narrow enough that the core's own glow covers the opening.
+    // A tube that opened at the base would read as a pipe from off-axis.
+    for (let segment = 0; segment < NOVA_BEAM.segments; segment += 1) {
+      expect(radiusAt(segment)).toBeLessThan(0.15);
+      expect(radiusAt(segment)).toBeCloseTo(NOVA_BEAM.baseRadius, 5);
+    }
+
+    // And it is far wider by the far end, so it opens as it travels.
+    const tip = NOVA_BEAM.rings * NOVA_BEAM.segments;
+    expect(radiusAt(tip)).toBeGreaterThan(radiusAt(0) * 4);
   });
 
   it('tapers from the core outwards, inside its own flare', () => {
@@ -187,6 +201,8 @@ describe('NOVA_BEAM shaders', () => {
       NOVA_BEAM.waves,
       NOVA_BEAM.flowRate,
       NOVA_BEAM.flow,
+      NOVA_BEAM.hotspot,
+      NOVA_BEAM.hotspotRate,
       NOVA_BEAM.strength,
     ]) {
       expect(`${NOVA_BEAM_VERTEX}${NOVA_BEAM_FRAGMENT}`).toContain(
@@ -250,6 +266,29 @@ describe('NOVA_BEAM shaders', () => {
     // never reaches zero, which is what `fade` is for.
     expect(fade(0) / fade(0.5)).toBeGreaterThan(3);
     expect(fade(1)).toBe(0);
+  });
+
+  it('burns at the source, and only there', () => {
+    /** The extra light carried at the root, evaluated from the constants. */
+    const hotspot = (along: number) =>
+      1 + NOVA_BEAM.hotspot * Math.exp(-along * NOVA_BEAM.hotspotRate);
+
+    // Several times over at the root: enough to spill past white and read as
+    // a source rather than as a beam that starts brightly.
+    expect(hotspot(0)).toBeGreaterThan(3);
+    // And local: by a third of the way out the boost is gone, so the beam
+    // behind it is a beam.
+    expect(hotspot(0.3)).toBeLessThan(1.15);
+  });
+
+  it('carries that extra light in the colour, not in the alpha', () => {
+    // Additive blending multiplies the source colour by its alpha, and alpha
+    // clamps at one: a boost written into the intensity alone would stop
+    // doing anything the moment the light saturated.
+    expect(NOVA_BEAM_FRAGMENT).toContain('float novaHotspot = 1.0 +');
+    expect(NOVA_BEAM_FRAGMENT).toContain(
+      'gl_FragColor = vec4(novaColor * novaHotspot, novaIntensity);',
+    );
   });
 
   it('runs a wave of brightness out along the beam', () => {

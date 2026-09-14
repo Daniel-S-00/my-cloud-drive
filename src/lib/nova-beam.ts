@@ -44,12 +44,18 @@ export const NOVA_BEAM = {
    */
   reach: 13,
   /**
-   * Radius where it leaves the core, and the width it gains along the way. A
-   * beam of light needs width to be seen: a thin line disappears between the
-   * dust points.
+   * Radius where it leaves the core, and the width it gains along the way.
+   *
+   * The base is a throat rather than a mouth: narrow enough that the core's
+   * own glow covers the opening, wide enough that the source does not look
+   * pinched. A tube that opened at the base instead would show its own inner
+   * wall from anywhere off-axis, which reads as a pipe rather than as light.
+   *
+   * Because the beam starts from that throat, the flare is what decides how
+   * wide it is by the time it crosses the frame.
    */
-  baseRadius: 0.5,
-  flare: 0.9,
+  baseRadius: 0.1,
+  flare: 1.5,
   /** Rings along the length, and segments around it. Small on purpose. */
   rings: 28,
   segments: 28,
@@ -81,6 +87,17 @@ export const NOVA_BEAM = {
   /** How deep those waves are, as a fraction of the light. */
   flow: 0.25,
   /**
+   * The source. Intensity alone cannot make a beam look like a light source:
+   * additive light saturates and then stops growing, so the light's own
+   * colour is multiplied at the root instead, which is what spills past white
+   * and reads as a hot knot rather than as a brighter beam.
+   *
+   * `hotspotRate` keeps that boost to the first stretch — gone by about a
+   * third of the way out — so the origin burns and the beam stays a beam.
+   */
+  hotspot: 3.5,
+  hotspotRate: 14,
+  /**
    * Overall opacity. Kept lowish because the tube is drawn double-sided:
    * what you see through the middle is the near wall and the far wall adding
    * up, which is the effect — and the reason it does not need more.
@@ -92,6 +109,11 @@ export const NOVA_BEAM = {
  * Two tapered, twisted tubes: one out of each pole. The lower beam is the
  * upper one mirrored through the disc, twist included, so the pair stays
  * symmetric.
+ *
+ * Each one narrows to the axis at its base and is left open at the tip. A
+ * mouth at the base would show its own inner wall from anywhere off-axis,
+ * which reads as a pipe rather than as light leaving the core; the tip is off
+ * screen and unlit by then, so a cap there would be triangles nobody sees.
  */
 export function buildNovaBeamAttributes(): NovaBeamAttributes {
   const { base, reach, baseRadius, flare, rings, segments, twist } = NOVA_BEAM;
@@ -205,7 +227,9 @@ export const NOVA_BEAM_VERTEX = [
  *
  * The colour walks the same ramp as the points — hot core, mid, deep — with
  * the distance along the beam standing in for the shade, so a beam and a
- * particle agree about what "further out" looks like.
+ * particle agree about what "further out" looks like. At the very root the
+ * colour itself is scaled up, which is the source: the extra light has to be
+ * carried in the colour, because additive light clamps on alpha.
  */
 export const NOVA_BEAM_FRAGMENT = [
   'uniform vec3 uColorCore;',
@@ -223,7 +247,8 @@ export const NOVA_BEAM_FRAGMENT = [
   '\tvec3 novaColor = vAlong < 0.5',
   '\t\t? mix(uColorCore, uColorMid, vAlong / 0.5)',
   '\t\t: mix(uColorMid, uColorDeep, (vAlong - 0.5) / 0.5);',
+  `\tfloat novaHotspot = 1.0 + ${NOVA_BEAM.hotspot.toFixed(4)} * exp(-vAlong * ${NOVA_BEAM.hotspotRate.toFixed(4)});`,
   `\tfloat novaIntensity = novaShaft * novaFade * novaFlow * ${NOVA_BEAM.strength.toFixed(4)};`,
-  '\tgl_FragColor = vec4(novaColor, novaIntensity);',
+  '\tgl_FragColor = vec4(novaColor * novaHotspot, novaIntensity);',
   '}',
 ].join('\n');
