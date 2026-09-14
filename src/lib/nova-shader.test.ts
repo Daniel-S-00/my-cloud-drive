@@ -7,6 +7,7 @@ import {
   NOVA_FRAGMENT_DECLS,
   NOVA_FRAGMENT_SPRITE,
   NOVA_POINTER,
+  NOVA_SPIN_PATTERN,
   NOVA_TWINKLE,
   NOVA_VERTEX_ANCHORS,
   NOVA_VERTEX_DECLS,
@@ -14,6 +15,8 @@ import {
   NOVA_VERTEX_ORBIT,
   NOVA_VERTEX_POINTER,
   NOVA_VERTEX_RAMP,
+  NOVA_VERTEX_SPIN,
+  NOVA_VERTEX_SPIN_PATTERN,
   NOVA_VERTEX_TWINKLE,
   assertNovaShaderAnchors,
   patchNovaFragment,
@@ -85,6 +88,7 @@ describe('patchNovaVertex', () => {
     expect(patched).toContain('uniform float time;');
     expect(patched).toContain('attribute float sizes;');
     expect(patched).toContain('attribute vec3 orbits;');
+    expect(patched).toContain('attribute vec3 spins;');
     expect(patched).toContain('attribute float shades;');
     expect(patched).toContain('varying vec3 vColor;');
     expect(patched).toContain('uniform vec3 uColorCore;');
@@ -145,6 +149,121 @@ describe('patchNovaVertex', () => {
     expect(NOVA_VERTEX_ORBIT).toContain(
       'float novaAngle = orbits.y + time * orbits.z;',
     );
+  });
+});
+
+describe('patchNovaVertex self-rotation', () => {
+  const patched = patchNovaVertex(ShaderChunk.points_vert);
+
+  it('includes the spin and the pattern that makes it visible', () => {
+    expect(patched).toContain(NOVA_VERTEX_SPIN);
+    expect(patched).toContain(NOVA_VERTEX_SPIN_PATTERN);
+  });
+
+  it('turns the point about its body before the orbit carries the body', () => {
+    expect(patched.indexOf('#include <begin_vertex>')).toBeLessThan(
+      patched.indexOf(NOVA_VERTEX_SPIN),
+    );
+    expect(patched.indexOf(NOVA_VERTEX_SPIN)).toBeLessThan(
+      patched.indexOf(NOVA_VERTEX_ORBIT),
+    );
+  });
+
+  it('turns in place, by undoing the pivot the offsets carry', () => {
+    expect(NOVA_VERTEX_SPIN).toContain(
+      'vec3 novaSpinLocal = transformed - vec3(0.0, spins.z, 0.0);',
+    );
+    // The pivot goes back on after the rotation, which is what makes a
+    // planetoid turn about its own centre instead of the system's origin.
+    expect(NOVA_VERTEX_SPIN).toContain('+ vec3(0.0, spins.z, 0.0);');
+  });
+
+  it('turns the same way the orbits travel', () => {
+    // The orbit places a point at (cos, sin) * radius, so +X travels toward
+    // +Z. The spin has to agree, or a body would look like it is fighting
+    // its own direction of travel.
+    expect(NOVA_VERTEX_SPIN).toContain(
+      'novaSpinLocal.x * novaSpinCos - novaSpinLocal.z * novaSpinSin,',
+    );
+    expect(NOVA_VERTEX_SPIN).toContain(
+      'novaSpinLocal.x * novaSpinSin + novaSpinLocal.z * novaSpinCos',
+    );
+  });
+
+  it('keeps the still points out of the trig', () => {
+    // The dust disc is most of the buffer and never spins.
+    expect(NOVA_VERTEX_SPIN).toContain('if (spins.x != 0.0) {');
+    expect(NOVA_VERTEX_SPIN_PATTERN).toContain('if (spins.x != 0.0) {');
+  });
+
+  it('patterns the body from its own frame, not from the orbit', () => {
+    // Reading the raw local position rather than the displaced one is what
+    // lets the pattern run alongside the ramp, and it is what pins the
+    // pattern to the body so the rotation carries it.
+    expect(NOVA_VERTEX_SPIN_PATTERN).toContain('position');
+    expect(NOVA_VERTEX_SPIN_PATTERN).not.toContain('transformed');
+    expect(patched.indexOf(NOVA_VERTEX_RAMP)).toBeLessThan(
+      patched.indexOf(NOVA_VERTEX_SPIN_PATTERN),
+    );
+    expect(patched.indexOf(NOVA_VERTEX_SPIN_PATTERN)).toBeLessThan(
+      patched.indexOf('#include <begin_vertex>'),
+    );
+  });
+
+  it('keeps the pattern off the spin axis, or the spin cannot be seen', () => {
+    // A pattern symmetric about the axis — equator bands, a pole gradient —
+    // is unchanged by the rotation, so the body would look static however
+    // fast it turned. The grating direction needs components off the axis.
+    expect(NOVA_SPIN_PATTERN.direction[0]).not.toBe(0);
+    expect(NOVA_SPIN_PATTERN.direction[2]).not.toBe(0);
+  });
+
+  it('bakes the pattern constants in as float literals', () => {
+    for (const value of [
+      NOVA_SPIN_PATTERN.scale,
+      NOVA_SPIN_PATTERN.contrast,
+      NOVA_SPIN_PATTERN.epsilon,
+      ...NOVA_SPIN_PATTERN.direction,
+    ]) {
+      expect(patched).toContain(value.toFixed(4));
+    }
+  });
+
+  /**
+   * Vector constructors whose arguments are all numeric literals, so the
+   * count is the whole story. `vec3(0.0, 0.0001)` shipped once: GLSL reads it
+   * as "not enough data", not as a shorthand, and only the browser says so.
+   */
+  function malformedConstructors(source: string): string[] {
+    const offenders: string[] = [];
+
+    for (const call of source.matchAll(/vec([234])\(([^()]*)\)/g)) {
+      const size = Number(call[1]);
+      const args = call[2]
+        .split(',')
+        .map((arg) => arg.trim())
+        .filter(Boolean);
+
+      // Anything that is not a number may be a vector or a swizzle, and then
+      // the arity cannot be counted from the source alone.
+      if (!args.every((arg) => /^-?\d/.test(arg))) continue;
+
+      // One scalar broadcasts to every component; anything else has to fill
+      // the vector exactly.
+      if (args.length !== 1 && args.length !== size) offenders.push(call[0]);
+    }
+
+    return offenders;
+  }
+
+  it('never constructs a vector from the wrong number of components', () => {
+    expect(malformedConstructors(patched)).toEqual([]);
+  });
+
+  it('never leaves a trailing comma in an argument list', () => {
+    // Legal in an initialiser list, a syntax error in a call — and again only
+    // a compile in a browser would have said so.
+    expect(patched).not.toMatch(/,\s*\)/);
   });
 });
 

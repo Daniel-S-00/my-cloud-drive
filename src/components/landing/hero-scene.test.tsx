@@ -405,17 +405,18 @@ describe('HeroScene mounting', () => {
     );
   });
 
-  it('uploads the position, sizes, orbits and shades attributes', async () => {
+  it('uploads the position, sizes, orbits, spins and shades attributes', async () => {
     await mount();
 
     expect(h.attributeNames).toEqual([
       'position',
       'sizes',
       'orbits',
+      'spins',
       'shades',
     ]);
     expect(h.attributes.map((attribute) => attribute.itemSize)).toEqual([
-      3, 1, 3, 1,
+      3, 1, 3, 3, 1,
     ]);
   });
 

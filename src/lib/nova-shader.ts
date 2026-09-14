@@ -33,6 +33,7 @@ export const NOVA_VERTEX_DECLS = [
   'uniform float uPointerStrength;',
   'attribute float sizes;',
   'attribute vec3 orbits;',
+  'attribute vec3 spins;',
   'attribute float shades;',
   'varying vec3 vColor;',
   '',
@@ -62,6 +63,73 @@ export const NOVA_VERTEX_RAMP = [
 export const NOVA_VERTEX_ORBIT = [
   '\tfloat novaAngle = orbits.y + time * orbits.z;',
   '\ttransformed += vec3(cos(novaAngle), 0.0, sin(novaAngle)) * orbits.x;',
+].join('\n');
+
+/**
+ * Self-rotation: a body turns about its own Y axis before the orbit carries
+ * it around the system. `spins` is (speed, phase, pivot height), and the
+ * pivot is the body's centre in its own points' space — zero for the core,
+ * the lift for a planetoid, whose local offsets have that lift baked in.
+ * Without it, a planetoid would swing around the system's origin instead of
+ * turning in place.
+ *
+ * The handedness matches the orbits (a point at +X travels toward +Z), so a
+ * body never appears to spin against its own direction of travel.
+ *
+ * The dust is most of the buffer and never spins, so the trig sits behind a
+ * zero test: a still point pays for one comparison.
+ */
+export const NOVA_VERTEX_SPIN = [
+  'if (spins.x != 0.0) {',
+  '\tfloat novaSpinAngle = spins.x * time + spins.y;',
+  '\tfloat novaSpinCos = cos(novaSpinAngle);',
+  '\tfloat novaSpinSin = sin(novaSpinAngle);',
+  '\tvec3 novaSpinLocal = transformed - vec3(0.0, spins.z, 0.0);',
+  '\ttransformed = vec3(',
+  '\t\tnovaSpinLocal.x * novaSpinCos - novaSpinLocal.z * novaSpinSin,',
+  '\t\tnovaSpinLocal.y,',
+  '\t\tnovaSpinLocal.x * novaSpinSin + novaSpinLocal.z * novaSpinCos',
+  '\t) + vec3(0.0, spins.z, 0.0);',
+  '}',
+].join('\n');
+
+/**
+ * What makes the spin legible. A body is a ball of uniformly scattered
+ * points, and a uniform ball looks identical at every angle: rotating it
+ * rigidly is invisible on its own. So a body also carries a brightness
+ * pattern fixed to itself, and that is what the eye follows as it turns. The
+ * points keep their own brightness as they travel, and since the body
+ * rotates rigidly the whole pattern turns with it.
+ *
+ * The grating runs off-axis on purpose. A pattern symmetric about the spin
+ * axis — equator bands, a pole-to-pole gradient — is unchanged by the
+ * rotation and would leave the body looking static.
+ */
+export const NOVA_SPIN_PATTERN = {
+  /** Off-axis, and not aligned with either of the other two axes. */
+  direction: [4.3, 6.1, 5.7],
+  /**
+   * Cycles across the body, given that direction's magnitude: about two, so
+   * a ball shows a bright side and a dark one with the transitions between
+   * them. Under one cycle it is a single gradient and reads as a glow
+   * fading rather than as a surface turning.
+   */
+  scale: 0.62,
+  /** How far a dark patch takes the point's brightness down, as a fraction. */
+  contrast: 0.45,
+  /** Keeps the direction defined for a point sitting exactly on the pivot. */
+  epsilon: 0.0001,
+} as const;
+
+export const NOVA_VERTEX_SPIN_PATTERN = [
+  'if (spins.x != 0.0) {',
+  '\tvec3 novaSpinOffset = position - vec3(0.0, spins.z, 0.0);',
+  `\tvec3 novaSpinDir = normalize(novaSpinOffset + vec3(0.0, ${glslFloat(NOVA_SPIN_PATTERN.epsilon)}, 0.0));`,
+  `\tfloat novaSpinPatch = 0.5 + 0.5 * sin(dot(novaSpinDir, vec3(${NOVA_SPIN_PATTERN.direction
+    .map(glslFloat)
+    .join(', ')})) * ${glslFloat(NOVA_SPIN_PATTERN.scale)});`,
+  `\tvColor *= mix(1.0 - ${glslFloat(NOVA_SPIN_PATTERN.contrast)}, 1.0, novaSpinPatch);`,
+  '}',
 ].join('\n');
 
 /**
@@ -217,8 +285,20 @@ export function patchNovaVertex(source: string): string {
       NOVA_VERTEX_TWINKLE,
     ].join('\n'),
   );
-  patched = appendAfter(patched, ANCHOR_COLOR, NOVA_VERTEX_RAMP);
-  return appendAfter(patched, ANCHOR_BEGIN, NOVA_VERTEX_ORBIT);
+  // The spin pattern rides with the ramp: it multiplies the colour the ramp
+  // has just written, and all it needs is the point's own local position.
+  patched = appendAfter(
+    patched,
+    ANCHOR_COLOR,
+    `${NOVA_VERTEX_RAMP}\n${NOVA_VERTEX_SPIN_PATTERN}`,
+  );
+  // The spin goes before the orbit: the point turns about its body's centre,
+  // and the orbit then carries that body around the system.
+  return appendAfter(
+    patched,
+    ANCHOR_BEGIN,
+    `${NOVA_VERTEX_SPIN}\n${NOVA_VERTEX_ORBIT}`,
+  );
 }
 
 export function patchNovaFragment(source: string): string {

@@ -73,6 +73,24 @@ export const NOVA_DUST = {
 export const NOVA_POINT_SIZE = { min: 0.45, spread: 1.15, bias: 2 } as const;
 
 /**
+ * Self-rotation, in the same units as the orbit speeds (radians per `time`
+ * unit, of which roughly 1.57 pass per second). The orbits already carry the
+ * bodies around the system; this is what turns each one on its own axis.
+ *
+ * Every speed is positive, so nothing counter-rotates: the bodies and the
+ * disc all travel the same way, and a retrograde body would read as a bug
+ * next to them.
+ */
+export const NOVA_SPIN = {
+  /** The core turns slowly and steadily. It is the scene's anchor. */
+  core: 0.38,
+  /** Smallest body: a turn in a handful of seconds, which is what sells it. */
+  bodyFastest: 0.72,
+  /** Largest body: slow enough to read as mass. */
+  bodySlowest: 0.3,
+} as const;
+
+/**
  * Drives the colour ramp: 0 is the hot core, 1 the dimmest dust. The dust
  * sits well above the planetoids so it cannot outshine them — with additive
  * blending it accumulates over far more points, so its per-point brightness
@@ -86,6 +104,11 @@ export type NovaAttributes = {
   sizes: Float32Array;
   /** (orbital radius, phase, angular speed). All zero when the point is still. */
   orbits: Float32Array;
+  /**
+   * (spin speed, spin phase, pivot height) — the point's rotation about its
+   * own body. All zero for the dust, which orbits but does not turn.
+   */
+  spins: Float32Array;
   shades: Float32Array;
   count: number;
 };
@@ -120,6 +143,7 @@ export function buildNovaAttributes({
   const positions = new Float32Array(count * 3);
   const sizes = new Float32Array(count);
   const orbits = new Float32Array(count * 3);
+  const spins = new Float32Array(count * 3);
   const shades = new Float32Array(count);
 
   let cursor = 0;
@@ -127,6 +151,7 @@ export function buildNovaAttributes({
   const push = (
     offset: readonly [number, number, number],
     orbit: readonly [number, number, number],
+    spin: readonly [number, number, number],
     shade: number,
   ) => {
     const base = cursor * 3;
@@ -136,6 +161,9 @@ export function buildNovaAttributes({
     orbits[base] = orbit[0];
     orbits[base + 1] = orbit[1];
     orbits[base + 2] = orbit[2];
+    spins[base] = spin[0];
+    spins[base + 1] = spin[1];
+    spins[base + 2] = spin[2];
     sizes[cursor] =
       NOVA_POINT_SIZE.min +
       NOVA_POINT_SIZE.spread * Math.pow(rng(), NOVA_POINT_SIZE.bias);
@@ -160,9 +188,11 @@ export function buildNovaAttributes({
 
   // The core: a dense ball at the origin, with nothing to orbit. It stays on
   // the disc plane rather than riding above it, which is what keeps it
-  // reading as the centre of the disc.
+  // reading as the centre of the disc. Its pivot is the origin, since the
+  // ball is already centred there, and it turns on its own axis.
+  const coreSpin = [NOVA_SPIN.core, rng() * Math.PI * 2, 0] as const;
   for (let i = 0; i < coreCount; i += 1) {
-    push(ballOffset(NOVA_CORE.radius), STATIC, NOVA_SHADE.core);
+    push(ballOffset(NOVA_CORE.radius), STATIC, coreSpin, NOVA_SHADE.core);
   }
 
   // Planetoids: each body is a ball of points that shares one orbit, so the
@@ -189,12 +219,29 @@ export function buildNovaAttributes({
       rng() * Math.PI * 2,
       NOVA_ORBIT_SPEED / orbitRadius,
     ] as const;
+    // Smaller bodies turn faster, the way they also orbit faster: with every
+    // body a plain ball, the rate is the clearest cue to its size.
+    const spinSpeed = lerp(
+      NOVA_SPIN.bodyFastest,
+      NOVA_SPIN.bodySlowest,
+      (bodyRadius - NOVA_PLANETOIDS.bodyMin) /
+        (NOVA_PLANETOIDS.bodyMax - NOVA_PLANETOIDS.bodyMin),
+    );
+    // The pivot is the body's own centre. The lift is baked into the local
+    // offsets above, so the shader has to undo it — otherwise the body would
+    // swing around the system's origin instead of turning in place.
+    const spin = [
+      spinSpeed,
+      rng() * Math.PI * 2,
+      NOVA_PLANETOIDS.lift,
+    ] as const;
     const bodyPointCount = perBody + (body < extra ? 1 : 0);
 
     for (let i = 0; i < bodyPointCount; i += 1) {
       push(
         ballOffset(bodyRadius, NOVA_PLANETOIDS.lift),
         orbit,
+        spin,
         NOVA_SHADE.planetoid,
       );
     }
@@ -218,11 +265,14 @@ export function buildNovaAttributes({
       // ring comes from its orbit.
       [0, thickness, 0],
       [orbitRadius, theta, NOVA_ORBIT_SPEED / orbitRadius],
+      // The disc travels but does not turn: a rotating ring of uniform points
+      // is the same ring, and it already has its orbit to carry it around.
+      STATIC,
       NOVA_SHADE.dust,
     );
   }
 
-  return { positions, sizes, orbits, shades, count };
+  return { positions, sizes, orbits, spins, shades, count };
 }
 
 function lerp(from: number, to: number, t: number): number {

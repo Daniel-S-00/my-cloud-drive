@@ -106,7 +106,7 @@ function mountScene(
   // core-count hint is not worth consulting — go straight to the smaller
   // tier rather than trusting a Chromium-only signal to catch it.
   const tier = coarse ? 'medium' : pickQualityTier(readDeviceHints());
-  const { positions, sizes, orbits, shades } = buildNovaAttributes(
+  const { positions, sizes, orbits, spins, shades } = buildNovaAttributes(
     NOVA_QUALITY_TIERS[tier],
   );
 
@@ -114,6 +114,7 @@ function mountScene(
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('sizes', new THREE.BufferAttribute(sizes, 1));
   geometry.setAttribute('orbits', new THREE.BufferAttribute(orbits, 3));
+  geometry.setAttribute('spins', new THREE.BufferAttribute(spins, 3));
   geometry.setAttribute('shades', new THREE.BufferAttribute(shades, 1));
 
   const palette = resolveNovaPalette(document.documentElement);

@@ -9,6 +9,7 @@ import {
   NOVA_POINT_SIZE,
   NOVA_QUALITY_TIERS,
   NOVA_SHADE,
+  NOVA_SPIN,
   buildNovaAttributes,
   pickQualityTier,
 } from './nova-geometry';
@@ -32,6 +33,10 @@ function bodySize(index: number, planetoidCount: number): number {
 
 function orbitAt(orbits: Float32Array, point: number) {
   return [orbits[point * 3], orbits[point * 3 + 1], orbits[point * 3 + 2]];
+}
+
+function spinAt(spins: Float32Array, point: number) {
+  return [spins[point * 3], spins[point * 3 + 1], spins[point * 3 + 2]];
 }
 
 /** First point index of each body, paired with the body's own orbit. */
@@ -113,11 +118,29 @@ describe('buildNovaAttributes', () => {
     rng: seeded(7),
   });
 
+  /** Measured radius of a body's ball, undoing the lift the offsets carry. */
+  const bodyRadius = (start: number, size: number) => {
+    let radius = 0;
+    for (let i = 0; i < size; i += 1) {
+      const at = (start + i) * 3;
+      radius = Math.max(
+        radius,
+        Math.hypot(
+          attributes.positions[at],
+          attributes.positions[at + 1] - NOVA_PLANETOIDS.lift,
+          attributes.positions[at + 2],
+        ),
+      );
+    }
+    return radius;
+  };
+
   it('sizes every buffer to the point count', () => {
     expect(attributes.count).toBe(total);
     expect(attributes.positions).toHaveLength(total * 3);
     expect(attributes.sizes).toHaveLength(total);
     expect(attributes.orbits).toHaveLength(total * 3);
+    expect(attributes.spins).toHaveLength(total * 3);
     expect(attributes.shades).toHaveLength(total);
   });
 
@@ -126,6 +149,7 @@ describe('buildNovaAttributes', () => {
       attributes.positions,
       attributes.sizes,
       attributes.orbits,
+      attributes.spins,
       attributes.shades,
     ]) {
       expect(Array.from(buffer).every(Number.isFinite)).toBe(true);
@@ -143,6 +167,7 @@ describe('buildNovaAttributes', () => {
       Array.from(attributes.positions),
     );
     expect(Array.from(again.orbits)).toEqual(Array.from(attributes.orbits));
+    expect(Array.from(again.spins)).toEqual(Array.from(attributes.spins));
   });
 
   it('handles an empty population', () => {
@@ -155,6 +180,7 @@ describe('buildNovaAttributes', () => {
     expect(empty.count).toBe(0);
     expect(empty.positions).toHaveLength(0);
     expect(empty.orbits).toHaveLength(0);
+    expect(empty.spins).toHaveLength(0);
   });
 
   it('builds the core as a ball at the origin, with nothing to orbit', () => {
@@ -235,6 +261,64 @@ describe('buildNovaAttributes', () => {
       speeds.push(attributes.orbits[point * 3 + 2]);
     }
     expect(speeds.every((speed) => speed > 0)).toBe(true);
+  });
+
+  it('spins the core about its own centre', () => {
+    const core = spinAt(attributes.spins, 0);
+    expect(core[0]).toBeCloseTo(NOVA_SPIN.core, 5);
+    // The ball is already centred on the origin, so there is no offset to
+    // undo before turning it.
+    expect(core[2]).toBe(0);
+
+    for (let point = 0; point < coreCount; point += 1) {
+      // One body, one turn: points that disagreed about their spin would tear
+      // the ball apart as it rotated.
+      expect(spinAt(attributes.spins, point)).toEqual(core);
+    }
+  });
+
+  it('spins each planetoid about its own centre, not the system origin', () => {
+    for (const body of bodyOrbits(
+      attributes.orbits,
+      coreCount,
+      planetoidCount,
+    )) {
+      const spin = spinAt(attributes.spins, body.start);
+      expect(spin[0]).toBeGreaterThan(0);
+      // The pivot has to be the lift the offsets were built around, or the
+      // body swings around the origin instead of turning in place.
+      expect(spin[2]).toBeCloseTo(NOVA_PLANETOIDS.lift, 5);
+
+      for (let i = 0; i < body.size; i += 1) {
+        expect(spinAt(attributes.spins, body.start + i)).toEqual(spin);
+      }
+    }
+  });
+
+  it('turns the smaller bodies faster', () => {
+    const measured = bodyOrbits(
+      attributes.orbits,
+      coreCount,
+      planetoidCount,
+    ).map((body) => ({
+      spin: spinAt(attributes.spins, body.start)[0],
+      radius: bodyRadius(body.start, body.size),
+    }));
+
+    const smallest = measured.reduce((a, b) => (b.radius < a.radius ? b : a));
+    const largest = measured.reduce((a, b) => (b.radius > a.radius ? b : a));
+
+    // Two balls of different size are otherwise the same object on screen,
+    // so the rate is what tells them apart.
+    expect(smallest.spin).toBeGreaterThan(largest.spin);
+  });
+
+  it('leaves the dust disc still', () => {
+    for (let point = dustStart; point < total; point += 1) {
+      // A ring of uniform points looks the same at every angle, and the disc
+      // is already carried around by its orbits.
+      expect(spinAt(attributes.spins, point)).toEqual([0, 0, 0]);
+    }
   });
 
   it('leans the whole system by one shared oblique angle', () => {
