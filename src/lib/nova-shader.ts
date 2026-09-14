@@ -154,16 +154,21 @@ function glslFloat(value: number): string {
 }
 
 /**
- * Displaces and brightens points around the cursor. Applied after
- * `<project_vertex>`, because that is where `gl_Position` exists, and
- * after the colour ramp, because it lifts `vColor`.
+ * Displaces and brightens orbiting points around the cursor. Applied after
+ * `<project_vertex>`, because that is where `gl_Position` exists, and after
+ * the colour ramp, because it lifts `vColor`.
+ *
+ * Only points that travel react. The core has no orbit: it sits at the origin
+ * and the whole system turns around it, so stirring it reads as the scene
+ * lurching rather than as a hand passing through dust. Its orbit is the one
+ * attribute that says which kind of point this is, and it is already here.
  *
  * Working in NDC rather than world space keeps the influence pinned to the
  * cursor regardless of how the system is oriented or how far away a point
  * is.
  */
 export const NOVA_VERTEX_POINTER = [
-  'if (uPointerStrength > 0.0 && gl_Position.w > 0.0) {',
+  'if (orbits.x > 0.0 && uPointerStrength > 0.0 && gl_Position.w > 0.0) {',
   '\tvec2 novaNdc = gl_Position.xy / gl_Position.w;',
   '\tvec2 novaDelta = novaNdc - uPointer;',
   '\tnovaDelta.x *= uPointerAspect;',

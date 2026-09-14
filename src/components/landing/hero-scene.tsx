@@ -10,6 +10,11 @@ import {
 } from '@/lib/nova-geometry';
 import { resolveNovaPalette } from '@/lib/nova-palette';
 import {
+  NOVA_BEAM_FRAGMENT,
+  NOVA_BEAM_VERTEX,
+  buildNovaBeamAttributes,
+} from '@/lib/nova-beam';
+import {
   assertNovaShaderAnchors,
   patchNovaFragment,
   patchNovaVertex,
@@ -147,6 +152,43 @@ function mountScene(
   // per vertex, only free.
   points.rotation.z = NOVA_PLANE_TILT;
   scene.add(points);
+
+  // The quasar's beams are light, not points: a tube a viewer looks through,
+  // drawn additively with a shader of its own. They lean with the disc,
+  // because the axis they run along is the disc's own.
+  const beamAttributes = buildNovaBeamAttributes();
+  const beamGeometry = new THREE.BufferGeometry();
+  beamGeometry.setAttribute(
+    'position',
+    new THREE.BufferAttribute(beamAttributes.positions, 3),
+  );
+  beamGeometry.setAttribute(
+    'normal',
+    new THREE.BufferAttribute(beamAttributes.normals, 3),
+  );
+  beamGeometry.setAttribute(
+    'along',
+    new THREE.BufferAttribute(beamAttributes.alongs, 1),
+  );
+  beamGeometry.setIndex(new THREE.BufferAttribute(beamAttributes.indices, 1));
+
+  const beamMaterial = new THREE.ShaderMaterial({
+    // The beam reads `time` and the two ends of the palette out of the same
+    // uniform objects the points use, so one update per frame drives both.
+    uniforms,
+    vertexShader: NOVA_BEAM_VERTEX,
+    fragmentShader: NOVA_BEAM_FRAGMENT,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    // Both walls, so the light the eye looks through adds up: that is the
+    // difference between a tube and a beam.
+    side: THREE.DoubleSide,
+  });
+  const beams = new THREE.Mesh(beamGeometry, beamMaterial);
+  beams.rotation.z = NOVA_PLANE_TILT;
+  scene.add(beams);
 
   let pointerX = 0;
   let pointerY = 0;
@@ -286,6 +328,8 @@ function mountScene(
     renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
     geometry.dispose();
     material.dispose();
+    beamGeometry.dispose();
+    beamMaterial.dispose();
     renderer.dispose();
     // dispose() does not release the context itself; without this, dev
     // StrictMode double-mounts and HMR would exhaust the browser's

@@ -216,3 +216,12 @@ production.
 - All file bytes flow browser → R2. The Next.js server only signs URLs and
   persists metadata. Files are currently stored plaintext; client-side
   end-to-end encryption is tracked in issue #15.
+
+## Credits
+
+The landing hero's particle backdrop began as a port of the **Nova** pen by
+[prisoner849](https://codepen.io/prisoner849/pen/RwyzrVj) on CodePen: the
+particle field, the shader patch and the cursor reaction all trace back to
+it. The scene has since been rebuilt as its own composition — a core, six
+orbiting bodies, a dust disc and two quasar beams — so the pen is the
+inspiration rather than the source today.

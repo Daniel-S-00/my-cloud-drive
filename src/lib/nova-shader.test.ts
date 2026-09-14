@@ -2,6 +2,10 @@
 import { describe, it, expect } from 'vitest';
 import { ShaderChunk } from 'three';
 import {
+  hasArgumentTrailingComma,
+  malformedConstructors,
+} from './glsl-guards';
+import {
   NOVA_DEPTH,
   NOVA_FRAGMENT_ANCHORS,
   NOVA_FRAGMENT_DECLS,
@@ -229,41 +233,12 @@ describe('patchNovaVertex self-rotation', () => {
     }
   });
 
-  /**
-   * Vector constructors whose arguments are all numeric literals, so the
-   * count is the whole story. `vec3(0.0, 0.0001)` shipped once: GLSL reads it
-   * as "not enough data", not as a shorthand, and only the browser says so.
-   */
-  function malformedConstructors(source: string): string[] {
-    const offenders: string[] = [];
-
-    for (const call of source.matchAll(/vec([234])\(([^()]*)\)/g)) {
-      const size = Number(call[1]);
-      const args = call[2]
-        .split(',')
-        .map((arg) => arg.trim())
-        .filter(Boolean);
-
-      // Anything that is not a number may be a vector or a swizzle, and then
-      // the arity cannot be counted from the source alone.
-      if (!args.every((arg) => /^-?\d/.test(arg))) continue;
-
-      // One scalar broadcasts to every component; anything else has to fill
-      // the vector exactly.
-      if (args.length !== 1 && args.length !== size) offenders.push(call[0]);
-    }
-
-    return offenders;
-  }
-
   it('never constructs a vector from the wrong number of components', () => {
     expect(malformedConstructors(patched)).toEqual([]);
   });
 
   it('never leaves a trailing comma in an argument list', () => {
-    // Legal in an initialiser list, a syntax error in a call — and again only
-    // a compile in a browser would have said so.
-    expect(patched).not.toMatch(/,\s*\)/);
+    expect(hasArgumentTrailingComma(patched)).toBe(false);
   });
 });
 
@@ -358,6 +333,13 @@ describe('patchNovaVertex post-projection effects', () => {
 
   it('keeps only the cursor gate, which is eased rather than switched', () => {
     expect(NOVA_VERTEX_POINTER).toContain('uPointerStrength > 0.0');
+  });
+
+  it('leaves the still core alone', () => {
+    // The core sits at the origin with no orbit and the whole system turns
+    // around it, so stirring it reads as the scene lurching. Its orbit is the
+    // attribute that tells the two kinds of point apart.
+    expect(NOVA_VERTEX_POINTER).toContain('orbits.x > 0.0');
   });
 
   it('tints by depth after mvPosition exists', () => {

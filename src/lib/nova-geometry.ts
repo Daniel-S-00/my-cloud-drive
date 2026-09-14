@@ -4,7 +4,8 @@
  * The composition is a small system: a dense core, a handful of planetoids
  * on circular orbits around it, and a dust disc for depth. Every buffer is
  * built as flat typed arrays so the GPU can consume it directly, with no
- * per-point object allocation.
+ * per-point object allocation. The quasar's beams are not points — see
+ * `nova-beam.ts`.
  *
  * The orbital plane is deliberately shared rather than per-body: random
  * inclinations made some bodies climb where others descended, which reads as
@@ -68,6 +69,12 @@ export const NOVA_DUST = {
    */
   minOrbit: 4,
 } as const;
+
+/**
+ * The quasar's beams used to be a population of points in here. They are
+ * light now, drawn as geometry with a shader of their own — see
+ * `nova-beam.ts`.
+ */
 
 /** Power bias keeps most points small with a few larger ones. */
 export const NOVA_POINT_SIZE = { min: 0.45, spread: 1.15, bias: 2 } as const;
@@ -271,6 +278,9 @@ export function buildNovaAttributes({
       NOVA_SHADE.dust,
     );
   }
+
+  // The quasar's jets are not in here: they are drawn as light rather than
+  // as points, in `nova-beam.ts`.
 
   return { positions, sizes, orbits, spins, shades, count };
 }

@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render } from '@testing-library/react';
 import {
+  NOVA_PLANE_TILT,
   NOVA_QUALITY_TIERS,
   pickQualityTier,
 } from '@/lib/nova-geometry';
@@ -34,12 +35,28 @@ type MockMaterial = {
 type MockGeometry = {
   dispose: ReturnType<typeof vi.fn>;
   setAttribute: ReturnType<typeof vi.fn>;
+  setIndex: ReturnType<typeof vi.fn>;
 };
 
 type MockCamera = {
   aspect: number;
   updateProjectionMatrix: ReturnType<typeof vi.fn>;
   lookAt: ReturnType<typeof vi.fn>;
+};
+
+type MockScene = {
+  add: ReturnType<typeof vi.fn>;
+};
+
+type MockShaderMaterial = {
+  options: Record<string, unknown>;
+  dispose: ReturnType<typeof vi.fn>;
+};
+
+type MockMesh = {
+  geometry: unknown;
+  material: MockShaderMaterial;
+  rotation: { z: number };
 };
 
 const ANCHORED_VERTEX = [
@@ -68,6 +85,8 @@ const h = vi.hoisted(() => ({
   materials: [] as MockMaterial[],
   geometries: [] as MockGeometry[],
   cameras: [] as MockCamera[],
+  scenes: [] as MockScene[],
+  meshes: [] as MockMesh[],
   attributes: [] as Array<{ array: Float32Array; itemSize: number }>,
   attributeNames: [] as string[],
   reset() {
@@ -79,6 +98,8 @@ const h = vi.hoisted(() => ({
     this.materials = [];
     this.geometries = [];
     this.cameras = [];
+    this.scenes = [];
+    this.meshes = [];
     this.attributes = [];
     this.attributeNames = [];
   },
@@ -103,6 +124,10 @@ vi.mock('three', () => {
 
   class Scene {
     add = vi.fn();
+
+    constructor() {
+      h.scenes.push(this as unknown as MockScene);
+    }
   }
 
   class PerspectiveCamera {
@@ -122,6 +147,7 @@ vi.mock('three', () => {
     setAttribute = vi.fn((name: string) => {
       h.attributeNames.push(name);
     });
+    setIndex = vi.fn();
 
     constructor() {
       h.geometries.push(this as unknown as MockGeometry);
@@ -153,6 +179,31 @@ vi.mock('three', () => {
     }
   }
 
+  class ShaderMaterial {
+    dispose = vi.fn();
+
+    constructor(public options: Record<string, unknown>) {
+      // The scene keeps one list of materials for the disposal assertions,
+      // whichever kind each one is.
+      h.materials.push(this as unknown as MockMaterial);
+    }
+  }
+
+  class Mesh {
+    rotation = { order: 'XYZ', x: 0, y: 0, z: 0 };
+
+    constructor(
+      public geometry: unknown,
+      public material: ShaderMaterial,
+    ) {
+      h.meshes.push({
+        geometry: this.geometry,
+        material: this.material as unknown as MockShaderMaterial,
+        rotation: this.rotation,
+      });
+    }
+  }
+
   class Vector3 {
     constructor(
       public x = 0,
@@ -181,10 +232,13 @@ vi.mock('three', () => {
     BufferGeometry,
     BufferAttribute,
     PointsMaterial,
+    ShaderMaterial,
     Points,
+    Mesh,
     Vector3,
     Vector2,
     AdditiveBlending: 2,
+    DoubleSide: 2,
     ShaderChunk: {
       get points_vert() {
         return h.vertexShader;
@@ -408,16 +462,41 @@ describe('HeroScene mounting', () => {
   it('uploads the position, sizes, orbits, spins and shades attributes', async () => {
     await mount();
 
-    expect(h.attributeNames).toEqual([
+    // The points come first; the beams upload their own three after them.
+    expect(h.attributeNames.slice(0, 5)).toEqual([
       'position',
       'sizes',
       'orbits',
       'spins',
       'shades',
     ]);
-    expect(h.attributes.map((attribute) => attribute.itemSize)).toEqual([
-      3, 1, 3, 3, 1,
-    ]);
+    expect(
+      h.attributes.slice(0, 5).map((attribute) => attribute.itemSize),
+    ).toEqual([3, 1, 3, 3, 1]);
+  });
+
+  it('draws the quasar beams as light, with a shader of their own', async () => {
+    await mount();
+
+    const [beams] = h.meshes;
+    const options = beams.material.options;
+
+    // A tube the eye looks through reads as light. A cloud of sprites cannot,
+    // however dense it is: every sprite keeps its own round edge.
+    expect(options.vertexShader).toContain('attribute float along;');
+    expect(options.fragmentShader).toContain('novaShaft');
+    expect(options.transparent).toBe(true);
+    expect(options.depthWrite).toBe(false);
+    expect(options.blending).toBe(2);
+    // Both walls draw, so the light the eye looks through adds up.
+    expect(options.side).toBe(2);
+    // Leaned with the disc, because the axis the beams run along is the
+    // disc's own.
+    expect(beams.rotation.z).toBeCloseTo(NOVA_PLANE_TILT, 6);
+    // Two tubes, indexed rather than drawn as a soup of triangles, and in the
+    // scene alongside the points.
+    expect(h.geometries[1].setIndex).toHaveBeenCalled();
+    expect(h.scenes[0].add).toHaveBeenCalledTimes(2);
   });
 
   it('sizes the cloud to the quality tier it picked', async () => {
@@ -816,6 +895,10 @@ describe('HeroScene teardown', () => {
     expect(h.renderers[0].setAnimationLoop).toHaveBeenLastCalledWith(null);
     expect(h.geometries[0].dispose).toHaveBeenCalled();
     expect(h.materials[0].dispose).toHaveBeenCalled();
+    // The beams are theirs to release too: a geometry and a material that
+    // nothing else shares.
+    expect(h.geometries[1].dispose).toHaveBeenCalled();
+    expect(h.materials[1].dispose).toHaveBeenCalled();
     expect(h.renderers[0].dispose).toHaveBeenCalled();
     expect(h.renderers[0].forceContextLoss).toHaveBeenCalled();
     expect(container.querySelector('canvas')).toBeNull();
