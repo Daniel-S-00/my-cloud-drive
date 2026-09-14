@@ -55,7 +55,7 @@ export const NOVA_BEAM = {
    * wide it is by the time it crosses the frame.
    */
   baseRadius: 0.1,
-  flare: 1.5,
+  flare: 2,
   /** Rings along the length, and segments around it. Small on purpose. */
   rings: 28,
   segments: 28,
