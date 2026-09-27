@@ -1,7 +1,10 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  HeadObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { and, eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -35,7 +38,6 @@ export type GenerateUploadUrlOutput = {
 export type ConfirmUploadInput = {
   fileId: string;
   storageKey: string;
-  sizeBytes: number;
   mimeType?: string;
 };
 
@@ -212,24 +214,57 @@ function isUniqueViolationOn(
 export async function confirmUpload(
   input: ConfirmUploadInput,
 ): Promise<ConfirmUploadOutput> {
-  const { fileId, storageKey, sizeBytes, mimeType } = input;
+  const { fileId, storageKey, mimeType } = input;
 
   if (!fileId || !storageKey) {
     throw new Error('fileId and storageKey are required');
   }
-  if (sizeBytes < 0 || sizeBytes > MAX_FILE_SIZE_BYTES) {
+
+  const { id: userId } = await getCurrentUser();
+
+  // The client-declared size can't be trusted (a hostile client can
+  // declare 1 byte and PUT gigabytes through the presigned URL, which
+  // does not bind ContentLength), so ask R2 what actually landed and
+  // persist that. This keeps the quota sum in getStorageQuota
+  // authoritative.
+  let realSize: number;
+  try {
+    const head = await r2.send(
+      new HeadObjectCommand({ Bucket: R2_BUCKET, Key: storageKey }),
+    );
+    realSize = head.ContentLength ?? 0;
+  } catch {
+    // The object isn't there — the PUT never completed. Leave the row
+    // pending so cancelUpload or the stale-upload cron reclaims it.
     throw new Error(
-      `sizeBytes must be between 0 and ${MAX_FILE_SIZE_BYTES} (10 GiB)`,
+      'Uploaded object not found in storage. Cancel this upload and try again.',
     );
   }
 
-  const { id: userId } = await getCurrentUser();
+  if (realSize > MAX_FILE_SIZE_BYTES) {
+    throw new Error(
+      `Uploaded object is ${formatBytes(realSize)}, over the ${formatBytes(MAX_FILE_SIZE_BYTES)} limit`,
+    );
+  }
+
+  // Re-check the quota against the REAL size: the presign-time check ran
+  // against the client's declaration. A confirmed upload that would land
+  // over quota is rejected here; the orphaned object is reclaimed by the
+  // stale-upload cron.
+  const quota = await getStorageQuota();
+  if (quota && quota.usedBytes + realSize > quota.quotaBytes) {
+    throw new Error(
+      `Not enough storage: this file is ${formatBytes(realSize)} and you only have ${formatBytes(
+        Math.max(0, quota.quotaBytes - quota.usedBytes),
+      )} left. Free up space or upgrade your plan.`,
+    );
+  }
 
   const [updated] = await db
     .update(files)
     .set({
       uploadStatus: 'complete',
-      sizeBytes,
+      sizeBytes: realSize,
       ...(mimeType ? { mimeType } : {}),
       updatedAt: new Date(),
     })

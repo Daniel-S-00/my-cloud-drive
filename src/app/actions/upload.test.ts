@@ -48,6 +48,7 @@ const hoisted = vi.hoisted(() => {
     getStorageQuota: vi.fn(),
     getSignedUrl: vi.fn(),
     generateUniqueFileName: vi.fn(),
+    r2Send: vi.fn(),
   };
 });
 
@@ -60,7 +61,7 @@ vi.mock('@/server/billing/quota', () => ({
   getStorageQuota: hoisted.getStorageQuota,
 }));
 vi.mock('@/server/storage/r2', () => ({
-  r2: { send: vi.fn() },
+  r2: { send: hoisted.r2Send },
   R2_BUCKET: 'test-bucket',
 }));
 vi.mock('@aws-sdk/s3-request-presigner', () => ({
@@ -91,6 +92,7 @@ beforeEach(() => {
   hoisted.getCurrentUser.mockResolvedValue(currentUser);
   hoisted.getSignedUrl.mockResolvedValue('https://presigned.example.com/put');
   hoisted.generateUniqueFileName.mockResolvedValue('ok.bin');
+  hoisted.r2Send.mockResolvedValue({ ContentLength: 42 });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -235,37 +237,64 @@ describe('generateUploadUrl quota guard', () => {
 });
 
 describe('confirmUpload', () => {
-  it('marks an owned pending upload complete', async () => {
-    hoisted.updateQueue.push([{ id: 'file_123', sizeBytes: 42 }]);
+  it('persists the authoritative R2 ContentLength, not a client number', async () => {
+    hoisted.r2Send.mockResolvedValueOnce({ ContentLength: 1234 });
+    hoisted.updateQueue.push([{ id: 'file_123', sizeBytes: 1234 }]);
     const result = await confirmUpload({
       fileId: 'file_123',
       storageKey: 'k',
-      sizeBytes: 42,
       mimeType: 'text/plain',
     });
     expect(result).toEqual({
       fileId: 'file_123',
       uploadStatus: 'complete',
-      sizeBytes: 42,
+      sizeBytes: 1234,
     });
+    // The size written to the row is what R2 reported via HEAD.
+    const setArg = hoisted.db.update.mock.results[0].value.set.mock
+      .calls[0][0] as { sizeBytes: number };
+    expect(setArg.sizeBytes).toBe(1234);
+  });
+
+  it('throws when the object is not in storage', async () => {
+    hoisted.r2Send.mockRejectedValueOnce(new Error('NotFound'));
+    await expect(
+      confirmUpload({ fileId: 'f', storageKey: 'k' }),
+    ).rejects.toThrow(/not found in storage/);
+  });
+
+  it('blocks a confirmed upload whose real size exceeds the quota', async () => {
+    hoisted.r2Send.mockResolvedValueOnce({
+      ContentLength: 200 * 1024 * 1024,
+    });
+    hoisted.getStorageQuota.mockResolvedValue({
+      usedBytes: 900 * 1024 * 1024,
+      quotaBytes: 1024 * 1024 * 1024,
+    });
+    await expect(
+      confirmUpload({ fileId: 'f', storageKey: 'k' }),
+    ).rejects.toThrow(/Not enough storage/);
+  });
+
+  it('rejects an object over the 10 GiB limit', async () => {
+    hoisted.r2Send.mockResolvedValueOnce({
+      ContentLength: 11 * 1024 * 1024 * 1024,
+    });
+    await expect(
+      confirmUpload({ fileId: 'f', storageKey: 'k' }),
+    ).rejects.toThrow(/over the .* limit/);
   });
 
   it('throws when fileId or storageKey are missing', async () => {
     await expect(
-      confirmUpload({ fileId: '', storageKey: '', sizeBytes: 1 }),
+      confirmUpload({ fileId: '', storageKey: '' }),
     ).rejects.toThrow(/required/);
-  });
-
-  it('throws when sizeBytes is out of range', async () => {
-    await expect(
-      confirmUpload({ fileId: 'f', storageKey: 'k', sizeBytes: -1 }),
-    ).rejects.toThrow(/sizeBytes/);
   });
 
   it('throws when the row is not owned or missing', async () => {
     hoisted.updateQueue.push([]);
     await expect(
-      confirmUpload({ fileId: 'f', storageKey: 'k', sizeBytes: 1 }),
+      confirmUpload({ fileId: 'f', storageKey: 'k' }),
     ).rejects.toThrow(/File not found/);
   });
 });
@@ -276,7 +305,6 @@ describe('cancelUpload', () => {
     const result = await cancelUpload({
       fileId: 'file_123',
       storageKey: 'k',
-      sizeBytes: 0,
     });
     expect(result).toEqual({ cancelled: true });
   });
@@ -286,14 +314,13 @@ describe('cancelUpload', () => {
     const result = await cancelUpload({
       fileId: 'file_123',
       storageKey: 'k',
-      sizeBytes: 0,
     });
     expect(result).toEqual({ cancelled: false });
   });
 
   it('throws when fileId or storageKey are missing', async () => {
     await expect(
-      cancelUpload({ fileId: '', storageKey: '', sizeBytes: 0 }),
+      cancelUpload({ fileId: '', storageKey: '' }),
     ).rejects.toThrow(/required/);
   });
 });
