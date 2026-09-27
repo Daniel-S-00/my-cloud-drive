@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { IBM_Plex_Mono, Manrope, Syne } from "next/font/google";
 import { Toaster } from "sonner";
+import { AnalyticsInit } from "@/components/analytics-init";
 import { AuthSessionProvider } from "@/components/auth-session-provider";
 import "./globals.css";
 
@@ -62,6 +64,8 @@ export default function RootLayout({
           />
         </AuthSessionProvider>
         <Analytics />
+        <AnalyticsInit />
+        <SpeedInsights />
       </body>
     </html>
   );

@@ -18,7 +18,9 @@ Next.js server, which only signs URLs and persists metadata.
   TOTP **two-factor authentication** with backup codes
 - **Stripe** for subscription billing (webhook-synced plan state)
 - **Resend** + **React Email** for transactional email
-- **Sentry** for error reporting, **Vercel Analytics** for page views
+- **Sentry** for error reporting, **Vercel Analytics** for page views,
+  **Speed Insights** for Core Web Vitals, **PostHog** (optional) for
+  product events
 - **Vitest** (unit/integration, coverage-gated) + **Playwright** (E2E)
 
 ## Architecture
@@ -102,6 +104,8 @@ Rules that keep it honest:
 | `NEXT_PUBLIC_APP_URL` | Public origin, used to build share/recovery links |
 | `RESEND_API_KEY` | Resend API key for transactional email |
 | `EMAIL_FROM` | Optional sender override |
+| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog project key — product events are off when unset |
+| `NEXT_PUBLIC_POSTHOG_HOST` | PostHog API host (defaults to `https://us.i.posthog.com`) |
 | `STRIPE_SECRET_KEY` | Stripe secret key (test mode: `sk_test_...`) |
 | `STRIPE_WEBHOOK_SECRET` | Webhook signing secret |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |

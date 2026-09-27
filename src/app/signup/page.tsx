@@ -17,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
+import { captureEvent } from '@/lib/analytics';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -54,6 +55,7 @@ export default function SignupPage() {
       return;
     }
 
+    void captureEvent('signup_started');
     setIsPending(true);
     try {
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -71,6 +73,9 @@ export default function SignupPage() {
         }
         return;
       }
+      void captureEvent('signup_completed', {
+        requires_email_verification: !data.session,
+      });
       if (data.session) {
         // Sign in via NextAuth so the App's JWT cookie is set.
         const result = await signIn('credentials', {

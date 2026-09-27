@@ -15,6 +15,7 @@ import {
   confirmUpload,
   generateUploadUrl,
 } from '@/app/actions/upload';
+import { captureEvent } from '@/lib/analytics';
 
 export type UploadItem = {
   id: string;
@@ -204,6 +205,10 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       } else {
         patch(id, { status: 'complete', progress: 100 });
         const n = files.length;
+        void captureEvent('upload_completed', {
+          file_count: n,
+          total_bytes: totalBytes,
+        });
         toast.success(
           n === 1 ? 'Upload complete' : `${n} uploads complete`,
           { description: label },

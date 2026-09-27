@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useShareDialogs } from '@/contexts/share-dialog-context';
+import { captureEvent } from '@/lib/analytics';
 
 type ExpiryOption = {
   label: string;
@@ -88,6 +89,9 @@ function ShareDialogBody({
         const result = await createShare(input);
         setShareUrl(result.shareUrl);
         setExpiresAt(result.expiresAt);
+        void captureEvent('share_created', {
+          expires_in_days: selectedExpiry.days ?? null,
+        });
         toast.success('Share link created');
       } catch (err) {
         toast.error('Could not create share', {

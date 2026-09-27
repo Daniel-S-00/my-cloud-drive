@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
 import { JUST_LOGGED_IN_KEY } from '@/components/trash-login-toast';
+import { captureEvent } from '@/lib/analytics';
 
 const OAUTH_ERRORS: Record<string, string> = {
   OAuthSignin: 'Could not start sign-in. Please try again.',
@@ -98,6 +99,7 @@ export default function LoginContent() {
         }
         return;
       }
+      void captureEvent('login_completed', { method: 'password' });
       sessionStorage.setItem(JUST_LOGGED_IN_KEY, '1');
       router.push(callbackUrl);
       router.refresh();
@@ -110,6 +112,7 @@ export default function LoginContent() {
 
   const onOAuth = (provider: 'google' | 'github') => {
     sessionStorage.setItem(JUST_LOGGED_IN_KEY, '1');
+    void captureEvent('login_started', { method: provider });
     void signIn(provider, { callbackUrl });
   };
 

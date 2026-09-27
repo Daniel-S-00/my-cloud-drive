@@ -1,4 +1,5 @@
 import { generateDownloadUrl } from '@/app/actions/files';
+import { captureEvent } from '@/lib/analytics';
 
 /**
  * Trigger a browser download for a live file using its short-lived
@@ -6,6 +7,7 @@ import { generateDownloadUrl } from '@/app/actions/files';
  */
 export async function downloadFile(fileId: string): Promise<void> {
   const { presignedUrl, fileName } = await generateDownloadUrl({ fileId });
+  void captureEvent('file_downloaded');
   const link = document.createElement('a');
   link.href = presignedUrl;
   link.download = fileName;
