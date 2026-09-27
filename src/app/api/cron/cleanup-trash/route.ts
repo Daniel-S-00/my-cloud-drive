@@ -67,18 +67,18 @@ async function handleCleanup(req: NextRequest) {
   const expiredFolders = await db.execute<{ id: string }>(sql`
     WITH RECURSIVE depths(id, depth) AS (
       SELECT id, 0 FROM ${folders}
-        WHERE deleted_at IS NOT NULL AND deleted_at < ${cutoff}::timestamp
+        WHERE deleted_at IS NOT NULL AND deleted_at < ${cutoff.toISOString()}::timestamp
           AND (
             parent_id IS NULL
             OR parent_id NOT IN (
               SELECT id FROM ${folders}
-                WHERE deleted_at IS NOT NULL AND deleted_at < ${cutoff}::timestamp
+                WHERE deleted_at IS NOT NULL AND deleted_at < ${cutoff.toISOString()}::timestamp
             )
           )
       UNION ALL
       SELECT f.id, d.depth + 1 FROM ${folders} f
         JOIN depths d ON f.parent_id = d.id
-        WHERE f.deleted_at IS NOT NULL AND f.deleted_at < ${cutoff}::timestamp
+        WHERE f.deleted_at IS NOT NULL AND f.deleted_at < ${cutoff.toISOString()}::timestamp
     )
     SELECT id::text AS id FROM depths ORDER BY depth DESC, id ASC
   `);

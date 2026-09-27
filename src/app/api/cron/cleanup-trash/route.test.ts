@@ -27,6 +27,33 @@ vi.mock('server-only', () => ({}));
 
 import { GET, POST } from './route';
 
+function collectSqlValues(chunks: unknown[]): unknown[] {
+  const values: unknown[] = [];
+  for (const chunk of chunks) {
+    if (chunk instanceof Date) {
+      values.push(chunk);
+      continue;
+    }
+    if (Array.isArray(chunk)) {
+      values.push(...collectSqlValues(chunk));
+      continue;
+    }
+    if (typeof chunk === 'string') {
+      values.push(chunk);
+      continue;
+    }
+    if (chunk === null || typeof chunk !== 'object') continue;
+    const node = chunk as { queryChunks?: unknown[]; value?: unknown };
+    if (Array.isArray(node.queryChunks)) {
+      values.push(...collectSqlValues(node.queryChunks));
+    }
+    if (node.value !== undefined) {
+      values.push(...collectSqlValues([node.value]));
+    }
+  }
+  return values;
+}
+
 function makeReq(secret?: string) {
   return {
     headers: new Headers(
@@ -100,6 +127,26 @@ describe('cleanup-trash cron', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.deletedFolders).toBe(2);
+  });
+
+  it('passes the trash cutoff to raw SQL as an ISO string, not a Date', async () => {
+    await GET(makeReq('s3cret'));
+
+    const values = collectSqlValues(
+      (
+        hoisted.db.execute.mock.calls.at(-1)?.[0] as {
+          queryChunks?: unknown[];
+        }
+      ).queryChunks ?? [],
+    );
+    expect(values.some((value) => value instanceof Date)).toBe(false);
+    expect(
+      values.some(
+        (value) =>
+          typeof value === 'string' &&
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value),
+      ),
+    ).toBe(true);
   });
 
   it('keeps the row and reports an Error-based R2 failure', async () => {
